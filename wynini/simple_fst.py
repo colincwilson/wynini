@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import sys
-from copy import copy, deepcopy
+from copy import copy
 from functools import total_ordering
 from pynini import SymbolTable
 
@@ -108,18 +107,25 @@ class SimpleFst():
 
     def to_wfst(self):
         """
-        Convert to state-labeled wrapper for Pynini Fst
+        Convert to Wfst
         """
+        # Starter symbol table
         input_symbols = SymbolTable()
         output_symbols = SymbolTable()
         input_symbols.add_symbol(config.epsilon)
         output_symbols.add_symbol(config.epsilon)
         wfst = Wfst(input_symbols, output_symbols)
+
+        # States
         for q in self.Q:
             wfst.add_state(q)
+
+        # Initial and final states
         wfst.set_start(self.q0)
         for q in self.F:
             wfst.set_final(q)
+
+        # Transitions
         for q in self.T:
             for t in self.T[q]:
                 wfst.add_arc(t.src, t.ilabel, t.olabel, None, t.dest)

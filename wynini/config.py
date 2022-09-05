@@ -5,11 +5,12 @@ from pynini import SymbolTable
 epsilon = 'ϵ'  # <eps>
 bos = '⋊'  # '>' | <s>
 eos = '⋉'  # '<' | </s>
-λ = ''  # empty string (de la Higuera, p. 48)
-unk = '⊥'  # unknown / empty set (de la Higuera, p. 376)
+λ = ''  # Empty string (de la Higuera, p. 48)
+unk = '⊥'  # Unknown / empty set (de la Higuera, p. 376)
+sigma = ['a', 'b']  # Ordinary symbols
+special_syms = []  # Special symbols
 syms = []  # All symbols in symtable
-sigma = []  # Ordinary symbols
-symtable = None
+symtable = None  # SymbolTable
 
 verbosity = 0
 
@@ -17,7 +18,8 @@ verbosity = 0
 def init(config):
     """ Set globals with dictionary or module """
     global epsilon, bos, eos
-    global syms, sigma, symtable
+    global sigma, special_syms
+    global syms, symtable
     #if not isinstance(config, dict):
     #    print(config)
     #    config = vars(config)
@@ -29,12 +31,8 @@ def init(config):
         eos = config['eos']
     if 'sigma' in config:
         sigma = config['sigma']
-    else:
-        sigma = []
     if 'special_syms' in config:
         special_syms = config['special_syms']
-    else:
-        special_syms = []
     symtable = SymbolTable()
     symtable.add_symbol(epsilon)
     symtable.add_symbol(bos)

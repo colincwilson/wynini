@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-
 import re, sys
 import pynini
 
 from . import fst_config as config
 from .fst_config import *
-from .fst import Fst
+from .simple_fst import *
 
 config.verbosity = 0
 
@@ -14,8 +13,9 @@ def prefix_tree(D, Sigma=None, Lambda=None):
     """
     Given training data D = {(x,y) | f(x) = y}, create a prefix tree transducer as in Chandlee (2014:116), Chandlee, Eyraud & Heinz (2014:497) (similar to de la Higuera, Algorithm 18.1, originally Oncina et al. 1993). Strings in D should *not* terminate in eos, which is added as part of ptt construction.
     """
-    symtable = pynini.SymbolTable()
-    fst = Fst(symtable)
+    Q = set()
+    F = set()
+    T = set()
 
     # Input and output alphabets
     if Sigma is None or Lambda is None:
@@ -25,14 +25,10 @@ def prefix_tree(D, Sigma=None, Lambda=None):
             Lambda |= set(y.split())
 
     # Non-final states
-    Q = set([λ])
+    Q.add(λ)
     Q |= set([u for (x, _) in D for u in prefixes(x)])
-    Q = list(Q)
-    Q.sort(key=lambda q: (len(q.split()), q))
-    for q in Q:
-        fst.add_state(q)
-    fst.set_start(λ)
-    #print(fst._state2label)
+    #Q = list(Q)
+    #Q.sort(key=lambda q: (len(q.split()), q))
 
     # Transitions with empty outputs
     for qa in Q:
@@ -40,17 +36,16 @@ def prefix_tree(D, Sigma=None, Lambda=None):
             continue
         q_a = qa.split()
         q, a = ' '.join(q_a[:-1]), q_a[-1]
-        fst.add_arc(src=q, ilabel=a, olabel=λ, dest=qa)
+        T.add(Transition(src=q, ilabel=a, olabel=λ, dest=qa))
 
     # Final states and incoming transitions
     for (x, y) in D:
         qf = concat(x, eos)
-        fst.add_state(qf)
-        fst.set_final(qf)
-        #print(f'{x}, {eos}, {y}, {qf}')
-        fst.add_arc(src=x, ilabel=eos, olabel=y, dest=qf)
+        Q.add(qf)
+        F.add(qf)
+        T.add(Transition(src=x, ilabel=eos, olabel=y, dest=qf))
 
-    fst = fst.connect()
+    fst = SimpleFst(Q, λ, F, T)
     return fst, Sigma, Lambda
 
 
@@ -59,32 +54,24 @@ def onward_tree(fst, q, u):
     Make prefix tree transducer onward, as in Chandlee, Eyraud & Heinz (2014:498) (similar to de la Higuera, definition 18.2.1 and Algorithm 18.2; in an onward transducer "the output is assigned to the transitions in such a way as to be produced as soon as we have enough information to do so."). 
     Initial call: onward_prefix_tree(fst, q0, λ); note u is not used
     """
-    #print(f'q = {fst.state_label(q)}, u = {u}')
+    fst.T = list(fst.T)  # Allow modification of transitions
+    fst, _, _ = _onward_tree(fst, q, u)
+    fst.T = set(fst.T)
+    return fst
 
-    q_arcs = fst.mutable_arcs(q)
-    for t in q_arcs:
-        _, _, w = onward_tree(fst, t.nextstate, t.ilabel)
-        olabel_str = fst.output_symbols().find(t.olabel)
-        #print(f'concat: {olabel_str}, {w} ->', end=' ')
-        olabel_str = concat(olabel_str, w)
-        #print(f'{olabel_str}')
-        t.olabel = fst.mutable_output_symbols().add_symbol(olabel_str)
-        q_arcs.set_value(t)
 
-    F = [t.olabel for t in fst.arcs(q)]
-    F = [fst.output_symbols().find(x) for x in F]
+def _onward_tree(fst, q, u):
+    print(f'q = {q}, u = {u}')
+    for t in filter(lambda t: t.src == q, fst.T):
+        _, _, w = _onward_tree(fst, t.dest, t.ilabel)
+        t.olabel = concat(t.olabel, w)
+
+    F = [t.olabel for t in filter(lambda t: t.src == q, fst.T)]
     f = lcp(F)
-    #print(F, f)
 
-    if f != λ and fst.state_label(q) != λ:  # Aksënova
-        q_arcs = fst.mutable_arcs(q)
-        for t in q_arcs:
-            olabel_str = fst.output_symbols().find(t.olabel)
-            #print(f'delete prefix: {olabel_str}, {f} ->', end=' ')
-            olabel_str = delete_prefix(olabel_str, f)
-            #print(f'{olabel_str}')
-            t.olabel = fst.mutable_output_symbols().add_symbol(olabel_str)
-            q_arcs.set_value(t)
+    if f != λ and q != λ:  # Aksënova
+        for t in filter(lambda t: t.src == q, fst.T):
+            t.olabel = delete_prefix(t.olabel, f)
 
     return fst, q, f
 
