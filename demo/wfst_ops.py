@@ -69,7 +69,7 @@ print(M2.print(acceptor=True, show_weight_one=True))
 print('Trellis')
 config = {'sigma': ['a', 'b', 'c', 'd']}
 wfst_config.init(config)
-T = trellis_acceptor(max_len=3, sigma_tier=set(['a', 'b']))
+T = trellis_acceptor(max_len=2, sigma_tier=set(['a', 'b']))
 print(T.print(acceptor=True))
 T.draw('T.dot')
 

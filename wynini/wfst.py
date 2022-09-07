@@ -625,11 +625,13 @@ def acceptor(x, add_delim=True, weight=None, arc_type='standard'):
 
 def trellis_acceptor(max_len=1, sigma_tier=None):
     """
-    Acceptor for strings up to length max_len (excluding delimiters). 
+    Acceptor for strings up to length max_len (+2 for delimiters). 
     If sigma_tier is specified as a subset of the alphabet, makes 
     acceptor for tier/projection for that subset with other symbols 
     labeling self-loops on interior states.
     """
+    bos = config.bos
+    eos = config.eos
     if sigma_tier is None:
         sigma_tier = set(config.sigma)
         sigma_skip = set()
@@ -638,22 +640,26 @@ def trellis_acceptor(max_len=1, sigma_tier=None):
     wfst = Wfst(config.symtable)
 
     # Initial and peninitial states
-    q0 = wfst.add_state('0')
-    q1 = wfst.add_state('1')
+    q0 = wfst.add_state()  # id 0
+    q1 = wfst.add_state()  # id 1
     wfst.set_start(q0)
-    wfst.add_arc(src=q0, ilabel=config.bos, dest=q1)
+    wfst.add_arc(src=q0, ilabel=bos, dest=q1)
 
-    # Final states
-    qf = wfst.add_state(f'{max_len+2}')
+    # Interior states
+    for l in range(max_len):
+        wfst.add_state()  # ids 2, ...
+
+    # Final state
+    qf = wfst.add_state()  # id (max_len+2)
     wfst.set_final(qf)
 
     # Zero-length form
-    wfst.add_arc(src=q1, ilabel=config.eos, dest=qf)
+    wfst.add_arc(src=q1, ilabel=eos, dest=qf)
 
     # Interior states
     q = q1
     for l in range(1, max_len + 1):
-        r = wfst.add_state(f'{l+1}')
+        r = (l + 1)
         # Advance
         for x in sigma_tier:
             wfst.add_arc(src=q, ilabel=x, dest=r)
@@ -661,7 +667,7 @@ def trellis_acceptor(max_len=1, sigma_tier=None):
         for x in sigma_skip:
             wfst.add_arc(src=q, ilabel=x, dest=q)
         # End
-        wfst.add_arc(src=r, ilabel=config.eos, dest=qf)
+        wfst.add_arc(src=r, ilabel=eos, dest=qf)
         q = r
 
     # Loop
