@@ -1,0 +1,43 @@
+digraph FST {
+rankdir = LR;
+size = "8.5,11";
+center = 1;
+orientation = Portrait;
+ranksep = "0.4";
+nodesep = "0.25";
+0 [label = "(('λ',), ('⋊',))", shape = circle, style = bold, fontsize = 14]
+	0 -> 1 [label = "⋊", fontsize = 14];
+	0 -> 2 [label = "⋊", fontsize = 14];
+	0 -> 3 [label = "⋊", fontsize = 14];
+1 [label = "(('⋊',), ('b',))", shape = circle, style = solid, fontsize = 14]
+	1 -> 7 [label = "b", fontsize = 14];
+	1 -> 8 [label = "b", fontsize = 14];
+	1 -> 9 [label = "b", fontsize = 14];
+2 [label = "(('⋊',), ('⋉',))", shape = circle, style = solid, fontsize = 14]
+	2 -> 10 [label = "⋉", fontsize = 14];
+3 [label = "(('⋊',), ('a',))", shape = circle, style = solid, fontsize = 14]
+	3 -> 4 [label = "a", fontsize = 14];
+	3 -> 5 [label = "a", fontsize = 14];
+	3 -> 6 [label = "a", fontsize = 14];
+4 [label = "(('a',), ('⋉',))", shape = circle, style = solid, fontsize = 14]
+	4 -> 10 [label = "⋉", fontsize = 14];
+5 [label = "(('a',), ('b',))", shape = circle, style = solid, fontsize = 14]
+	5 -> 7 [label = "b", fontsize = 14];
+	5 -> 8 [label = "b", fontsize = 14];
+	5 -> 9 [label = "b", fontsize = 14];
+6 [label = "(('a',), ('a',))", shape = circle, style = solid, fontsize = 14]
+	6 -> 4 [label = "a", fontsize = 14];
+	6 -> 5 [label = "a", fontsize = 14];
+	6 -> 6 [label = "a", fontsize = 14];
+7 [label = "(('b',), ('⋉',))", shape = circle, style = solid, fontsize = 14]
+	7 -> 10 [label = "⋉", fontsize = 14];
+8 [label = "(('b',), ('b',))", shape = circle, style = solid, fontsize = 14]
+	8 -> 7 [label = "b", fontsize = 14];
+	8 -> 8 [label = "b", fontsize = 14];
+	8 -> 9 [label = "b", fontsize = 14];
+9 [label = "(('b',), ('a',))", shape = circle, style = solid, fontsize = 14]
+	9 -> 4 [label = "a", fontsize = 14];
+	9 -> 5 [label = "a", fontsize = 14];
+	9 -> 6 [label = "a", fontsize = 14];
+10 [label = "(('⋉',), ('λ',))", shape = doublecircle, style = solid, fontsize = 14]
+}

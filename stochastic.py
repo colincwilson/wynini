@@ -16,11 +16,13 @@ wfst_config.init(config)
 # Weighted acceptor
 M = Wfst(wfst_config.symtable, arc_type='log')
 for q in [0, 1, 2, 3, 4, 5]:
-    M.add_state(q)
+	M.add_state(q)
 M.set_start(0)
 M.set_final(5, Weight('log', 1.0))
 
 w = -np.log(0.5)  # plog(1/2)
+
+#try different weights; generate sample for a grammar
 M.add_arc(src=0, ilabel=wfst_config.bos, weight=Weight('log', w), dest=1)
 M.add_arc(src=1, ilabel='a', weight=Weight('log', w), dest=2)
 M.add_arc(src=1, ilabel='b', weight=Weight('log', w), dest=3)

@@ -489,7 +489,6 @@ class Wfst():
         reweight_type ("to_initial" or "to_final")
         """
         # assumption: Fst.push() does not reindex states.
-        self.fst = self.fst.push(reweight_type=reweight_type, **kwargs)
         return self
 
     def push_labels(self, reweight_type='to_initial', **kwargs):
