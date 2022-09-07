@@ -65,6 +65,15 @@ M2 = M.copy()
 print(M2.print(acceptor=True, show_weight_one=True))
 
 # # # # # # # # # #
+# Trellis acceptor
+print('Trellis')
+config = {'sigma': ['a', 'b', 'c', 'd']}
+wfst_config.init(config)
+T = trellis_acceptor(max_len=2, sigma_tier=set(['a', 'b']))
+print(T.print(acceptor=True))
+T.draw('T.dot')
+
+# # # # # # # # # #
 # Left- and right- ngrams
 config = {'sigma': ['a', 'b'], 'special_syms': ['λ']}
 wfst_config.init(config)
