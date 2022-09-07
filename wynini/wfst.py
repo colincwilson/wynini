@@ -623,6 +623,54 @@ def acceptor(x, add_delim=True, weight=None, arc_type='standard'):
     return wfst
 
 
+def trellis_acceptor(max_len=1, sigma_tier=None):
+    """
+    Acceptor for strings up to length max_len (excluding delimiters). 
+    If sigma_tier is specified as a subset of the alphabet, makes 
+    acceptor for tier/projection for that subset with other symbols 
+    labeling self-loops on interior states.
+    """
+    if sigma_tier is None:
+        sigma_tier = set(config.sigma)
+        sigma_skip = set()
+    else:
+        sigma_skip = set(config.sigma) - sigma_tier
+    wfst = Wfst(config.symtable)
+
+    # Initial and peninitial states
+    q0 = wfst.add_state('0')
+    q1 = wfst.add_state('1')
+    wfst.set_start(q0)
+    wfst.add_arc(src=q0, ilabel=config.bos, dest=q1)
+
+    # Final states
+    qf = wfst.add_state(f'{max_len+2}')
+    wfst.set_final(qf)
+
+    # Zero-length form
+    wfst.add_arc(src=q1, ilabel=config.eos, dest=qf)
+
+    # Interior states
+    q = q1
+    for l in range(1, max_len + 1):
+        r = wfst.add_state(f'{l+1}')
+        # Advance
+        for x in sigma_tier:
+            wfst.add_arc(src=q, ilabel=x, dest=r)
+        # Loop
+        for x in sigma_skip:
+            wfst.add_arc(src=q, ilabel=x, dest=q)
+        # End
+        wfst.add_arc(src=r, ilabel=config.eos, dest=qf)
+        q = r
+
+    # Loop
+    for x in sigma_skip:
+        wfst.add_arc(src=q, ilabel=x, dest=q)
+
+    return wfst
+
+
 def ngram_acceptor(context='left', context_length=1, sigma_tier=None):
     """
     Acceptor (identity transducer) for segments in immediately preceding 
