@@ -1,7 +1,7 @@
 import sys
-#from pynini import Weight
 
 sys.path.append('..')
+from pynini import Arc, Weight
 from wynini import config as wfst_config
 from wynini.wfst import *
 
@@ -72,6 +72,21 @@ wfst_config.init(config)
 T = trellis_acceptor(max_len=2, sigma_tier=set(['a', 'b']))
 print(T.print(acceptor=True))
 T.draw('T.dot')
+
+
+# # # # # # # # # #
+# Assign arc weights with arbitrary function
+def wfunc(wfst, arc):
+    w_good = Weight('log', 1)  # -log2(0.5)
+    w_bad = Weight('log', 2)  # -log2(0.25)
+    if wfst.olabel(arc) == 'a':
+        return w_good
+    return w_bad
+
+
+T_weight = T.map_weights('to_log')
+T_weight.assign_weights(wfunc)
+T_weight.draw('T_weight.dot')
 
 # # # # # # # # # #
 # Left- and right- ngrams

@@ -69,7 +69,7 @@ class Wfst():
         """ Get input label for symbol id. """
         return self.fst.input_symbols().find(sym)
 
-    def input_index(self, sym):
+    def input_id(self, sym):
         """ Get input id for symbol label. """
         return self.fst.input_symbols().find(sym)
 
@@ -77,7 +77,7 @@ class Wfst():
         """ Get output label for symbol id. """
         return self.fst.output_symbols().find(sym)
 
-    def output_index(self, sym):
+    def output_id(self, sym):
         """ Get output id for symbol label. """
         return self.fst.output_symbols().find(sym)
 
@@ -238,6 +238,14 @@ class Wfst():
             src = self.state_id(src)
         return self.fst.num_output_epsilons(src)
 
+    def ilabel(self, arc):
+        """ Label of arc input. """
+        return self.fst.input_symbols().find(arc.ilabel)
+
+    def olabel(self, arc):
+        """ Label of arc output. """
+        return self.fst.output_symbols().find(arc.olabel)
+
     def arc_type(self):
         """ Arc type (standard, log, log64). """
         return self.fst.arc_type()
@@ -245,6 +253,19 @@ class Wfst():
     def weight_type(self):
         """ Weight type (tropical, log, log64). """
         return self.fst.weight_type()
+
+    def project(self, project_type):
+        """ Project input or output labels. """
+        # assumption: Fst.project() does not reindex states.
+        fst = self.fst
+        if project_type == 'input':
+            isymbols = fst.input_symbols()
+            fst.set_output_symbols(isymbols)
+        if project_type == 'output':
+            osymbols = fst.output_symbols()
+            fst.set_input_symbols(osymbols)
+        fst.project(project_type)
+        return self
 
     def map_weights(self, map_type='identity', **kwargs):
         """
@@ -264,17 +285,23 @@ class Wfst():
         self.fst = fst_out
         return self
 
-    def project(self, project_type):
-        """ Project input or output labels. """
-        # assumption: Fst.project() does not reindex states.
+    def assign_weights(self, wfunc=None):
+        """
+        Assign weights to arcs in this machine with an arbitrary 
+        function wfunc (Wfst, Arc -> Weight), which can examine 
+        input labels, output labels, src states, dest states, etc. 
+        See also map_type options "identity", "plus", "power", 
+        "times" in map_weights().
+        """
+        if wfunc is None:
+            # Identity function by default
+            return self
         fst = self.fst
-        if project_type == 'input':
-            isymbols = fst.input_symbols()
-            fst.set_output_symbols(isymbols)
-        if project_type == 'output':
-            osymbols = fst.output_symbols()
-            fst.set_input_symbols(osymbols)
-        fst.project(project_type)
+        for q in fst.states():
+            q_arcs = fst.mutable_arcs(q)
+            for t in q_arcs:
+                t.weight = wfunc(self, t)
+                q_arcs.set_value(t)
         return self
 
     # Algorithms.
@@ -324,9 +351,9 @@ class Wfst():
                 for t in fst.arcs(src):
                     dest = t.nextstate
                     if side == 'input':
-                        tlabel = self.input_label(t.ilabel)
+                        tlabel = self.ilabel(t)
                     else:
-                        tlabel = self.output_label(t.olabel)
+                        tlabel = self.olabel(t)
                     if prefix is None:
                         prefix_new = tlabel
                     else:
