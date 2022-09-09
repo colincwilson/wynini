@@ -8,7 +8,8 @@ from wynini.loglinear import *
 
 # Simple acceptor
 M = trellis_acceptor(max_len=2)
-print(M.print())
+M.map_weights(map_type='to_log')
+print(M.print(acceptor=True, show_weight_one=True))
 
 # Map from arc to violation vector
 phi = {}
@@ -19,15 +20,20 @@ for q in M.fst.states():
             phi[_t] = np.array([1.0, 0.0])  # *a, 0
         if M.ilabel(t) == 'b':
             phi[_t] = np.array([0.0, 1.0])  # 0, *b
-print('phi:', phi)
+print('arc violation vectors:')
+for _t in phi:
+    print('\t', _t, '->', phi[_t])
 
 # Constraint weights (non-negative)
 w = np.array([1.0, 2.0])  # *a, *b
-print('w:', w)
+print('constraint weights:', w)
 
 # Loglinear arc weights
-M.map_weights(map_type='to_log')
 loglinear_weights(M, phi, w)
+print(M.print(acceptor=True, show_weight_one=True))
+
+# Stochastic machine
+M.push_weights()
 print(M.print(acceptor=True, show_weight_one=True))
 
 # Expected constraint violations

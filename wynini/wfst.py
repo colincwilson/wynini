@@ -509,14 +509,14 @@ class Wfst():
         wfst = Wfst.from_fst(fst_out)
         return wfst
 
-    def push_weights(self, reweight_type='to_initial', **kwargs):
+    def push_weights(self, delta=1e-6, reweight_type='to_initial', remove_total_weight=True):
         """
-        Push weights (see Fst.push, pynini.push). [destructive]
-        Fst.push() arguments: delta (1e-6), remove_total_weight(False), 
-        reweight_type ("to_initial" or "to_final")
+        Push arc weights and remove total weight. [destructive]
+        (see pynini.push, Fst.push)
         """
+        # note: removes total weight by default
         # assumption: Fst.push() does not reindex states.
-        self.fst = self.fst.push(reweight_type=reweight_type, **kwargs)
+        self.fst = self.fst.push(delta=delta, reweight_type=reweight_type, remove_total_weight=remove_total_weight)
         return self
 
     def push_labels(self, reweight_type='to_initial', **kwargs):
