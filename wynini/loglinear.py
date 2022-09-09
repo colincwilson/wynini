@@ -37,7 +37,7 @@ def loglinear_expected(wfst, phi, w):
     given weights w.
     """
     # Compute arc weights from Harmonies
-    wfst = loglinear_weights(wfst, phi, w)
+    loglinear_weights(wfst, phi, w)
     fst = wfst.fst
 
     # Forward potentials (sum over all paths from initial to q)
@@ -59,10 +59,12 @@ def loglinear_expected(wfst, phi, w):
             if _t not in phi:  # all-zero violation vector
                 continue
             phi_t = phi.get(_t)  # violation vector
-            # plog of all paths through t
+            # Unnormalized plog of all paths through t
             plog = alpha[q] + float(t.weight) + beta[t.nextstate]
+            # Accumulate pstar[t] * violations[t]
             expect += np.exp(-plog) * phi_t
 
     # Divide by partitition function (sum over all paths)
-    expect /= np.exp(-beta[0])
+    Z = np.exp(-beta[0])
+    expect /= Z
     return expect
