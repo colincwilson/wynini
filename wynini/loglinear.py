@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pynini import Weight
+from pynini import Weight, shortestdistance
 from . import config
 from .wfst import Wfst
 
@@ -36,8 +36,11 @@ def loglinear_expected(wfst, phi, w):
     given weights w.
     """
     wfst = loglinear_weights(wfst, phi, w)
-    wfst.push_weights()
+
     fst = wfst.fst
+    d = shortestdistance(wfst.fst, reverse=True)
+    fst.reweight(d)
+    wfst.draw('tmp.dot')
 
     n = w.shape[0]
     expect = np.zeros(n)

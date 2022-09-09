@@ -32,10 +32,6 @@ print('constraint weights:', w)
 loglinear_weights(M, phi, w)
 print(M.print(acceptor=True, show_weight_one=True))
 
-# Stochastic machine
-M.push_weights()
-print(M.print(acceptor=True, show_weight_one=True))
-
 # Expected constraint violations
 expect = loglinear_expected(M, phi, w)
 print('E:', expect)
