@@ -26,6 +26,7 @@ w = np.array([1.0, 2.0])  # *a, *b
 print('w:', w)
 
 # Loglinear arc weights
+M.map_weights(map_type='to_log')
 loglinear_weights(M, phi, w)
 print(M.print(acceptor=True, show_weight_one=True))
 
