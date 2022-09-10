@@ -7,7 +7,7 @@ from wynini.wfst import *
 from wynini.loglinear import *
 
 # Simple acceptor
-M = trellis_acceptor(max_len=2)
+M = trellis(length=2)
 M.map_weights(map_type='to_log')
 print(M.print(acceptor=True, show_weight_one=True))
 

@@ -56,7 +56,7 @@ print(list(outpt))
 
 # Transduce (alternative method)
 inpt = '⋊ a ⋉'
-wfst_in = acceptor(inpt, add_delim=False)
+wfst_in = accep(inpt, add_delim=False)
 #print(wfst_in.print(acceptor=True))
 #print(M.print())
 wfst_out = compose(wfst_in, M)
@@ -67,11 +67,20 @@ M2 = M.copy()
 print(M2.print(acceptor=True, show_weight_one=True))
 
 # # # # # # # # # #
+# Braid acceptor
+print('Braid')
+config = {'sigma': ['a', 'b', 'c', 'd']}
+wfst_config.init(config)
+B = braid(length=2, sigma_tier=set(['a', 'b']))
+print(B.print(acceptor=True))
+B.draw('B.dot')
+
+# # # # # # # # # #
 # Trellis acceptor
 print('Trellis')
 config = {'sigma': ['a', 'b', 'c', 'd']}
 wfst_config.init(config)
-T = trellis_acceptor(max_len=2, sigma_tier=set(['a', 'b']))
+T = trellis(length=2, sigma_tier=set(['a', 'b']))
 print(T.print(acceptor=True))
 T.draw('T.dot')
 
@@ -94,11 +103,11 @@ T_weight.draw('T_weight.dot')
 # Left- and right- ngrams
 config = {'sigma': ['a', 'b'], 'special_syms': ['λ']}
 wfst_config.init(config)
-L = ngram_acceptor(context='left', context_length=2)
+L = ngram(context='left', context_length=2)
 L.draw('L.dot')
-R = ngram_acceptor(context='right', context_length=2)
+R = ngram(context='right', context_length=2)
 R.draw('R.dot')
-LR = ngram_acceptor(context='both', context_length=(2, 1))
+LR = ngram(context='both', context_length=(2, 1))
 LR.draw('LR.dot')
 
 # Accepted strings (up to given length)

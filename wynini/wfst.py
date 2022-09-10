@@ -637,7 +637,7 @@ class Wfst():
     # minimize(), prune(), rmepsilon()
 
 
-def acceptor(x, add_delim=True, weight=None, arc_type='standard'):
+def accep(x, add_delim=True, weight=None, arc_type='standard'):
     """
     Acceptor for space-delimited sequence (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
@@ -656,11 +656,20 @@ def acceptor(x, add_delim=True, weight=None, arc_type='standard'):
     return wfst
 
 
-def trellis_acceptor(max_len=1, sigma_tier=None):
+def braid(length=1, sigma_tier=None):
     """
-    Acceptor for strings up to length max_len (+2 for delimiters). 
+    Acceptor for strings of given length (+2 for delimiters); 
+    see trellis_acceptor().
+    """
+    return trellis(length, sigma_tier, False)
+
+
+def trellis(length=1, sigma_tier=None, trellis=True):
+    """
+    Acceptor for all strings up to specified length (trellis = True), 
+    or of specified length (trellis = False), +2 for delimiters. 
     If sigma_tier is specified as a subset of the alphabet, makes 
-    acceptor for tier/projection for that subset with other symbols 
+    tier/projection acceptor for that subset with other symbols 
     labeling self-loops on interior states.
     """
     bos = config.bos
@@ -679,55 +688,59 @@ def trellis_acceptor(max_len=1, sigma_tier=None):
     wfst.add_arc(src=q0, ilabel=bos, dest=q1)
 
     # Interior states
-    for l in range(max_len):
+    for l in range(length):
         wfst.add_state()  # ids 2, ...
 
     # Final state
-    qf = wfst.add_state()  # id (max_len+2)
+    qf = wfst.add_state()  # id (length+2)
     wfst.set_final(qf)
 
     # Zero-length form
-    wfst.add_arc(src=q1, ilabel=eos, dest=qf)
+    if trellis:
+        wfst.add_arc(src=q1, ilabel=eos, dest=qf)
 
-    # Interior states
+    # Loop
+    for x in sigma_skip:
+        wfst.add_arc(src=q1, ilabel=x, dest=q1)
+
+    # Interior arcs
     q = q1
-    for l in range(1, max_len + 1):
+    for l in range(1, length + 1):
         r = (l + 1)
         # Advance
         for x in sigma_tier:
             wfst.add_arc(src=q, ilabel=x, dest=r)
         # Loop
         for x in sigma_skip:
-            wfst.add_arc(src=q, ilabel=x, dest=q)
+            wfst.add_arc(src=r, ilabel=x, dest=r)
         # End
-        wfst.add_arc(src=r, ilabel=eos, dest=qf)
+        if trellis:
+            wfst.add_arc(src=r, ilabel=eos, dest=qf)
         q = r
 
-    # Loop
-    for x in sigma_skip:
-        wfst.add_arc(src=q, ilabel=x, dest=q)
+    wfst.add_arc(src=q, ilabel=eos, dest=qf)
 
     return wfst
 
 
-def ngram_acceptor(context='left', context_length=1, sigma_tier=None):
+def ngram(context='left', context_length=1, sigma_tier=None):
     """
     Acceptor (identity transducer) for segments in immediately preceding 
     (left) / following (right) / both-side contexts of specified length.
     """
     if context == 'left':
-        return ngram_acceptor_left(context_length, sigma_tier)
+        return ngram_left(context_length, sigma_tier)
     if context == 'right':
-        return ngram_acceptor_right(context_length, sigma_tier)
+        return ngram_right(context_length, sigma_tier)
     if context == 'both':
         if isinstance(context_length, int):
-            # Use same length on both sides
+            # Same context length on both sides
             context_length_L = context_length_R = context_length
         else:
-            # Parse tuple of context lengths
+            # Separate context lengths
             context_length_L, context_length_R = context_length
-        L = ngram_acceptor_left(context_length_L, sigma_tier)
-        R = ngram_acceptor_right(context_length_R, sigma_tier)
+        L = ngram_left(context_length_L, sigma_tier)
+        R = ngram_right(context_length_R, sigma_tier)
         #R.project('input')
         LR = compose(L, R)
         return LR
@@ -735,11 +748,11 @@ def ngram_acceptor(context='left', context_length=1, sigma_tier=None):
     return None
 
 
-def ngram_acceptor_left(context_length=1, sigma_tier=None):
+def ngram_left(context_length=1, sigma_tier=None):
     """
     Acceptor (identity transducer) for segments in immediately preceding 
-    contexts (histories) of specified length. If sigma_tier is specified as a 
-    subset of sigma, only contexts over sigma_tier are tracked (other members  of sigma are skipped with self-loops on each interior state).
+    contexts (histories) of specified length. If sigma_tier is specified 
+    as a subset of sigma, only contexts over sigma_tier are tracked (other members  of sigma are skipped with self-loops on each interior state).
     """
     epsilon = config.epsilon
     bos = config.bos
@@ -797,12 +810,12 @@ def ngram_acceptor_left(context_length=1, sigma_tier=None):
     return wfst
 
 
-def ngram_acceptor_right(context_length=1, sigma_tier=None):
+def ngram_right(context_length=1, sigma_tier=None):
     """
     Acceptor (identity transducer) for segments in immediately following 
-    contexts (futures) of specified length. If sigma_tier is specified as a 
-    subset of sigma, only contexts over sigma_tier are tracked (other members 
-    of sigma are skipped with self-loops on each interior state)
+    contexts (futures) of specified length. If sigma_tier is specified 
+    as a subset of sigma, only contexts over sigma_tier are tracked (other 
+    members of sigma are skipped with self-loops on each interior state).
     """
     epsilon = config.epsilon
     bos = config.bos
@@ -918,7 +931,7 @@ def arc_equal(arc1, arc2):
 
 
 def _prefix(x, l):
-    """ Length-l prefix of tuple x """
+    """ Length-l prefix of tuple x. """
     if l < 1:
         return ()
     if len(x) < l:
@@ -927,7 +940,7 @@ def _prefix(x, l):
 
 
 def _suffix(x, l):
-    """ Length-l suffix of tuple x """
+    """ Length-l suffix of tuple x. """
     if l < 1:
         return ()
     if len(x) < l:
