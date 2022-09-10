@@ -98,7 +98,7 @@ L = ngram_acceptor(context='left', context_length=2)
 L.draw('L.dot')
 R = ngram_acceptor(context='right', context_length=2)
 R.draw('R.dot')
-LR = ngram_acceptor(context='both', context_length=1)
+LR = ngram_acceptor(context='both', context_length=(2, 1))
 LR.draw('LR.dot')
 
 # Accepted strings (up to given length)

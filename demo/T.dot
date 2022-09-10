@@ -11,17 +11,17 @@ nodesep = "0.25";
 	1 -> 4 [label = "⋉", fontsize = 14];
 	1 -> 2 [label = "b", fontsize = 14];
 	1 -> 2 [label = "a", fontsize = 14];
-	1 -> 1 [label = "d", fontsize = 14];
 	1 -> 1 [label = "c", fontsize = 14];
+	1 -> 1 [label = "d", fontsize = 14];
 2 [label = "2", shape = circle, style = solid, fontsize = 14]
 	2 -> 4 [label = "⋉", fontsize = 14];
 	2 -> 3 [label = "b", fontsize = 14];
 	2 -> 3 [label = "a", fontsize = 14];
-	2 -> 2 [label = "d", fontsize = 14];
 	2 -> 2 [label = "c", fontsize = 14];
+	2 -> 2 [label = "d", fontsize = 14];
 3 [label = "3", shape = circle, style = solid, fontsize = 14]
 	3 -> 4 [label = "⋉", fontsize = 14];
-	3 -> 3 [label = "d", fontsize = 14];
 	3 -> 3 [label = "c", fontsize = 14];
+	3 -> 3 [label = "d", fontsize = 14];
 4 [label = "4", shape = doublecircle, style = solid, fontsize = 14]
 }

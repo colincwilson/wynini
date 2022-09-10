@@ -509,14 +509,20 @@ class Wfst():
         wfst = Wfst.from_fst(fst_out)
         return wfst
 
-    def push_weights(self, delta=1e-6, reweight_type='to_initial', remove_total_weight=True):
+    def push_weights(self,
+                     delta=1e-6,
+                     reweight_type='to_initial',
+                     remove_total_weight=True):
         """
         Push arc weights and remove total weight. [destructive]
         (see pynini.push, Fst.push)
         """
         # note: removes total weight by default
         # assumption: Fst.push() does not reindex states.
-        self.fst = self.fst.push(delta=delta, reweight_type=reweight_type, remove_total_weight=remove_total_weight)
+        self.fst = self.fst.push(
+            delta=delta,
+            reweight_type=reweight_type,
+            remove_total_weight=remove_total_weight)
         return self
 
     def push_labels(self, reweight_type='to_initial', **kwargs):
@@ -714,8 +720,14 @@ def ngram_acceptor(context='left', context_length=1, sigma_tier=None):
     if context == 'right':
         return ngram_acceptor_right(context_length, sigma_tier)
     if context == 'both':
-        L = ngram_acceptor_left(context_length, sigma_tier)
-        R = ngram_acceptor_right(context_length, sigma_tier)
+        if isinstance(context_length, int):
+            # Use same length on both sides
+            context_length_L = context_length_R = context_length
+        else:
+            # Parse tuple of context lengths
+            context_length_L, context_length_R = context_length
+        L = ngram_acceptor_left(context_length_L, sigma_tier)
+        R = ngram_acceptor_right(context_length_R, sigma_tier)
         #R.project('input')
         LR = compose(L, R)
         return LR
