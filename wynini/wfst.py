@@ -288,8 +288,8 @@ class Wfst():
     def assign_weights(self, wfunc=None):
         """
         Assign weights to arcs in this machine with an arbitrary 
-        function wfunc (Wfst, Arc -> Weight), which can examine 
-        input labels, output labels, src states, dest states, etc. 
+        function wfunc (Wfst, Src, Arc -> Weight), which can examine 
+        input/output/src/dest and their labels of each arc.
         See also map_type options "identity", "plus", "power", 
         "times" in map_weights().
         """
@@ -300,7 +300,7 @@ class Wfst():
         for q in fst.states():
             q_arcs = fst.mutable_arcs(q)
             for t in q_arcs:
-                t.weight = wfunc(self, t)
+                t.weight = wfunc(self, q, t)
                 q_arcs.set_value(t)
         return self
 
