@@ -723,24 +723,24 @@ def trellis(length=1, sigma_tier=None, trellis=True):
     return wfst
 
 
-def ngram(context='left', context_length=1, sigma_tier=None):
+def ngram(context='left', length=1, sigma_tier=None):
     """
     Acceptor (identity transducer) for segments in immediately preceding 
     (left) / following (right) / both-side contexts of specified length.
     """
     if context == 'left':
-        return ngram_left(context_length, sigma_tier)
+        return ngram_left(length, sigma_tier)
     if context == 'right':
-        return ngram_right(context_length, sigma_tier)
+        return ngram_right(length, sigma_tier)
     if context == 'both':
-        if isinstance(context_length, int):
+        if isinstance(length, int):
             # Same context length on both sides
-            context_length_L = context_length_R = context_length
+            length_L = length_R = length
         else:
             # Separate context lengths
-            context_length_L, context_length_R = context_length
-        L = ngram_left(context_length_L, sigma_tier)
-        R = ngram_right(context_length_R, sigma_tier)
+            length_L, length_R = length
+        L = ngram_left(length_L, sigma_tier)
+        R = ngram_right(length_R, sigma_tier)
         #R.project('input')
         LR = compose(L, R)
         return LR
@@ -748,7 +748,7 @@ def ngram(context='left', context_length=1, sigma_tier=None):
     return None
 
 
-def ngram_left(context_length=1, sigma_tier=None):
+def ngram_left(length=1, sigma_tier=None):
     """
     Acceptor (identity transducer) for segments in immediately preceding 
     contexts (histories) of specified length. If sigma_tier is specified 
@@ -766,7 +766,7 @@ def ngram_left(context_length=1, sigma_tier=None):
 
     # Initial and peninitial states
     q0 = ('λ',)
-    q1 = (epsilon,) * (context_length - 1) + (bos,)
+    q1 = (epsilon,) * (length - 1) + (bos,)
     wfst.add_state(q0)
     wfst.set_start(q0)
     wfst.add_state(q1)
@@ -776,14 +776,14 @@ def ngram_left(context_length=1, sigma_tier=None):
     # xα -- y --> αy for each y
     Q = {q0, q1}
     Qnew = set(Q)
-    for l in range(context_length + 1):
+    for l in range(length + 1):
         Qold = set(Qnew)
         Qnew = set()
         for q1 in Qold:
             if q1 == q0:
                 continue
             for x in sigma_tier:
-                q2 = _suffix(q1, context_length - 1) + (x,)
+                q2 = _suffix(q1, length - 1) + (x,)
                 wfst.add_state(q2)
                 wfst.add_arc(src=q1, ilabel=x, dest=q2)
                 Qnew.add(q2)
@@ -810,7 +810,7 @@ def ngram_left(context_length=1, sigma_tier=None):
     return wfst
 
 
-def ngram_right(context_length=1, sigma_tier=None):
+def ngram_right(length=1, sigma_tier=None):
     """
     Acceptor (identity transducer) for segments in immediately following 
     contexts (futures) of specified length. If sigma_tier is specified 
@@ -829,7 +829,7 @@ def ngram_right(context_length=1, sigma_tier=None):
 
     # Final and penultimate state
     qf = ('λ',)
-    qp = (eos,) + (epsilon,) * (context_length - 1)
+    qp = (eos,) + (epsilon,) * (length - 1)
     wfst.add_state(qf)
     wfst.set_final(qf)
     wfst.add_state(qp)
@@ -839,14 +839,14 @@ def ngram_right(context_length=1, sigma_tier=None):
     # xα -- x --> αy for each y
     Q = {qf, qp}
     Qnew = set(Q)
-    for l in range(context_length + 1):
+    for l in range(length + 1):
         Qold = set(Qnew)
         Qnew = set()
         for q2 in Qold:
             if q2 == qf:
                 continue
             for x in sigma_tier:
-                q1 = (x,) + _prefix(q2, context_length - 1)
+                q1 = (x,) + _prefix(q2, length - 1)
                 wfst.add_state(q1)
                 wfst.add_arc(src=q1, ilabel=x, dest=q2)
                 Qnew.add(q1)
@@ -876,42 +876,65 @@ def ngram_right(context_length=1, sigma_tier=None):
 def compose(wfst1, wfst2):
     """
     Composition/intersection, retaining contextual info from original 
-    machines by labeling each state q = (q1, q2) as (label(q1), label(q2)).
-    todo: multiply weights; matcher/filter options for compose; 
+    machines by labeling each state q = (q1, q2) as (label(q1), label(q2)). 
+    Multiplies arc weights if machines have the same weight type.
+    todo: matcher/filter options for compose; 
     flatten state labels created by repeated composition
     """
-    wfst = Wfst(config.symtable)
-    Zero = Weight.zero(wfst.weight_type())
+    input_symtable = wfst1.input_symbols()
+    output_symtable = wfst2.output_symbols()
+    multiply_weights = (wfst1.arc_type() == wfst2.arc_type())
+    arc_type = wfst1.arc_type() if multiply_weights else 'standard'
+
+    wfst = Wfst(input_symtable, output_symtable, arc_type)
+    one = Weight.one(wfst.weight_type())
+    zero = Weight.zero(wfst.weight_type())
 
     q0 = (wfst1.start(), wfst2.start())
     wfst.add_state(q0)
     wfst.set_start(q0)
 
-    # Lazy state and transition construction
+    # Lazy state and arc construction
     Q = set([q0])
     Q_old, Q_new = set(), set([q0])
     while len(Q_new) != 0:
         Q_old, Q_new = Q_new, Q_old
         Q_new.clear()
         for src in Q_old:
-            # State labels in M1, M2
+            # Source state
             src1, src2 = src
             for t1 in wfst1.arcs(src1):
                 # todo: sort arcs wfst2
                 for t2 in wfst2.arcs(src2):
                     if t1.olabel != t2.ilabel:
                         continue
+                    # Destination state
                     dest1 = t1.nextstate
                     dest2 = t2.nextstate
                     dest = (wfst1.state_label(dest1), wfst2.state_label(dest2))
                     wfst.add_state(dest)
                     # note: no change if dest already exists
+                    # Arc
+                    if multiply_weights:
+                        weight = pynini.times(t1.weight, t2.weight)
+                    else:
+                        weight = one
                     wfst.add_arc(
-                        src=src, ilabel=t1.ilabel, olabel=t2.olabel, dest=dest)
-                    # dest is final if both dest1 and dest2 aere final
-                    if wfst1.final(dest1) != Zero and wfst2.final(
-                            dest2) != Zero:
-                        wfst.set_final(dest)
+                        src=src,
+                        ilabel=t1.ilabel,
+                        olabel=t2.olabel,
+                        weight=weight,
+                        dest=dest)
+                    # Dest is final if both dest1 and dest2 aere final
+                    wfinal1 = wfst1.final(dest1)
+                    wfinal2 = wfst2.final(dest2)
+                    if wfinal1 != zero and wfinal2 != zero:
+                        if multiply_weights:
+                            wfinal = pynini.times(wfinal1, wfinal2)
+                        else:
+                            wfinal = one
+                        wfst.set_final(dest, wfinal)
+                    # Enqueue new state
                     if dest not in Q:
                         Q.add(dest)
                         Q_new.add(dest)

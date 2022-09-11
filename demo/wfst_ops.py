@@ -67,26 +67,27 @@ M2 = M.copy()
 print(M2.print(acceptor=True, show_weight_one=True))
 
 # # # # # # # # # #
-# Braid acceptor
-print('Braid')
+print('Braid acceptor')
 config = {'sigma': ['a', 'b', 'c', 'd']}
 wfst_config.init(config)
 B = braid(length=2, sigma_tier=set(['a', 'b']))
 print(B.print(acceptor=True))
 B.draw('B.dot')
+print()
 
 # # # # # # # # # #
-# Trellis acceptor
-print('Trellis')
+print('Trellis acceptor')
 config = {'sigma': ['a', 'b', 'c', 'd']}
 wfst_config.init(config)
 T = trellis(length=2, sigma_tier=set(['a', 'b']))
 print(T.print(acceptor=True))
 T.draw('T.dot')
-
+print()
 
 # # # # # # # # # #
 # Assign arc weights with arbitrary function
+
+
 def wfunc(wfst, arc):
     w_good = Weight('log', 1)  # -log2(0.5)
     w_bad = Weight('log', 2)  # -log2(0.25)
@@ -98,23 +99,25 @@ def wfunc(wfst, arc):
 T_weight = T.map_weights('to_log')
 T_weight.assign_weights(wfunc)
 T_weight.draw('T_weight.dot')
+print()
 
 # # # # # # # # # #
-# Left- and right- ngrams
+print('Ngram machines')
 config = {'sigma': ['a', 'b'], 'special_syms': ['λ']}
 wfst_config.init(config)
-L = ngram(context='left', context_length=2)
+L = ngram(context='left', length=2)
 L.draw('L.dot')
-R = ngram(context='right', context_length=2)
+R = ngram(context='right', length=2)
 R.draw('R.dot')
-LR = ngram(context='both', context_length=(2, 1))
+LR = ngram(context='both', length=(2, 1))
 LR.draw('LR.dot')
 
-# Accepted strings (up to given length)
-print('L accepted strings:', L.accepted_strings(side='input', max_len=4))
+print('Accepted strings (up to maximum length')
+print(L.accepted_strings(side='input', max_len=4))
+print()
 
 # # # # # # # # # #
-# Composition
+# Transduction / omposition
 config = {'sigma': ['a', 'b']}
 wfst_config.init(config)
 
@@ -139,3 +142,23 @@ M2.add_arc(src=1, ilabel='b', dest=1)
 # Compose / intersect + trim
 M12 = compose(M1, M2)
 M12.draw('M12.dot')
+print()
+
+# # # # # # # # # #
+print('Weighted transduction / composition')
+I = accep('a b')
+I.map_weights('to_log')
+I.assign_weights(lambda wfst, arc: Weight('log', 2))
+print(I.print(show_weight_one=True))
+I.draw('I.dot')
+
+M = ngram(context='left', length=1)
+M.map_weights('to_log')
+M.assign_weights(lambda wfst, arc: Weight('log', 3))
+print(M.print(show_weight_one=True))
+M.draw('M.dot')
+
+O = compose(I, M)
+print(O.print(show_weight_one=True))
+O.draw('O.dot')
+print()
