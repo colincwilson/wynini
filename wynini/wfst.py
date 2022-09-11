@@ -425,7 +425,10 @@ class Wfst():
         live_states = set(fst.states()) - states
 
         # Preserve input/output symbols and weight type
-        wfst = Wfst(fst.input_symbols(), fst.output_symbols(), fst.arc_type())
+        wfst = Wfst(\
+            fst.input_symbols(),
+            fst.output_symbols(),
+            fst.arc_type())
 
         # Reindex live states, copying labels
         state_map = {}
@@ -579,7 +582,10 @@ class Wfst():
         Deep copy preserving input/output/state symbols and string outputs.
         """
         fst = self.fst
-        wfst = Wfst(fst.input_symbols(), fst.output_symbols(), fst.arc_type())
+        wfst = Wfst(\
+            fst.input_symbols(),
+            fst.output_symbols(),
+            fst.arc_type())
         wfst.fst = fst.copy()
         wfst._state2label = dict(self._state2label)
         wfst._label2state = dict(self._label2state)
@@ -589,7 +595,10 @@ class Wfst():
     @classmethod
     def from_fst(cls, fst):
         """ Wrap pynini Fst. """
-        wfst = Wfst(fst.input_symbols(), fst.output_symbols(), fst.arc_type())
+        wfst = Wfst(\
+            fst.input_symbols(),
+            fst.output_symbols(),
+            fst.arc_type())
         state2label = {q: str(q) for q in fst.states()}
         label2state = {v: k for k, v in state2label.items()}
         wfst.fst = fst
@@ -637,7 +646,7 @@ class Wfst():
     # minimize(), prune(), rmepsilon()
 
 
-def accep(x, add_delim=True, weight=None, arc_type='standard'):
+def accep(x, add_delim=True, **kwargs):
     """
     Acceptor for space-delimited sequence (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
@@ -649,22 +658,22 @@ def accep(x, add_delim=True, weight=None, arc_type='standard'):
         x = config.bos + ' ' + x + ' ' + config.eos
 
     isymbols = config.symtable
-    fst = pynini.accep(x, weight, arc_type, token_type=isymbols)
+    fst = pynini.accep(x, token_type=isymbols, **kwargs)
     fst.set_input_symbols(isymbols)
     fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
     return wfst
 
 
-def braid(length=1, sigma_tier=None):
+def braid(length=1, sigma_tier=None, arc_type='standard'):
     """
     Acceptor for strings of given length (+2 for delimiters); 
     see trellis_acceptor().
     """
-    return trellis(length, sigma_tier, False)
+    return trellis(length, sigma_tier, False, arc_type)
 
 
-def trellis(length=1, sigma_tier=None, trellis=True):
+def trellis(length=1, sigma_tier=None, trellis=True, arc_type='standard'):
     """
     Acceptor for all strings up to specified length (trellis = True), 
     or of specified length (trellis = False), +2 for delimiters. 
@@ -679,7 +688,7 @@ def trellis(length=1, sigma_tier=None, trellis=True):
         sigma_skip = set()
     else:
         sigma_skip = set(config.sigma) - sigma_tier
-    wfst = Wfst(config.symtable)
+    wfst = Wfst(config.symtable, arc_type=arc_type)
 
     # Initial and peninitial states
     q0 = wfst.add_state()  # id 0
@@ -723,15 +732,15 @@ def trellis(length=1, sigma_tier=None, trellis=True):
     return wfst
 
 
-def ngram(context='left', length=1, sigma_tier=None):
+def ngram(context='left', length=1, sigma_tier=None, arc_type='standard'):
     """
     Acceptor (identity transducer) for segments in immediately preceding 
     (left) / following (right) / both-side contexts of specified length.
     """
     if context == 'left':
-        return ngram_left(length, sigma_tier)
+        return ngram_left(length, sigma_tier, arc_type)
     if context == 'right':
-        return ngram_right(length, sigma_tier)
+        return ngram_right(length, sigma_tier, arc_type)
     if context == 'both':
         if isinstance(length, int):
             # Same context length on both sides
@@ -739,8 +748,8 @@ def ngram(context='left', length=1, sigma_tier=None):
         else:
             # Separate context lengths
             length_L, length_R = length
-        L = ngram_left(length_L, sigma_tier)
-        R = ngram_right(length_R, sigma_tier)
+        L = ngram_left(length_L, sigma_tier, arc_type)
+        R = ngram_right(length_R, sigma_tier, arc_type)
         #R.project('input')
         LR = compose(L, R)
         return LR
@@ -748,7 +757,7 @@ def ngram(context='left', length=1, sigma_tier=None):
     return None
 
 
-def ngram_left(length=1, sigma_tier=None):
+def ngram_left(length=1, sigma_tier=None, arc_type='standard'):
     """
     Acceptor (identity transducer) for segments in immediately preceding 
     contexts (histories) of specified length. If sigma_tier is specified 
@@ -762,7 +771,7 @@ def ngram_left(length=1, sigma_tier=None):
         sigma_skip = set()
     else:
         sigma_skip = set(config.sigma) - sigma_tier
-    wfst = Wfst(config.symtable)
+    wfst = Wfst(config.symtable, arc_type=arc_type)
 
     # Initial and peninitial states
     q0 = ('λ',)
@@ -810,7 +819,7 @@ def ngram_left(length=1, sigma_tier=None):
     return wfst
 
 
-def ngram_right(length=1, sigma_tier=None):
+def ngram_right(length=1, sigma_tier=None, arc_type='standard'):
     """
     Acceptor (identity transducer) for segments in immediately following 
     contexts (futures) of specified length. If sigma_tier is specified 
@@ -825,7 +834,7 @@ def ngram_right(length=1, sigma_tier=None):
         sigma_skip = set()
     else:
         sigma_skip = set(config.sigma) - sigma_tier
-    wfst = Wfst(config.symtable)
+    wfst = Wfst(config.symtable, arc_type=arc_type)
 
     # Final and penultimate state
     qf = ('λ',)

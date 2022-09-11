@@ -4,7 +4,7 @@ sys.path.append('..')
 from pynini import Weight
 from wynini.wfst import *
 
-# Make a machine that represents each segment in its immediately preceding context:
+# Make a machine that represents each segment in its immediately preceding context
 M = ngram(context='left', length=1)
 
 #  Place the arc weights of the machine in the neg log prob semiring (called "log" by pynini/OpenFst)
