@@ -9,12 +9,12 @@ nodesep = "0.25";
 	0 -> 1 [label = "⋊", fontsize = 14];
 	0 -> 2 [label = "⋊", fontsize = 14];
 	0 -> 3 [label = "⋊", fontsize = 14];
-1 [label = "(('ϵ', '⋊'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
-	1 -> 4 [label = "⋉", fontsize = 14];
-2 [label = "(('ϵ', '⋊'), ('b',))", shape = circle, style = solid, fontsize = 14]
-	2 -> 8 [label = "b", fontsize = 14];
-	2 -> 9 [label = "b", fontsize = 14];
-	2 -> 10 [label = "b", fontsize = 14];
+1 [label = "(('ϵ', '⋊'), ('b',))", shape = circle, style = solid, fontsize = 14]
+	1 -> 8 [label = "b", fontsize = 14];
+	1 -> 9 [label = "b", fontsize = 14];
+	1 -> 10 [label = "b", fontsize = 14];
+2 [label = "(('ϵ', '⋊'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
+	2 -> 4 [label = "⋉", fontsize = 14];
 3 [label = "(('ϵ', '⋊'), ('a',))", shape = circle, style = solid, fontsize = 14]
 	3 -> 5 [label = "a", fontsize = 14];
 	3 -> 6 [label = "a", fontsize = 14];
@@ -22,62 +22,62 @@ nodesep = "0.25";
 4 [label = "(('⋉',), ('λ',))", shape = doublecircle, style = solid, fontsize = 14]
 5 [label = "(('⋊', 'a'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
 	5 -> 4 [label = "⋉", fontsize = 14];
-6 [label = "(('⋊', 'a'), ('b',))", shape = circle, style = solid, fontsize = 14]
-	6 -> 20 [label = "b", fontsize = 14];
-	6 -> 21 [label = "b", fontsize = 14];
-	6 -> 22 [label = "b", fontsize = 14];
-7 [label = "(('⋊', 'a'), ('a',))", shape = circle, style = solid, fontsize = 14]
-	7 -> 14 [label = "a", fontsize = 14];
-	7 -> 15 [label = "a", fontsize = 14];
-	7 -> 16 [label = "a", fontsize = 14];
+6 [label = "(('⋊', 'a'), ('a',))", shape = circle, style = solid, fontsize = 14]
+	6 -> 20 [label = "a", fontsize = 14];
+	6 -> 21 [label = "a", fontsize = 14];
+	6 -> 22 [label = "a", fontsize = 14];
+7 [label = "(('⋊', 'a'), ('b',))", shape = circle, style = solid, fontsize = 14]
+	7 -> 11 [label = "b", fontsize = 14];
+	7 -> 12 [label = "b", fontsize = 14];
+	7 -> 13 [label = "b", fontsize = 14];
 8 [label = "(('⋊', 'b'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
 	8 -> 4 [label = "⋉", fontsize = 14];
-9 [label = "(('⋊', 'b'), ('b',))", shape = circle, style = solid, fontsize = 14]
-	9 -> 11 [label = "b", fontsize = 14];
-	9 -> 12 [label = "b", fontsize = 14];
-	9 -> 13 [label = "b", fontsize = 14];
-10 [label = "(('⋊', 'b'), ('a',))", shape = circle, style = solid, fontsize = 14]
-	10 -> 17 [label = "a", fontsize = 14];
-	10 -> 18 [label = "a", fontsize = 14];
-	10 -> 19 [label = "a", fontsize = 14];
-11 [label = "(('b', 'b'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
+9 [label = "(('⋊', 'b'), ('a',))", shape = circle, style = solid, fontsize = 14]
+	9 -> 14 [label = "a", fontsize = 14];
+	9 -> 15 [label = "a", fontsize = 14];
+	9 -> 16 [label = "a", fontsize = 14];
+10 [label = "(('⋊', 'b'), ('b',))", shape = circle, style = solid, fontsize = 14]
+	10 -> 17 [label = "b", fontsize = 14];
+	10 -> 18 [label = "b", fontsize = 14];
+	10 -> 19 [label = "b", fontsize = 14];
+11 [label = "(('a', 'b'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
 	11 -> 4 [label = "⋉", fontsize = 14];
-12 [label = "(('b', 'b'), ('b',))", shape = circle, style = solid, fontsize = 14]
-	12 -> 11 [label = "b", fontsize = 14];
-	12 -> 12 [label = "b", fontsize = 14];
-	12 -> 13 [label = "b", fontsize = 14];
-13 [label = "(('b', 'b'), ('a',))", shape = circle, style = solid, fontsize = 14]
-	13 -> 17 [label = "a", fontsize = 14];
-	13 -> 18 [label = "a", fontsize = 14];
-	13 -> 19 [label = "a", fontsize = 14];
-14 [label = "(('a', 'a'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
+12 [label = "(('a', 'b'), ('a',))", shape = circle, style = solid, fontsize = 14]
+	12 -> 14 [label = "a", fontsize = 14];
+	12 -> 15 [label = "a", fontsize = 14];
+	12 -> 16 [label = "a", fontsize = 14];
+13 [label = "(('a', 'b'), ('b',))", shape = circle, style = solid, fontsize = 14]
+	13 -> 17 [label = "b", fontsize = 14];
+	13 -> 18 [label = "b", fontsize = 14];
+	13 -> 19 [label = "b", fontsize = 14];
+14 [label = "(('b', 'a'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
 	14 -> 4 [label = "⋉", fontsize = 14];
-15 [label = "(('a', 'a'), ('b',))", shape = circle, style = solid, fontsize = 14]
-	15 -> 20 [label = "b", fontsize = 14];
-	15 -> 21 [label = "b", fontsize = 14];
-	15 -> 22 [label = "b", fontsize = 14];
-16 [label = "(('a', 'a'), ('a',))", shape = circle, style = solid, fontsize = 14]
-	16 -> 14 [label = "a", fontsize = 14];
-	16 -> 15 [label = "a", fontsize = 14];
-	16 -> 16 [label = "a", fontsize = 14];
-17 [label = "(('b', 'a'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
+15 [label = "(('b', 'a'), ('a',))", shape = circle, style = solid, fontsize = 14]
+	15 -> 20 [label = "a", fontsize = 14];
+	15 -> 21 [label = "a", fontsize = 14];
+	15 -> 22 [label = "a", fontsize = 14];
+16 [label = "(('b', 'a'), ('b',))", shape = circle, style = solid, fontsize = 14]
+	16 -> 11 [label = "b", fontsize = 14];
+	16 -> 12 [label = "b", fontsize = 14];
+	16 -> 13 [label = "b", fontsize = 14];
+17 [label = "(('b', 'b'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
 	17 -> 4 [label = "⋉", fontsize = 14];
-18 [label = "(('b', 'a'), ('b',))", shape = circle, style = solid, fontsize = 14]
-	18 -> 20 [label = "b", fontsize = 14];
-	18 -> 21 [label = "b", fontsize = 14];
-	18 -> 22 [label = "b", fontsize = 14];
-19 [label = "(('b', 'a'), ('a',))", shape = circle, style = solid, fontsize = 14]
-	19 -> 14 [label = "a", fontsize = 14];
-	19 -> 15 [label = "a", fontsize = 14];
-	19 -> 16 [label = "a", fontsize = 14];
-20 [label = "(('a', 'b'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
+18 [label = "(('b', 'b'), ('a',))", shape = circle, style = solid, fontsize = 14]
+	18 -> 14 [label = "a", fontsize = 14];
+	18 -> 15 [label = "a", fontsize = 14];
+	18 -> 16 [label = "a", fontsize = 14];
+19 [label = "(('b', 'b'), ('b',))", shape = circle, style = solid, fontsize = 14]
+	19 -> 17 [label = "b", fontsize = 14];
+	19 -> 18 [label = "b", fontsize = 14];
+	19 -> 19 [label = "b", fontsize = 14];
+20 [label = "(('a', 'a'), ('⋉',))", shape = circle, style = solid, fontsize = 14]
 	20 -> 4 [label = "⋉", fontsize = 14];
-21 [label = "(('a', 'b'), ('b',))", shape = circle, style = solid, fontsize = 14]
-	21 -> 11 [label = "b", fontsize = 14];
-	21 -> 12 [label = "b", fontsize = 14];
-	21 -> 13 [label = "b", fontsize = 14];
-22 [label = "(('a', 'b'), ('a',))", shape = circle, style = solid, fontsize = 14]
-	22 -> 17 [label = "a", fontsize = 14];
-	22 -> 18 [label = "a", fontsize = 14];
-	22 -> 19 [label = "a", fontsize = 14];
+21 [label = "(('a', 'a'), ('a',))", shape = circle, style = solid, fontsize = 14]
+	21 -> 20 [label = "a", fontsize = 14];
+	21 -> 21 [label = "a", fontsize = 14];
+	21 -> 22 [label = "a", fontsize = 14];
+22 [label = "(('a', 'a'), ('b',))", shape = circle, style = solid, fontsize = 14]
+	22 -> 11 [label = "b", fontsize = 14];
+	22 -> 12 [label = "b", fontsize = 14];
+	22 -> 13 [label = "b", fontsize = 14];
 }

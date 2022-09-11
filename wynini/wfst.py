@@ -386,7 +386,7 @@ class Wfst():
         fst = self.fst
 
         if forward:
-            # Initial state id; forward transitions
+            # Initial state id; forward arcs
             Q = set([fst.start()])
             T = {}
             for src in fst.states():
@@ -395,7 +395,7 @@ class Wfst():
                     dest = t.nextstate
                     T[src].add(dest)
         else:
-            # Final state ids; backward transitions
+            # Final state ids; backward arcs
             Q = set([q for q in fst.states() if self.is_final(q)])
             T = {}
             for src in fst.states():
@@ -438,7 +438,7 @@ class Wfst():
                 wfst.set_start(q_id)
             wfst.set_final(q_id, self.final(q))
 
-        # Copy transitions between live states
+        # Copy arcs between live states
         for q in live_states:
             src = state_map[q]
             for t in filter(lambda t: t.nextstate in live_states, fst.arcs(q)):
@@ -799,7 +799,7 @@ def ngram_left(length=1, sigma_tier=None):
         wfst.add_arc(src=q1, ilabel=eos, dest=qf)
     Q.add(qf)
 
-    # Self-transitions labeled by skipped symbols
+    # Self-arcs labeled by skipped symbols
     # on interior states
     for q in Q:
         if (q == q0) or (q == qf):
@@ -835,8 +835,8 @@ def ngram_right(length=1, sigma_tier=None):
     wfst.add_state(qp)
     wfst.add_arc(src=qp, ilabel=eos, dest=qf)
 
-    # Interior transitions
-    # xα -- x --> αy for each y
+    # Interior arcs
+    # xα --> x --> αy for each y
     Q = {qf, qp}
     Qnew = set(Q)
     for l in range(length + 1):
@@ -852,7 +852,7 @@ def ngram_right(length=1, sigma_tier=None):
                 Qnew.add(q1)
         Q |= Qnew
 
-    # Initial state and outgoing transitions
+    # Initial state and outgoing arcs
     q0 = (bos,)
     wfst.add_state(q0)
     wfst.set_start(q0)
@@ -862,7 +862,7 @@ def ngram_right(length=1, sigma_tier=None):
         wfst.add_arc(src=q0, ilabel=bos, dest=q)
     Q.add(q0)
 
-    # Self-transitions labeled by skipped symbols
+    # Self-arcs labeled by skipped symbols
     # on interior states
     for q in Q:
         if (q == q0) or (q == qf):
@@ -908,12 +908,14 @@ def compose(wfst1, wfst2):
                 for t2 in wfst2.arcs(src2):
                     if t1.olabel != t2.ilabel:
                         continue
+
                     # Destination state
                     dest1 = t1.nextstate
                     dest2 = t2.nextstate
                     dest = (wfst1.state_label(dest1), wfst2.state_label(dest2))
                     wfst.add_state(dest)
                     # note: no change if dest already exists
+
                     # Arc
                     if common_weights:
                         weight = pynini.times(t1.weight, t2.weight)
@@ -925,7 +927,8 @@ def compose(wfst1, wfst2):
                         olabel=t2.olabel,
                         weight=weight,
                         dest=dest)
-                    # Dest is final if both dest1 and dest2 aere final
+
+                    # Dest is final if both dest1 and dest2 are final
                     wfinal1 = wfst1.final(dest1)
                     wfinal2 = wfst2.final(dest2)
                     if wfinal1 != zero and wfinal2 != zero:
@@ -934,6 +937,7 @@ def compose(wfst1, wfst2):
                         else:
                             wfinal = one  # or wfinal2?
                         wfst.set_final(dest, wfinal)
+
                     # Enqueue new state
                     if dest not in Q:
                         Q.add(dest)
