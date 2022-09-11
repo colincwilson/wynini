@@ -877,14 +877,14 @@ def compose(wfst1, wfst2):
     """
     Composition/intersection, retaining contextual info from original 
     machines by labeling each state q = (q1, q2) as (label(q1), label(q2)). 
-    Multiplies arc weights if machines have the same weight type.
+    Multiplies arc and final weights if machines have the same arc type.
     todo: matcher/filter options for compose; 
     flatten state labels created by repeated composition
     """
     input_symtable = wfst1.input_symbols()
     output_symtable = wfst2.output_symbols()
-    multiply_weights = (wfst1.arc_type() == wfst2.arc_type())
-    arc_type = wfst1.arc_type() if multiply_weights else 'standard'
+    common_weights = (wfst1.arc_type() == wfst2.arc_type())
+    arc_type = wfst2.arc_type() if common_weights else 'standard'
 
     wfst = Wfst(input_symtable, output_symtable, arc_type)
     one = Weight.one(wfst.weight_type())
@@ -915,10 +915,10 @@ def compose(wfst1, wfst2):
                     wfst.add_state(dest)
                     # note: no change if dest already exists
                     # Arc
-                    if multiply_weights:
+                    if common_weights:
                         weight = pynini.times(t1.weight, t2.weight)
                     else:
-                        weight = one
+                        weight = one  # or t2.weight?
                     wfst.add_arc(
                         src=src,
                         ilabel=t1.ilabel,
@@ -929,10 +929,10 @@ def compose(wfst1, wfst2):
                     wfinal1 = wfst1.final(dest1)
                     wfinal2 = wfst2.final(dest2)
                     if wfinal1 != zero and wfinal2 != zero:
-                        if multiply_weights:
+                        if common_weights:
                             wfinal = pynini.times(wfinal1, wfinal2)
                         else:
-                            wfinal = one
+                            wfinal = one  # or wfinal2?
                         wfst.set_final(dest, wfinal)
                     # Enqueue new state
                     if dest not in Q:
