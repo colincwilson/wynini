@@ -117,7 +117,7 @@ print(L.accepted_strings(side='input', max_len=4))
 print()
 
 # # # # # # # # # #
-# Transduction / omposition
+# Transduction / composition
 config = {'sigma': ['a', 'b']}
 wfst_config.init(config)
 
@@ -146,14 +146,12 @@ print()
 
 # # # # # # # # # #
 print('Weighted transduction / composition')
-I = accep('a b')
-I.map_weights('to_log')
+I = accep('a b', arc_type='log')
 I.assign_weights(lambda wfst, q, t: Weight('log', 2))
 print(I.print(show_weight_one=True))
 I.draw('I.dot')
 
-M = ngram(context='left', length=1)
-M.map_weights('to_log')
+M = ngram(context='left', length=1, arc_type='log')
 M.assign_weights(lambda wfst, q, t: Weight('log', 3))
 print(M.print(show_weight_one=True))
 M.draw('M.dot')

@@ -7,12 +7,12 @@ ranksep = "0.4";
 nodesep = "0.25";
 8 [label = "('⋊',)", shape = circle, style = bold, fontsize = 14]
 	8 -> 4 [label = "⋊", fontsize = 14];
-	8 -> 6 [label = "⋊", fontsize = 14];
 	8 -> 5 [label = "⋊", fontsize = 14];
-	8 -> 2 [label = "⋊", fontsize = 14];
-	8 -> 1 [label = "⋊", fontsize = 14];
 	8 -> 7 [label = "⋊", fontsize = 14];
+	8 -> 1 [label = "⋊", fontsize = 14];
 	8 -> 3 [label = "⋊", fontsize = 14];
+	8 -> 6 [label = "⋊", fontsize = 14];
+	8 -> 2 [label = "⋊", fontsize = 14];
 0 [label = "('λ',)", shape = doublecircle, style = solid, fontsize = 14]
 1 [label = "('⋉', 'ϵ')", shape = circle, style = solid, fontsize = 14]
 	1 -> 0 [label = "⋉", fontsize = 14];
@@ -22,12 +22,12 @@ nodesep = "0.25";
 	3 -> 1 [label = "a", fontsize = 14];
 4 [label = "('b', 'b')", shape = circle, style = solid, fontsize = 14]
 	4 -> 2 [label = "b", fontsize = 14];
-	4 -> 4 [label = "b", fontsize = 14];
 	4 -> 6 [label = "b", fontsize = 14];
+	4 -> 4 [label = "b", fontsize = 14];
 5 [label = "('a', 'b')", shape = circle, style = solid, fontsize = 14]
 	5 -> 2 [label = "a", fontsize = 14];
-	5 -> 4 [label = "a", fontsize = 14];
 	5 -> 6 [label = "a", fontsize = 14];
+	5 -> 4 [label = "a", fontsize = 14];
 6 [label = "('b', 'a')", shape = circle, style = solid, fontsize = 14]
 	6 -> 3 [label = "b", fontsize = 14];
 	6 -> 5 [label = "b", fontsize = 14];

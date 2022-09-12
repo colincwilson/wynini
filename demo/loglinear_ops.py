@@ -7,8 +7,7 @@ from wynini.wfst import *
 from wynini.loglinear import *
 
 # Simple acceptor
-M = trellis(length=2)
-M.map_weights(map_type='to_log')
+M = trellis(length=2, arc_type='log')
 print(M.print(acceptor=True, show_weight_one=True))
 
 # Map from arc to violation vector
