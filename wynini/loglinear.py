@@ -9,7 +9,7 @@ from .wfst import Wfst
 # todo: stable mapping from Arcs to violation vectors
 
 
-def loglinear_weights(wfst, phi, w):
+def assign_weights(wfst, phi, w):
     """
     Assign unnormalized plog weight to each arc t in wfst 
     according to its Harmony: $-\sum_k (w_k \cdot \phi_k(t))$.
@@ -31,13 +31,13 @@ def loglinear_weights(wfst, phi, w):
     return wfst
 
 
-def loglinear_expected(wfst, phi, w):
+def expected(wfst, phi, w):
     """
     Expected violation counts of features/constraints in phi 
     given weights w.
     """
     # Compute arc weights from Harmonies
-    loglinear_weights(wfst, phi, w)
+    assign_weights(wfst, phi, w)
     fst = wfst.fst
 
     # Forward potentials (sum over all paths from initial to q)

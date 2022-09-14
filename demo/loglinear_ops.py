@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import numpy as np
 
 sys.path.append('..')
 from wynini.wfst import *
-from wynini.loglinear import *
+from wynini import loglinear
 
 # Simple acceptor
 M = trellis(length=2, arc_type='log')
@@ -28,9 +29,9 @@ w = np.array([1.0, 2.0])  # *a, *b
 print('constraint weights:', w)
 
 # Loglinear arc weights
-loglinear_weights(M, phi, w)
+loglinear.assign_weights(M, phi, w)
 print(M.print(acceptor=True, show_weight_one=True))
 
 # Expected constraint violations
-expect = loglinear_expected(M, phi, w)
+expect = loglinear.expected(M, phi, w)
 print('E:', expect)
