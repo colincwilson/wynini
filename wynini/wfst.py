@@ -333,39 +333,65 @@ class Wfst():
         """
         return self.paths().ostrings()
 
-    def accepted_strings(self, side='input', max_len=10):
+    def accepted_strings(self, side='input', weights=True, max_len=10):
         """
-        Strings accepted on input (default) or output, up to max_len 
-        (not including bos/eos); cf. paths() for acyclic machines. 
+        Iterator over input (default) or output strings through this 
+        machine up to max_len (excluding bos/eos) and optionally with 
+        path weights; cf. paths() for acyclic machines. 
         todo: epsilon handling
         """
         fst = self.fst
         q0 = fst.start()
         Zero = Weight.zero(fst.weight_type())
 
+        if weights:
+            weight_type = fst.weight_type()
+            paths_old = {(q0, None, None)}
+        else:
+            paths_old = {(q0, None)}
+
+        paths_new = set()
         accepted = set()
-        prefixes = {(q0, None)}
-        prefixes_new = set()
         for _ in range(max_len + 2):
-            for (src, prefix) in prefixes:
+            for path in paths_old:
+                if weights:
+                    src, label, weight = path
+                else:
+                    src, label = path
+
                 for t in fst.arcs(src):
                     dest = t.nextstate
+
                     if side == 'input':
                         tlabel = self.ilabel(t)
                     else:
                         tlabel = self.olabel(t)
-                    if prefix is None:
-                        prefix_new = tlabel
+                    if label is None:
+                        label_new = tlabel
                     else:
-                        prefix_new = prefix + ' ' + tlabel
-                    prefixes_new.add((dest, prefix_new))
-                    if fst.final(dest) != Zero:
-                        accepted.add(prefix_new)
-                        #print(prefix_new)
-            prefixes, prefixes_new = prefixes_new, prefixes
-            prefixes_new.clear()
+                        label_new = label + ' ' + tlabel
 
-        return accepted
+                    if weights:
+                        if weight is None:
+                            weight_new = float(t.weight)
+                        else:
+                            weight_new = pynini.times(\
+                                Weight(weight_type, weight), t.weight)
+                            weight_new = float(weight_new)
+                        paths_new.add((dest, label_new, weight_new))
+                    else:
+                        paths_new.add((dest, label_new))
+
+                    if fst.final(dest) != Zero:
+                        if weights:
+                            accepted.add((label_new, weight_new))
+                        else:
+                            accepted.add(label_new)
+
+            paths_old, paths_new = paths_new, paths_old
+            paths_new.clear()
+        
+        return iter(accepted)
 
     def connect(self):
         """

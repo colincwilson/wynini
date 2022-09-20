@@ -112,8 +112,8 @@ R.draw('R.dot')
 LR = ngram(context='both', length=(2, 1))
 LR.draw('LR.dot')
 
-print('Accepted strings (up to maximum length')
-print(L.accepted_strings(side='input', max_len=4))
+print('Accepted strings (up to maximum length)')
+print(list(L.accepted_strings(side='input', weights=False, max_len=4)))
 print()
 
 # # # # # # # # # #
