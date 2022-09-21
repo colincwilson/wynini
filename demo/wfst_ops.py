@@ -89,15 +89,19 @@ print()
 
 
 def wfunc(wfst, src, arc):
-    w_good = Weight('log', 1)  # -log2(0.5)
-    w_bad = Weight('log', 2)  # -log2(0.25)
+    #w_good = Weight('log', 1.0)  # -log2(0.5)
+    #w_bad = Weight('log', 2.0)  # -log2(0.25)
+    w_good = 1.0
+    w_bad = 2.0
     if wfst.olabel(arc) == 'a':
         return w_good
     return w_bad
 
 
+print('Trellis with assigned weights')
 T_weight = T.map_weights('to_log')
 T_weight.assign_weights(wfunc)
+print(T_weight.print(acceptor=True))
 T_weight.draw('T_weight.dot')
 print()
 
@@ -113,7 +117,7 @@ LR = ngram(context='both', length=(2, 1))
 LR.draw('LR.dot')
 
 print('Accepted strings (up to maximum length)')
-print(list(L.accepted_strings(side='input', weights=False, max_len=4)))
+print(list(L.accepted_strings(side='input', weights=True, max_len=4)))
 print()
 
 # # # # # # # # # #

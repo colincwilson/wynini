@@ -297,10 +297,14 @@ class Wfst():
             # Identity function by default
             return self
         fst = self.fst
+        weight_type = fst.weight_type()
         for q in fst.states():
             q_arcs = fst.mutable_arcs(q)
             for t in q_arcs:
-                t.weight = wfunc(self, q, t)
+                w = wfunc(self, q, t)
+                if isinstance(w, int) or isinstance(w, float):
+                    w = Weight(weight_type, w)
+                t.weight = w
                 q_arcs.set_value(t)
         return self
 
@@ -335,33 +339,30 @@ class Wfst():
 
     def accepted_strings(self, side='input', weights=True, max_len=10):
         """
-        Iterator over input (default) or output strings through this 
-        machine up to max_len (excluding bos/eos) and optionally with 
-        path weights; cf. paths() for acyclic machines. 
+        Iterator over input (default) or output labels of paths 
+        through this machine up to max_len (excluding bos/eos),  
+        optionally with weights; cf. paths() for acyclic machines.
         todo: epsilon handling
         """
         fst = self.fst
         q0 = fst.start()
-        Zero = Weight.zero(fst.weight_type())
+        weight_type = fst.weight_type()
+        One = Weight.one(weight_type)
+        Zero = Weight.zero(weight_type)
 
-        if weights:
-            weight_type = fst.weight_type()
-            paths_old = {(q0, None, None)}
-        else:
-            paths_old = {(q0, None)}
-
+        paths_old = {(q0, None)}
         paths_new = set()
         accepted = set()
-        for _ in range(max_len + 2):
-            for path in paths_old:
-                if weights:
-                    src, label, weight = path
-                else:
-                    src, label = path
+        if weights:
+            path2weight = {(q0, None): One}
 
+        for _ in range(max_len + 2):
+            for path_old in paths_old:
+                (src, label) = path_old
                 for t in fst.arcs(src):
                     dest = t.nextstate
 
+                    # Extend label.
                     if side == 'input':
                         tlabel = self.ilabel(t)
                     else:
@@ -371,27 +372,40 @@ class Wfst():
                     else:
                         label_new = label + ' ' + tlabel
 
-                    if weights:
-                        if weight is None:
-                            weight_new = float(t.weight)
-                        else:
-                            weight_new = pynini.times(\
-                                Weight(weight_type, weight), t.weight)
-                            weight_new = float(weight_new)
-                        paths_new.add((dest, label_new, weight_new))
-                    else:
-                        paths_new.add((dest, label_new))
+                    # Update path extensions.
+                    path_new = (dest, label_new)
+                    paths_new.add(path_new)
 
-                    if fst.final(dest) != Zero:
-                        if weights:
-                            accepted.add((label_new, weight_new))
+                    # Extend weight, update total weight.
+                    if weights:
+                        weight_old = path2weight[path_old]
+                        weight_new = pynini.times(\
+                            weight_old, t.weight)
+                        if path_new in path2weight:
+                            path2weight[path_new] = pynini.plus(\
+                                path2weight[path_new], weight_new)
                         else:
-                            accepted.add(label_new)
+                            path2weight[path_new] = weight_new
+
+                    # Update accepted paths.
+                    if fst.final(dest) != Zero:
+                        accepted.add(path_new)
 
             paths_old, paths_new = paths_new, paths_old
             paths_new.clear()
-        
-        return iter(accepted)
+
+        # Return (label, weight) pairs.
+        if weights:
+            accepted_ = []
+            for path in accepted:
+                (dest, label) = path
+                weight = pynini.times(\
+                    path2weight[path], fst.final(dest))
+                accepted_.append((label, float(weight)))
+            return iter(accepted_)
+
+        # Return labels.
+        return map(lambda path: path[1], accepted)
 
     def connect(self):
         """
