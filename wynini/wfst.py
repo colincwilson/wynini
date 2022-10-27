@@ -995,6 +995,14 @@ def compose(wfst1, wfst2):
     return wfst.connect()
 
 
+def shortestdistance(wfst, reverse=False):
+    """
+    Shortest distance from each state to final states, 
+    or from each state to source state; delegates to Pynini.
+    """
+    return pynini.shortestdistance(wfst.fst, reverse=reverse)
+
+
 def arc_equal(arc1, arc2):
     """
     Arc equality (missing from pynini?).

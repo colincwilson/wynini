@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from pynini import Weight, shortestdistance
+from pynini import Weight
 from . import config
-from .wfst import Wfst
+from .wfst import Wfst, shortestdistance
 
 # todo: stable mapping from Arcs to violation vectors
 
@@ -38,21 +38,21 @@ def expected(wfst, phi, w):
     """
     # Compute arc weights from Harmonies
     assign_weights(wfst, phi, w)
-    fst = wfst.fst
 
     # Forward potentials (sum over all paths from initial to q)
-    alpha = shortestdistance(fst, reverse=False)
+    alpha = shortestdistance(wfst, reverse=False)
     alpha = [float(w) for w in alpha]
     #print(alpha)
 
     # Backward potentials (sum over all paths from q to finals)
-    beta = shortestdistance(fst, reverse=True)
+    beta = shortestdistance(wfst, reverse=True)
     beta = [float(w) for w in beta]
     #print(beta)
 
     # Accumulate expected violations across arcs
     n = w.shape[0]
     expect = np.zeros(n)
+    fst = wfst.fst
     for q in fst.states():
         for t in fst.arcs(q):
             _t = (q, t.ilabel, t.olabel, t.nextstate)
