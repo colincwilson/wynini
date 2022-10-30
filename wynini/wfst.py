@@ -666,6 +666,7 @@ class Wfst():
             **kwargs)
 
     def draw(self, source, acceptor=True, portrait=True, **kwargs):
+        """ Write FST in dot format to file _source_. """
         fst = self.fst
         # State symbol table
         state_symbols = pynini.SymbolTable()
