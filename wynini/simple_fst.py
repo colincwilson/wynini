@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from copy import copy
 from functools import total_ordering
 from pynini import SymbolTable

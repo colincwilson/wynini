@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import pynini
 from pynini import Fst, Arc, Weight
 from . import config

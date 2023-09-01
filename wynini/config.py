@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from pynini import SymbolTable
 
 epsilon = 'ϵ'  # <eps>
