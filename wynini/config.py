@@ -31,6 +31,12 @@ def init(config):
         sigma = config['sigma']
     if 'special_syms' in config:
         special_syms = config['special_syms']
+    symtable_, syms_ = make_symtable(sigma)
+    symtable = symtable_
+    syms = syms_
+
+
+def make_symtable(sigma):
     symtable = SymbolTable()
     symtable.add_symbol(epsilon)
     symtable.add_symbol(bos)
@@ -40,4 +46,4 @@ def init(config):
     for sym in sigma:
         symtable.add_symbol(sym)
     syms = [sym for (sym_id, sym) in symtable]
-    #print(syms)
+    return symtable, syms

@@ -15,16 +15,16 @@ for q in M.fst.states():
     for t in M.fst.arcs(q):
         _t = (q, t.ilabel, t.olabel, t.nextstate)
         if M.ilabel(t) == 'a':
-            phi[_t] = {'*a': 1.0}
+            phi[_t] = np.array([1.0, 0.0])  # *a, 0
         if M.ilabel(t) == 'b':
-            phi[_t] = {'*b': 1.0}
-print('Arc violation vectors:')
+            phi[_t] = np.array([0.0, 1.0])  # 0, *b
+print('arc violation vectors:')
 for _t in phi:
     print('\t', _t, '->', phi[_t])
 
 # Constraint weights (non-negative).
-w = {'*a': 1.0, '*b': 2.0}
-print('Constraint weights:', w)
+w = np.array([1.0, 2.0])  # *a, *b
+print('constraint weights:', w)
 
 # Loglinear arc weights.
 loglinear.assign_weights(M, phi, w)
@@ -32,10 +32,4 @@ print(M.print(acceptor=True, show_weight_one=True))
 
 # Expected constraint violations.
 expect = loglinear.expected(M, phi, w)
-print('Expected:', expect)
-
-# # # # # # # # # #
-
-# Composition of two transducers.
-M = trellis(length=2, arc_type='log')
-print(M.print(acceptor=True, show_weight_one=True))
+print('E:', expect)

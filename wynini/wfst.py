@@ -2,14 +2,17 @@ import pynini
 from pynini import Fst, Arc, Weight
 from . import config
 
+# todo:
+# rename xxxsymtable -> xxxsymbols for consistency with pynini
+
 
 class Wfst():
     """
     Pynini Fst wrapper with automatic handling of labels for inputs / 
     outputs / states and output strings. State labels must be hashable 
-    (strings, tuples, etc.). Pynini constructive and destructive operations 
-    generally lose track of state ids and symbol labels, so some operations 
-    are reimplemented here (e.g., connect, compose).
+    (strings, tuples, etc.). Pynini constructive and destructive 
+    operations generally lose track of state ids and symbol labels, 
+    so some operations are reimplemented here (e.g., connect, compose).
     Fst() arguments: arc_type ("standard", "log", or "log64")
     """
 
@@ -17,7 +20,7 @@ class Wfst():
                  input_symtable=None,
                  output_symtable=None,
                  arc_type='standard'):
-        # Symbol tables
+        # Symbol tables.
         if input_symtable is None:
             input_symtable = pynini.SymbolTable()
             input_symtable.add_symbol(config.epsilon)
@@ -25,15 +28,15 @@ class Wfst():
             input_symtable.add_symbol(config.eos)
         if output_symtable is None:
             output_symtable = input_symtable
-        # Empty Fst
+        # Empty Fst.
         fst = Fst(arc_type)
         fst.set_input_symbols(input_symtable)
         fst.set_output_symbols(output_symtable)
-        # Empty Wfst
-        self.fst = fst  # Wrapped Fst
-        self._state2label = {}  # State id -> state label
-        self._label2state = {}  # State label -> state id
-        self.sigma = {}  # State id -> output string
+        # Empty Wfst.
+        self.fst = fst  # Wrapped Fst.
+        self._state2label = {}  # State id -> state label.
+        self._label2state = {}  # State label -> state id.
+        self.sigma = {}  # State id -> output string.
 
     # Input/output labels (delegate to Fst).
 
@@ -53,14 +56,14 @@ class Wfst():
         """ Get mutable output symbol table. """
         return self.fst.mutable_output_symbols()
 
-    def set_input_symbols(self, symbols):
+    def set_input_symbols(self, input_symtable):
         """ Set input symbol table. """
-        self.fst.set_input_symbols(symbols)
+        self.fst.set_input_symbols(input_symtable)
         return self
 
-    def set_output_symbols(self, symbols):
+    def set_output_symbols(self, output_symtable):
         """ Set output symbol table. """
-        self.fst.set_output_symbols(symbols)
+        self.fst.set_output_symbols(output_symtable)
         return self
 
     def input_label(self, sym):
@@ -83,16 +86,16 @@ class Wfst():
 
     def add_state(self, label=None):
         """ Add new state, optionally specifying its label. """
-        # Enforce unique labels
+        # Enforce unique labels.
         if label is not None:
             if label in self._label2state:
                 return self._label2state[label]
-        # Create new state
+        # Create new state.
         q = self.fst.add_state()
-        # Self-labeling by string as default
+        # Self-labeling by string as default.
         if label is None:
             label = str(q)
-        # State <-> label
+        # State <-> label map.
         self._state2label[q] = label
         self._label2state[label] = q
         return q
@@ -268,8 +271,8 @@ class Wfst():
     def map_weights(self, map_type='identity', **kwargs):
         """
         Map weights (see pynini.arcmap).
-        map_type is "identity", "invert", "quantize", "plus", "power", 
-        "rmweight", "times", "to_log", or "to_log64"
+        map_type is "identity", "invert", "quantize", "plus", 
+        "power", "rmweight", "times", "to_log", or "to_log64".
         """
         # assumption: pynini.arcmap() does not reindex states.
         if map_type == 'identity':
@@ -286,13 +289,13 @@ class Wfst():
     def assign_weights(self, wfunc=None):
         """
         Assign weights to arcs in this machine with an arbitrary 
-        function wfunc (Wfst, Src, Arc -> Weight), which can examine 
-        input/output/src/dest and their labels of each arc.
+        function wfunc (Wfst, Src, Arc -> Weight), which can 
+        examine input/output/src/dest and their labels of each arc.
         See also map_type options "identity", "plus", "power", 
         "times" in map_weights().
         """
         if wfunc is None:
-            # Identity function by default
+            # Identity function by default.
             return self
         fst = self.fst
         weight_type = fst.weight_type()
@@ -310,15 +313,16 @@ class Wfst():
 
     def paths(self):
         """
-        Iterator over paths through this machine (assumed to be acyclic). 
+        Iterator over paths through this machine 
+        (assumed to be acyclic). 
         Path iterator has methods: ilabels(), istring(), labels(), 
         ostring(), weights(), items(); istrings(), ostrings().
         """
         fst = self.fst
         isymbols = fst.input_symbols()
         osymbols = fst.output_symbols()
-        strpath_iter = fst.paths(
-            input_token_type=isymbols, output_token_type=osymbols)
+        strpath_iter = fst.paths(input_token_type=isymbols,
+                                 output_token_type=osymbols)
         return strpath_iter
 
     def istrings(self):
@@ -407,7 +411,8 @@ class Wfst():
 
     def connect(self):
         """
-        Remove states and arcs not on successful paths. [nondestructive]
+        Remove states and arcs that are not on successful paths.
+        [nondestructive]
         """
         accessible = self.accessible(forward=True)
         coaccessible = self.accessible(forward=False)
@@ -424,7 +429,7 @@ class Wfst():
         fst = self.fst
 
         if forward:
-            # Initial state id; forward arcs
+            # Initial state id; forward arcs.
             Q = set([fst.start()])
             T = {}
             for src in fst.states():
@@ -443,7 +448,7 @@ class Wfst():
                         T[dest] = set()
                     T[dest].add(src)
 
-        # (Co)accessible state ids
+        # (Co)accessible state ids.
         Q_old = set()
         Q_new = set(Q)
         while len(Q_new) != 0:
@@ -457,18 +462,19 @@ class Wfst():
 
     def delete_states(self, states, connect=True):
         """
-        Remove states by id while preserving labels. [nondestructive]
+        Remove states by id while preserving labels.
+        [nondestructive]
         """
         fst = self.fst
         live_states = set(fst.states()) - states
 
-        # Preserve input/output symbols and weight type
+        # Preserve input/output symbols and weight type.
         wfst = Wfst(\
             fst.input_symbols(),
             fst.output_symbols(),
             fst.arc_type())
 
-        # Reindex live states, copying labels
+        # Reindex live states, copying labels.
         state_map = {}
         q0 = fst.start()
         for q in live_states:
@@ -479,7 +485,7 @@ class Wfst():
                 wfst.set_start(q_id)
             wfst.set_final(q_id, self.final(q))
 
-        # Copy arcs between live states
+        # Copy arcs between live states.
         for q in live_states:
             src = state_map[q]
             for t in filter(lambda t: t.nextstate in live_states, fst.arcs(q)):
@@ -493,25 +499,26 @@ class Wfst():
     def delete_arcs(self, dead_arcs):
         """
         Remove arcs. [destructive]
-        Implemented by deleting all arcs from relevant states then adding 
-        back all non-dead arcs, as suggested in the OpenFst forum: 
+        Implemented by deleting all arcs from relevant states 
+        then adding back all non-dead arcs, as suggested in the 
+        OpenFst forum: 
         https://www.openfst.org/twiki/bin/view/Forum/FstForumArchive2014
         """
         fst = self.fst
 
-        # Group dead arcs by source state
+        # Group dead arcs by source state.
         dead_arcs_ = {}
         for (src, t) in dead_arcs:
             if src not in dead_arcs_:
                 dead_arcs_[src] = []
             dead_arcs_[src].append(t)
 
-        # Process states with some dead arcs
+        # Process states with some dead arcs.
         for q in dead_arcs_:
-            # Remove all arcs from state
+            # Remove all arcs from state.
             arcs = fst.arcs(q)
             fst.delete_arcs(q)
-            # Add back live arcs
+            # Add back live arcs.
             for t1 in arcs:
                 live = True
                 for t2 in dead_arcs_[q]:
@@ -526,10 +533,12 @@ class Wfst():
     def transduce(self, x, add_delim=True, output_strings=True):
         """
         Transduce space-separated sequence x with this machine, 
-        returning iterator over output strings (default) or resulting 
-        machine that preserves input/output labels but not state labels. 
-        Alternative: create acceptor for string with accep(), then 
-        compose() with this machine to preserve input/output/state labels.
+        returning iterator over output strings (default) or 
+        resulting machine that preserves input/output labels 
+        but not state labels. 
+        Alternative: create acceptor for string with accep(), 
+        then compose() with this machine in order to preserve 
+        input/output/state labels.
         """
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -555,36 +564,39 @@ class Wfst():
                      reweight_type='to_initial',
                      remove_total_weight=True):
         """
-        Push arc weights and remove total weight. [destructive]
-        (see pynini.push, Fst.push)
+        Push arc weights and remove total weight
+        (see pynini.push, Fst.push).
+        [destructive]
         """
         # note: removes total weight by default
         # assumption: Fst.push() does not reindex states.
-        self.fst = self.fst.push(
-            delta=delta,
-            reweight_type=reweight_type,
-            remove_total_weight=remove_total_weight)
+        self.fst = self.fst.push(delta=delta,
+                                 reweight_type=reweight_type,
+                                 remove_total_weight=remove_total_weight)
         return self
 
     def push_labels(self, reweight_type='to_initial', **kwargs):
         """
-        Push labels (see pynini.push). [destructive]
-        pynini.push() arguments: remove_common_affix (False), 
-        reweight_type ("to_initial" or "to_final")
+        Push labels (see pynini.push with arguments
+        remove_common_affix (False) and 
+        reweight_type ("to_initial" or "to_final").
+        [destructive]
         """
         # assumption: pynini.push() does not reindex states.
         # todo: test
-        self.fst = pynini.push(
-            self.fst, push_labels=True, reweight_type=reweight_type, **kwargs)
+        self.fst = pynini.push(self.fst,
+                               push_labels=True,
+                               reweight_type=reweight_type,
+                               **kwargs)
         return self
 
     def randgen(self, npath=1, select=None, output_strings=True, **kwargs):
         """
-        Randomly generate paths through this machine, returning iterator 
-        over output strings (default) or machine accepting the paths. 
-        pynini.randgen() arguments: npath, seed, select ("uniform", 
-        "log_prob", or "fast_log_prob"), max_length, weighted, 
-        remove_total_weight
+        Randomly generate paths through this machine, returning an 
+        iterator over output strings (default) or machine accepting 
+        the paths. pynini.randgen() arguments: npath, seed, select
+        ("uniform", "log_prob", or "fast_log_prob"), max_length, 
+        weighted, remove_total_weight.
         """
         fst = self.fst
         if select is None:
@@ -613,7 +625,7 @@ class Wfst():
         fst.set_output_symbols(osymbols)
         return self
 
-    # Copying/creating
+    # Copy/create machines
 
     def copy(self):
         """
@@ -653,31 +665,29 @@ class Wfst():
 
     def print(self, **kwargs):
         fst = self.fst
-        # State symbol table
+        # State symbol table.
         state_symbols = pynini.SymbolTable()
         for q, label in self._state2label.items():
             state_symbols.add_symbol(str(label), q)
-        return fst.print(
-            isymbols=fst.input_symbols(),
-            osymbols=fst.output_symbols(),
-            ssymbols=state_symbols,
-            **kwargs)
+        return fst.print(isymbols=fst.input_symbols(),
+                         osymbols=fst.output_symbols(),
+                         ssymbols=state_symbols,
+                         **kwargs)
 
     def draw(self, source, acceptor=True, portrait=True, **kwargs):
-        """ Write FST in dot format to file _source_. """
+        """ Write FST in dot format to file (source). """
         fst = self.fst
-        # State symbol table
+        # State symbol table.
         state_symbols = pynini.SymbolTable()
         for q, label in self._state2label.items():
             state_symbols.add_symbol(str(label), q)
-        return fst.draw(
-            source,
-            isymbols=fst.input_symbols(),
-            osymbols=fst.output_symbols(),
-            ssymbols=state_symbols,
-            acceptor=acceptor,
-            portrait=portrait,
-            **kwargs)
+        return fst.draw(source,
+                        isymbols=fst.input_symbols(),
+                        osymbols=fst.output_symbols(),
+                        ssymbols=state_symbols,
+                        acceptor=acceptor,
+                        portrait=portrait,
+                        **kwargs)
 
     # todo:
     # read()/write() from/to file
@@ -685,7 +695,7 @@ class Wfst():
     # minimize(), prune(), rmepsilon()
 
 
-def accep(x, add_delim=True, **kwargs):
+def accep(x, sigma=None, add_delim=True, **kwargs):
     """
     Acceptor for space-delimited sequence (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
@@ -696,23 +706,31 @@ def accep(x, add_delim=True, **kwargs):
     if add_delim:
         x = config.bos + ' ' + x + ' ' + config.eos
 
-    isymbols = config.symtable
-    fst = pynini.accep(x, token_type=isymbols, **kwargs)
-    fst.set_input_symbols(isymbols)
-    fst.set_output_symbols(isymbols)
+    if sigma is None:
+        symtable = config.symtable
+    else:
+        symtable = config.make_symtable(sigma)
+
+    fst = pynini.accep(x, token_type=symtable, **kwargs)
+    fst.set_input_symbols(symtable)
+    fst.set_output_symbols(symtable)
     wfst = Wfst.from_fst(fst)
     return wfst
 
 
-def braid(length=1, sigma_tier=None, arc_type='standard'):
+def braid(length=1, sigma=None, sigma_tier=None, arc_type='standard'):
     """
     Acceptor for strings of given length (+2 for delimiters); 
-    see trellis_acceptor().
+    see trellis().
     """
-    return trellis(length, sigma_tier, False, arc_type)
+    return trellis(length, sigma, sigma_tier, False, arc_type)
 
 
-def trellis(length=1, sigma_tier=None, trellis=True, arc_type='standard'):
+def trellis(length=1,
+            sigma=None,
+            sigma_tier=None,
+            trellis=True,
+            arc_type='standard'):
     """
     Acceptor for all strings up to specified length (trellis = True), 
     or of specified length (trellis = False), +2 for delimiters. 
@@ -722,46 +740,56 @@ def trellis(length=1, sigma_tier=None, trellis=True, arc_type='standard'):
     """
     bos = config.bos
     eos = config.eos
+
+    # Input/output alphabet.
+    if sigma is None:
+        sigma = config.sigma
+        symtable = config.symtable
+    else:
+        symtable, _ = config.make_symtable(sigma)
+
+    # Subset of alphabet for tier.
     if sigma_tier is None:
-        sigma_tier = set(config.sigma)
+        sigma_tier = set(sigma)
         sigma_skip = set()
     else:
         sigma_skip = set(config.sigma) - sigma_tier
-    wfst = Wfst(config.symtable, arc_type=arc_type)
 
-    # Initial and peninitial states
+    wfst = Wfst(symtable, arc_type=arc_type)
+
+    # Initial and peninitial states.
     q0 = wfst.add_state()  # id 0
     q1 = wfst.add_state()  # id 1
     wfst.set_start(q0)
     wfst.add_arc(src=q0, ilabel=bos, dest=q1)
 
-    # Interior states
+    # Interior states.
     for l in range(length):
         wfst.add_state()  # ids 2, ...
 
-    # Final state
+    # Final state.
     qf = wfst.add_state()  # id (length+2)
     wfst.set_final(qf)
 
-    # Zero-length form
+    # Zero-length form.
     if trellis:
         wfst.add_arc(src=q1, ilabel=eos, dest=qf)
 
-    # Loop
+    # Loop.
     for x in sigma_skip:
         wfst.add_arc(src=q1, ilabel=x, dest=q1)
 
-    # Interior arcs
+    # Interior arcs.
     q = q1
     for l in range(1, length + 1):
         r = (l + 1)
-        # Advance
+        # Advance.
         for x in sigma_tier:
             wfst.add_arc(src=q, ilabel=x, dest=r)
-        # Loop
+        # Loop.
         for x in sigma_skip:
             wfst.add_arc(src=r, ilabel=x, dest=r)
-        # End
+        # End.
         if trellis:
             wfst.add_arc(src=r, ilabel=eos, dest=qf)
         q = r
@@ -771,24 +799,31 @@ def trellis(length=1, sigma_tier=None, trellis=True, arc_type='standard'):
     return wfst
 
 
-def ngram(context='left', length=1, sigma_tier=None, arc_type='standard'):
+def ngram(context='left',
+          length=1,
+          sigma=None,
+          sigma_tier=None,
+          arc_type='standard'):
     """
-    Acceptor (identity transducer) for segments in immediately preceding 
-    (left) / following (right) / both-side contexts of specified length.
+    Acceptor (identity transducer) for segments in immediately 
+    preceding (left) / following (right) / both-side contexts of 
+    specified length. For both-side context, length can be tuple.
+    See:
+    Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers. In INTERSPEECH (pp. 1258-1262).
     """
     if context == 'left':
-        return ngram_left(length, sigma_tier, arc_type)
+        return ngram_left(length, sigma, sigma_tier, arc_type)
     if context == 'right':
-        return ngram_right(length, sigma_tier, arc_type)
+        return ngram_right(length, sigma, sigma_tier, arc_type)
     if context == 'both':
         if isinstance(length, int):
-            # Same context length on both sides
+            # Same context length on both sides.
             length_L = length_R = length
         else:
-            # Separate context lengths
+            # Separate context lengths.
             length_L, length_R = length
-        L = ngram_left(length_L, sigma_tier, arc_type)
-        R = ngram_right(length_R, sigma_tier, arc_type)
+        L = ngram_left(length_L, sigma, sigma_tier, arc_type)
+        R = ngram_right(length_R, sigma, sigma_tier, arc_type)
         #R.project('input')
         LR = compose(L, R)
         return LR
@@ -796,31 +831,44 @@ def ngram(context='left', length=1, sigma_tier=None, arc_type='standard'):
     return None
 
 
-def ngram_left(length=1, sigma_tier=None, arc_type='standard'):
+def ngram_left(length=1, sigma=None, sigma_tier=None, arc_type='standard'):
     """
-    Acceptor (identity transducer) for segments in immediately preceding 
-    contexts (histories) of specified length. If sigma_tier is specified 
-    as a subset of sigma, only contexts over sigma_tier are tracked (other members  of sigma are skipped with self-loops on each interior state).
+    Acceptor (identity transducer) for segments in immediately 
+    preceding contexts (histories) of specified length. If 
+    sigma_tier is specified as a subset of sigma, only symbols 
+    in sigma_tier are consumed by arcs and tracked in histories 
+    (other members of sigma are skipped with self-loops on 
+    each interior state).
     """
     epsilon = config.epsilon
     bos = config.bos
     eos = config.eos
+
+    # Input/output alphabet.
+    if sigma is None:
+        sigma = config.sigma
+        symtable = config.symtable
+    else:
+        symtable, _ = config.make_symtable(sigma)
+
+    # Subset of alphabet for tier.
     if sigma_tier is None:
-        sigma_tier = set(config.sigma)
+        sigma_tier = set(sigma)
         sigma_skip = set()
     else:
-        sigma_skip = set(config.sigma) - sigma_tier
-    wfst = Wfst(config.symtable, arc_type=arc_type)
+        sigma_skip = set(sigma) - sigma_tier
 
-    # Initial and peninitial states
-    q0 = ('λ',)
-    q1 = (epsilon,) * (length - 1) + (bos,)
+    wfst = Wfst(symtable, arc_type=arc_type)
+
+    # Initial and peninitial states.
+    q0 = ('λ', )
+    q1 = (epsilon, ) * (length - 1) + (bos, )
     wfst.add_state(q0)
     wfst.set_start(q0)
     wfst.add_state(q1)
     wfst.add_arc(src=q0, ilabel=bos, dest=q1)
 
-    # Interior arcs
+    # Interior arcs.
     # xα -- y --> αy for each y
     Q = {q0, q1}
     Qnew = set(Q)
@@ -831,14 +879,14 @@ def ngram_left(length=1, sigma_tier=None, arc_type='standard'):
             if q1 == q0:
                 continue
             for x in sigma_tier:
-                q2 = _suffix(q1, length - 1) + (x,)
+                q2 = _suffix(q1, length - 1) + (x, )
                 wfst.add_state(q2)
                 wfst.add_arc(src=q1, ilabel=x, dest=q2)
                 Qnew.add(q2)
         Q |= Qnew
 
-    # Final state and incoming arcs
-    qf = (eos,)
+    # Final state and incoming arcs.
+    qf = (eos, )
     wfst.add_state(qf)
     wfst.set_final(qf)
     for q1 in Q:
@@ -848,7 +896,7 @@ def ngram_left(length=1, sigma_tier=None, arc_type='standard'):
     Q.add(qf)
 
     # Self-arcs labeled by skipped symbols
-    # on interior states
+    # on interior states.
     for q in Q:
         if (q == q0) or (q == qf):
             continue
@@ -858,32 +906,41 @@ def ngram_left(length=1, sigma_tier=None, arc_type='standard'):
     return wfst
 
 
-def ngram_right(length=1, sigma_tier=None, arc_type='standard'):
+def ngram_right(length=1, sigma=None, sigma_tier=None, arc_type='standard'):
     """
-    Acceptor (identity transducer) for segments in immediately following 
-    contexts (futures) of specified length. If sigma_tier is specified 
-    as a subset of sigma, only contexts over sigma_tier are tracked (other 
-    members of sigma are skipped with self-loops on each interior state).
+    Acceptor (identity transducer) for segments in immediately 
+    following contexts (futures) of specified length.
+    See ngram_left() on handling of sigma_tier.
     """
     epsilon = config.epsilon
     bos = config.bos
     eos = config.eos
+
+    # Input/output alphabet.
+    if sigma is None:
+        sigma = config.sigma
+        symtable = config.symtable
+    else:
+        symtable, _ = config.make_symtable(sigma)
+
+    # Subset of alphabet for tier.
     if sigma_tier is None:
-        sigma_tier = set(config.sigma)
+        sigma_tier = set(sigma)
         sigma_skip = set()
     else:
-        sigma_skip = set(config.sigma) - sigma_tier
-    wfst = Wfst(config.symtable, arc_type=arc_type)
+        sigma_skip = set(sigma) - sigma_tier
 
-    # Final and penultimate state
-    qf = ('λ',)
-    qp = (eos,) + (epsilon,) * (length - 1)
+    wfst = Wfst(symtable, arc_type=arc_type)
+
+    # Final and penultimate state.
+    qf = ('λ', )
+    qp = (eos, ) + (epsilon, ) * (length - 1)
     wfst.add_state(qf)
     wfst.set_final(qf)
     wfst.add_state(qp)
     wfst.add_arc(src=qp, ilabel=eos, dest=qf)
 
-    # Interior arcs
+    # Interior arcs.
     # xα --> x --> αy for each y
     Q = {qf, qp}
     Qnew = set(Q)
@@ -894,14 +951,14 @@ def ngram_right(length=1, sigma_tier=None, arc_type='standard'):
             if q2 == qf:
                 continue
             for x in sigma_tier:
-                q1 = (x,) + _prefix(q2, length - 1)
+                q1 = (x, ) + _prefix(q2, length - 1)
                 wfst.add_state(q1)
                 wfst.add_arc(src=q1, ilabel=x, dest=q2)
                 Qnew.add(q1)
         Q |= Qnew
 
-    # Initial state and outgoing arcs
-    q0 = (bos,)
+    # Initial state and outgoing arcs.
+    q0 = (bos, )
     wfst.add_state(q0)
     wfst.set_start(q0)
     for q in Q:
@@ -911,7 +968,7 @@ def ngram_right(length=1, sigma_tier=None, arc_type='standard'):
     Q.add(q0)
 
     # Self-arcs labeled by skipped symbols
-    # on interior states
+    # on interior states.
     for q in Q:
         if (q == q0) or (q == qf):
             continue
@@ -921,11 +978,31 @@ def ngram_right(length=1, sigma_tier=None, arc_type='standard'):
     return wfst
 
 
-def compose(wfst1, wfst2):
+def _prefix(x, l):
+    """ Length-l prefix of tuple x. """
+    if l < 1:
+        return ()
+    if len(x) < l:
+        return x
+    return x[:l]
+
+
+def _suffix(x, l):
+    """ Length-l suffix of tuple x. """
+    if l < 1:
+        return ()
+    if len(x) < l:
+        return x
+    return x[-l:]
+
+
+def compose(wfst1, wfst2, phi1=None, phi2=None):
     """
-    Composition/intersection, retaining contextual info from original 
-    machines by labeling each state q = (q1, q2) as (label(q1), label(q2)). 
-    Multiplies arc and final weights if machines have the same arc type.
+    Composition/intersection, retaining contextual info from 
+    original machines by labeling each state q = (q1, q2) as 
+    (label(q1), label(q2)). Multiplies arc and final weights 
+    if machines have the same arc type. Combines (unions) 
+    arc feature functions phi1 and phi2 if provided.
     todo: matcher/filter options for compose; 
     flatten state labels created by repeated composition
     """
@@ -933,6 +1010,7 @@ def compose(wfst1, wfst2):
     output_symtable = wfst2.output_symbols()
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     arc_type = wfst2.arc_type() if common_weights else 'standard'
+    phi = {}  # Feature function (arcs -> feature violations).
 
     wfst = Wfst(input_symtable, output_symtable, arc_type)
     one = Weight.one(wfst.weight_type())
@@ -942,41 +1020,55 @@ def compose(wfst1, wfst2):
     wfst.add_state(q0)
     wfst.set_start(q0)
 
-    # Lazy state and arc construction
+    # Lazy state and arc construction.
+    # todo: sort arcs wfst2
     Q = set([q0])
     Q_old, Q_new = set(), set([q0])
     while len(Q_new) != 0:
         Q_old, Q_new = Q_new, Q_old
         Q_new.clear()
         for src in Q_old:
-            # Source state
+            # Source state.
             src1, src2 = src
             for t1 in wfst1.arcs(src1):
-                # todo: sort arcs wfst2
+                phi_t1 = get_features(phi, src1, t1)
+
                 for t2 in wfst2.arcs(src2):
                     if t1.olabel != t2.ilabel:
                         continue
+                    phi_t2 = get_features(phi2, src2, t2)
 
-                    # Destination state
+                    # Destination state.
                     dest1 = t1.nextstate
                     dest2 = t2.nextstate
-                    dest = (wfst1.state_label(dest1), wfst2.state_label(dest2))
+                    dest = (wfst1.state_label(dest1), \
+                            wfst2.state_label(dest2))
                     wfst.add_state(dest)
                     # note: no change if dest already exists
 
-                    # Arc
+                    # Arc.
                     if common_weights:
                         weight = pynini.times(t1.weight, t2.weight)
                     else:
                         weight = one  # or t2.weight?
-                    wfst.add_arc(
-                        src=src,
-                        ilabel=t1.ilabel,
-                        olabel=t2.olabel,
-                        weight=weight,
-                        dest=dest)
+                    wfst.add_arc(src=src,
+                                 ilabel=t1.ilabel,
+                                 olabel=t2.olabel,
+                                 weight=weight,
+                                 dest=dest)
 
-                    # Dest is final if both dest1 and dest2 are final
+                    # Features of composed arc are union of features
+                    # of source arcs (with None equiv. to {}).
+                    phi_t1_flag = (phi_t1 is not None)
+                    phi_t2_flag = (phi_t2 is not None)
+                    if phi_t1_flag and phi_t2_flag:
+                        phi[(src, ilabel, olabel, dest)] = phi_t1 | phi_t2
+                    elif phi_t1_flag:
+                        phi[(src, ilabel, olabel, dest)] = phi_t1
+                    elif phi_t2_flag:
+                        phi[(src, ilabel, olabel, dest)] = phi_t2
+
+                    # Dest is final if both dest1 and dest2 are final.
                     wfinal1 = wfst1.final(dest1)
                     wfinal2 = wfst2.final(dest2)
                     if wfinal1 != zero and wfinal2 != zero:
@@ -986,12 +1078,16 @@ def compose(wfst1, wfst2):
                             wfinal = one  # or wfinal2?
                         wfst.set_final(dest, wfinal)
 
-                    # Enqueue new state
+                    # Enqueue new state.
                     if dest not in Q:
                         Q.add(dest)
                         Q_new.add(dest)
 
-    return wfst.connect()
+    wfst = wfst.connect()
+
+    if phi1 is not None or phi2 is not None:
+        return wfst, phi
+    return wfst
 
 
 def shortestdistance(wfst, reverse=False):
@@ -1013,19 +1109,13 @@ def arc_equal(arc1, arc2):
     return val
 
 
-def _prefix(x, l):
-    """ Length-l prefix of tuple x. """
-    if l < 1:
-        return ()
-    if len(x) < l:
-        return x
-    return x[:l]
-
-
-def _suffix(x, l):
-    """ Length-l suffix of tuple x. """
-    if l < 1:
-        return ()
-    if len(x) < l:
-        return x
-    return x[-l:]
+def get_features(phi, src, t, default=None):
+    """
+    Get features (i.e., weighted constraint violations 
+    as in maxent models, 'linear' transducers, HG, ...)
+    for arc t.
+    """
+    if phi is None:
+        return default
+    t_ = (src, t.ilabel, t.olabel, t.nextstate)
+    return phi.get(t_, default)

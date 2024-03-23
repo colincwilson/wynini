@@ -2,7 +2,7 @@ import numpy as np
 
 from pynini import Weight
 from . import config
-from .wfst import Wfst, shortestdistance, get_features
+from .wfst import Wfst, shortestdistance
 
 # todo: stable mapping from Arcs to violation vectors
 # Reference:
@@ -26,66 +26,50 @@ def assign_weights(wfst, phi, w):
     for q in fst.states():
         q_arcs = fst.mutable_arcs(q)
         for t in q_arcs:
-            phi_t = get_features(phi, q, t)
-            if phi_t is None:
+            _t = (q, t.ilabel, t.olabel, t.nextstate)
+            if _t not in phi:
                 t.weight = one
             else:
-                t.weight = Weight('log', dot_product(phi_t, w))
+                phi_t = phi.get(_t)
+                t.weight = Weight('log', np.dot(phi_t, w))
             q_arcs.set_value(t)
     return wfst
 
 
 def expected(wfst, phi, w):
     """
-    Expected violation counts of features/constraints
-    in phi given weights w.
+    Expected violation counts of features/constraints in phi 
+    given weights w.
     """
-    # Set arc weights equal to Harmonies
-    # (sum of weighted feature violations).
+    # Compute arc weights from Harmonies
     assign_weights(wfst, phi, w)
 
-    # Forward potentials
-    # (sum over all paths from initial to q).
+    # Forward potentials (sum over all paths from initial to q)
     alpha = shortestdistance(wfst, reverse=False)
     alpha = [float(w) for w in alpha]
     #print(alpha)
 
-    # Backward potentials
-    # (sum over all paths from q to finals).
+    # Backward potentials (sum over all paths from q to finals)
     beta = shortestdistance(wfst, reverse=True)
     beta = [float(w) for w in beta]
     #print(beta)
 
-    # Accumulate expected violations across arcs.
-    expect = {}
+    # Accumulate expected violations across arcs
+    n = w.shape[0]
+    expect = np.zeros(n)
     fst = wfst.fst
     for q in fst.states():
         for t in fst.arcs(q):
-            # Feature vector.
-            phi_t = get_features(phi, q, t)
-            if phi_t is None or len(phi_t) == 0:
+            _t = (q, t.ilabel, t.olabel, t.nextstate)
+            if _t not in phi:  # all-zero violation vector
                 continue
-            # Unnormalized plog of all paths through t.
+            phi_t = phi.get(_t)  # violation vector
+            # Unnormalized plog of all paths through t
             plog = alpha[q] + float(t.weight) + beta[t.nextstate]
-            # Accumulate pstar[t] * violations[t].
-            pstar = np.exp(-plog)
-            for ftr, violn in phi_t.items():
-                expect[ftr] = expect.get(ftr, 0.0) + (pstar * violn)
+            # Accumulate pstar[t] * violations[t]
+            expect += np.exp(-plog) * phi_t
 
     # Divide by partitition function (sum over all paths)
     Z = np.exp(-beta[0])
-    for ftr in expect:
-        expect[ftr] /= Z
+    expect /= Z
     return expect
-
-
-def dot_product(phi_t, w):
-    """
-    Dot product of features and weights represented 
-    with dictionaries of non-zero values.
-    """
-    ret = 0.0
-    for ftr, violn in phi_t.items():
-        if ftr in w:
-            ret += w[ftr] * violn
-    return ret
