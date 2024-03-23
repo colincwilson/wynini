@@ -161,10 +161,14 @@ class Wfst():
 
     def state_label(self, q):
         """ State label from id. """
+        if not isinstance(q, int):
+            return q
         return self._state2label[q]
 
     def state_id(self, q):
         """ State id from label. """
+        if isinstance(q, int):
+            return q
         return self._label2state[q]
 
     # Arcs.
@@ -676,6 +680,7 @@ class Wfst():
 
     def draw(self, source, acceptor=True, portrait=True, **kwargs):
         """ Write FST in dot format to file (source). """
+        # todo: draw to standard out
         fst = self.fst
         # State symbol table.
         state_symbols = pynini.SymbolTable()
@@ -1032,15 +1037,19 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
         Q_new.clear()
         for src in Q_old:
             # Source state.
-            src1, src2 = src
+            src1, src2 = src  # State labels.
+            src_id = wfst.state_id(src)  # State ids.
+            src1_id = wfst1.state_id(src1)
+            src2_id = wfst2.state_id(src2)
+
             for t1 in wfst1.arcs(src1):
-                phi_t1 = get_features(phi1, src1, t1)
-                print(src1, t1.ilabel, t1.olabel, t1.nextstate, phi_t1)
+                phi_t1 = get_features(phi1, src1_id, t1)
+                #print(src1, t1.ilabel, t1.olabel, t1.nextstate, phi_t1)
 
                 for t2 in wfst2.arcs(src2):
                     if t1.olabel != t2.ilabel:
                         continue
-                    phi_t2 = get_features(phi2, src2, t2)
+                    phi_t2 = get_features(phi2, src2_id, t2)
 
                     # Destination state.
                     dest1 = t1.nextstate
@@ -1049,6 +1058,7 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
                             wfst2.state_label(dest2))
                     wfst.add_state(dest)
                     # note: no change if dest already exists
+                    dest_id = wfst.state_id(dest)
 
                     # Arc.
                     if common_weights:
@@ -1066,13 +1076,13 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
                     phi_t1_flag = (phi_t1 is not None)
                     phi_t2_flag = (phi_t2 is not None)
                     if phi_t1_flag and phi_t2_flag:
-                        t_ = (src, t1.ilabel, t2.olabel, dest)
+                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         phi[t_] = phi_t1 | phi_t2
                     elif phi_t1_flag:
-                        t_ = (src, t1.ilabel, t2.olabel, dest)
+                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         phi[t_] = phi_t1
                     elif phi_t2_flag:
-                        t_ = (src, t1.ilabel, t2.olabel, dest)
+                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         phi[t_] = phi_t2
 
                     # Dest is final if both dest1 and dest2 are final.
@@ -1092,9 +1102,9 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
 
     wfst = wfst.connect()
 
-    if phi1 is not None or phi2 is not None:
-        return wfst, phi
-    return wfst
+    if phi1 is None and phi2 is None:
+        return wfst
+    return wfst, phi
 
 
 def shortestdistance(wfst, reverse=False):
@@ -1116,20 +1126,20 @@ def arc_equal(arc1, arc2):
     return val
 
 
-def assign_features(M, phi_func):
+def assign_features(wfst, phi_func):
     """
     Assign feature violations to arcs in wfst M with 
-    arbitrary function (M, q, t -> feature violations).
+    arbitrary function (Wfst, state, transition -> feature violations).
     """
     phi = {}
-    for src in M.fst.states():
-        for t in M.fst.arcs(src):
-            t_ = (src, t.ilabel, t.olabel, t.nextstate)
-            phi[t_] = phi_func(M, src, t)
+    for src_id in wfst.fst.states():
+        for t in wfst.fst.arcs(src_id):
+            t_ = (src_id, t.ilabel, t.olabel, t.nextstate)
+            phi[t_] = phi_func(wfst, src_id, t)
     return phi
 
 
-def get_features(phi, src, t, default=None):
+def get_features(phi, src_id, t, default=None):
     """
     Get features (i.e., weighted constraint violations 
     as in maxent models, 'linear' transducers, HG, ...)
@@ -1137,5 +1147,5 @@ def get_features(phi, src, t, default=None):
     """
     if phi is None:
         return default
-    t_ = (src, t.ilabel, t.olabel, t.nextstate)
+    t_ = (src_id, t.ilabel, t.olabel, t.nextstate)
     return phi.get(t_, default)

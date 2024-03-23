@@ -14,51 +14,53 @@ from .wfst import Wfst, shortestdistance, get_features
 # INTERSPEECH (pp. 1258-1262).
 
 
-def assign_weights(M, phi, w):
+def assign_weights(wfst, phi, w):
     """
     Assign unnormalized plog weight to each arc t in wfst M 
     according to its Harmony: $-\sum_k (w_k \cdot \phi_k(t))$.
+    phi: 
     phi: arc t -> [\phi_0(t), \phi_1(t), ...] (violation vector)
     w: [w_0, w_1, ...] (weight vector)
     """
-    fst = M.fst
+    fst = wfst.fst
     one = Weight('log', 0)
-    for q in fst.states():
-        q_arcs = fst.mutable_arcs(q)
+    for src in fst.states():
+        q_arcs = fst.mutable_arcs(src)
         for t in q_arcs:
-            phi_t = get_features(phi, q, t)
+            phi_t = get_features(phi, src, t)
+            #print((src, t.ilabel, t.olabel, t.nextstate), phi_t)
             if phi_t is None:
                 t.weight = one
             else:
                 t.weight = Weight('log', dot_product(phi_t, w))
             q_arcs.set_value(t)
-    return M
+    return wfst
 
 
-def expected(M, phi, w):
+def expected(wfst, phi, w):
     """
     Expected violation counts of features/constraints
     in phi given weights w.
     """
     # Set arc weights equal to Harmonies
     # (sum of weighted feature violations).
-    assign_weights(M, phi, w)
+    assign_weights(wfst, phi, w)
 
     # Forward potentials
     # (sum over all paths from initial to q).
-    alpha = shortestdistance(M, reverse=False)
+    alpha = shortestdistance(wfst, reverse=False)
     alpha = [float(w) for w in alpha]
     #print(alpha)
 
     # Backward potentials
     # (sum over all paths from q to finals).
-    beta = shortestdistance(M, reverse=True)
+    beta = shortestdistance(wfst, reverse=True)
     beta = [float(w) for w in beta]
     #print(beta)
 
     # Accumulate expected violations across arcs.
     expect = {}
-    fst = M.fst
+    fst = wfst.fst
     for q in fst.states():
         for t in fst.arcs(q):
             # Feature vector.

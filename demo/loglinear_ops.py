@@ -11,11 +11,11 @@ print(M.print(acceptor=True, show_weight_one=True))
 
 
 # Map from arc to violation vector.
-def phi_func(M, q, t):
+def phi_func(wfst, src_id, t):
     ret = {}
-    if M.ilabel(t) == 'a':
+    if wfst.ilabel(t) == 'a':
         ret['*a'] = 1.0
-    elif M.ilabel(t) == 'b':
+    elif wfst.ilabel(t) == 'b':
         ret['*b'] = 1.0
     return ret
 
@@ -46,11 +46,11 @@ M1 = trellis(length=2, sigma=['a', 'b'], arc_type='log')
 print(M1.print(acceptor=True, show_weight_one=True))
 
 
-def phi1_func(M, q, t):
+def phi1_func(wfst, src_id, t):
     ret = {}
-    if M.ilabel(t) == 'a':
+    if wfst.ilabel(t) == 'a':
         ret['*a'] = 1.0
-    elif M.ilabel(t) == 'b':
+    elif wfst.ilabel(t) == 'b':
         ret['*b'] = 1.0
     return ret
 
@@ -76,11 +76,11 @@ M2.set_final(2)
 print(M2.print())
 
 
-def phi2_func(M, q, t):
+def phi2_func(wfst, src_id, t):
     ret = {}
-    if M.ilabel(t) != M.olabel(t):
+    if wfst.ilabel(t) != wfst.olabel(t):
         ret['Ident'] = 1.0
-    if M.olabel(t) == 'B':
+    if wfst.olabel(t) == 'B':
         ret['*B'] = 1.0
     return ret
 
@@ -90,6 +90,14 @@ print('phi2:', phi2)
 print()
 
 M, phi = compose(M1, M2, phi1=phi1, phi2=phi2)
+print(M.print())
+print(M.draw('M.dot'))
 print('phi:')
 for t, v in phi.items():
     print(t, v)
+
+w = {'*a': 1.0, '*b': 2.0, '*Ident': 5.0, '*B': 6.0}
+M = loglinear.assign_weights(M, phi, w)
+print(M.print(show_weight_one=True))
+E = loglinear.expected(M, phi, w)
+print(E)
