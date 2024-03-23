@@ -87,9 +87,9 @@ class Wfst():
                 return self._label2state[label]
         # Create new state.
         q = self.fst.add_state()
-        # Self-labeling by string as default.
+        # Self-labeling by int as default.
         if label is None:
-            label = str(q)
+            label = q
         # State <-> label map.
         self._state2label[q] = label
         self._label2state[label] = q
@@ -1014,15 +1014,12 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     arc_type = wfst2.arc_type() if common_weights else 'standard'
     phi = {}  # Feature function (arcs -> feature violations).
-    #print('phi1:', phi1)
-    #print('phi2', phi2)
-    #sys.exit(0)
 
     wfst = Wfst(isymbols, osymbols, arc_type)
     one = Weight.one(wfst.weight_type())
     zero = Weight.zero(wfst.weight_type())
 
-    q0 = (wfst1.start(label=False), wfst2.start(label=False))
+    q0 = (wfst1.start(), wfst2.start())
     wfst.add_state(q0)
     wfst.set_initial(q0)
 
@@ -1037,10 +1034,8 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
             # Source state.
             src1, src2 = src
             for t1 in wfst1.arcs(src1):
-                phi_t1 = get_features(phi, src1, t1)
-                if phi_t1 is not None:  # xxx debugging
-                    print(t1, phi_t1)
-                    sys.exit(0)
+                phi_t1 = get_features(phi1, src1, t1)
+                print(src1, t1.ilabel, t1.olabel, t1.nextstate, phi_t1)
 
                 for t2 in wfst2.arcs(src2):
                     if t1.olabel != t2.ilabel:
@@ -1127,10 +1122,10 @@ def assign_features(M, phi_func):
     arbitrary function (M, q, t -> feature violations).
     """
     phi = {}
-    for q in M.fst.states():
-        for t in M.fst.arcs(q):
-            _t = (q, t.ilabel, t.olabel, t.nextstate)
-            phi[_t] = phi_func(M, q, t)
+    for src in M.fst.states():
+        for t in M.fst.arcs(src):
+            t_ = (src, t.ilabel, t.olabel, t.nextstate)
+            phi[t_] = phi_func(M, src, t)
     return phi
 
 
