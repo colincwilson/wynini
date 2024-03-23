@@ -9,15 +9,18 @@ from wynini import loglinear
 M = trellis(length=2, arc_type='log')
 print(M.print(acceptor=True, show_weight_one=True))
 
+
 # Map from arc to violation vector.
-phi = {}
-for q in M.fst.states():
-    for t in M.fst.arcs(q):
-        _t = (q, t.ilabel, t.olabel, t.nextstate)
-        if M.ilabel(t) == 'a':
-            phi[_t] = {'*a': 1.0}
-        if M.ilabel(t) == 'b':
-            phi[_t] = {'*b': 1.0}
+def phi_func(M, q, t):
+    if M.ilabel(t) == 'a':
+        return {'*a': 1.0}
+    elif M.ilabel(t) == 'b':
+        return {'*b': 1.0}
+    return {}
+
+
+phi = assign_features(M, phi_func)
+
 print('Arc violation vectors:')
 for _t in phi:
     print('\t', _t, '->', phi[_t])
@@ -33,9 +36,55 @@ print(M.print(acceptor=True, show_weight_one=True))
 # Expected constraint violations.
 expect = loglinear.expected(M, phi, w)
 print('Expected:', expect)
+print()
 
 # # # # # # # # # #
 
-# Composition of two transducers.
-M = trellis(length=2, arc_type='log')
-print(M.print(acceptor=True, show_weight_one=True))
+# Composition of two transducers with features.
+M1 = trellis(length=2, sigma=['a', 'b'], arc_type='log')
+print(M1.print(acceptor=True, show_weight_one=True))
+
+
+def phi1_func(M, q, t):
+    if M.ilabel(t) == 'a':
+        return {'*a': 1.0}
+    elif M.ilabel(t) == 'b':
+        return {'*b': 1.0}
+    return {}
+
+
+phi1 = assign_features(M1, phi1_func)
+print('phi1:', phi1)
+print()
+
+isymbols2, _ = config.make_symtable(['a', 'b'])
+osymbols2, _ = config.make_symtable(['a', 'b', 'c'])
+M2 = Wfst(isymbols2, osymbols2, arc_type='log')
+M2.add_state(0)
+M2.add_state(1)
+M2.add_state(2)
+M2.add_arc(0, config.bos, config.bos, None, 1)
+for x in ['a', 'b']:
+    for y in ['a', 'b', 'c']:
+        M2.add_arc(1, x, y, None, 1)
+M2.add_arc(1, config.eos, config.eos, None, 2)
+M2.set_initial(0)
+M2.set_final(2)
+print(M2.print())
+
+
+def phi2_func(M, q, t):
+    if M.ilabel(t) != M.olabel(t):
+        return {'Ident': 1.0}
+    return {}
+
+
+phi2 = assign_features(M2, phi2_func)
+print('phi2:', phi2)
+print()
+
+print(phi1)
+M, phi = compose(M1, M2, phi1=phi1, phi2=phi2)
+print('phi:')
+for t, v in phi.items():
+    print(t, v)

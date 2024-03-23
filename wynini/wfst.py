@@ -1,9 +1,6 @@
-import pynini
+import sys, pynini
 from pynini import Fst, Arc, Weight
 from . import config
-
-# todo:
-# rename xxxsymtable -> xxxsymbols for consistency with pynini
 
 
 class Wfst():
@@ -16,22 +13,19 @@ class Wfst():
     Fst() arguments: arc_type ("standard", "log", or "log64")
     """
 
-    def __init__(self,
-                 input_symtable=None,
-                 output_symtable=None,
-                 arc_type='standard'):
+    def __init__(self, isymbols=None, osymbols=None, arc_type='standard'):
         # Symbol tables.
-        if input_symtable is None:
-            input_symtable = pynini.SymbolTable()
-            input_symtable.add_symbol(config.epsilon)
-            input_symtable.add_symbol(config.bos)
-            input_symtable.add_symbol(config.eos)
-        if output_symtable is None:
-            output_symtable = input_symtable
+        if isymbols is None:
+            isymbols = pynini.SymbolTable()
+            isymbols.add_symbol(config.epsilon)
+            isymbols.add_symbol(config.bos)
+            isymbols.add_symbol(config.eos)
+        if osymbols is None:
+            osymbols = isymbols
         # Empty Fst.
         fst = Fst(arc_type)
-        fst.set_input_symbols(input_symtable)
-        fst.set_output_symbols(output_symtable)
+        fst.set_input_symbols(isymbols)
+        fst.set_output_symbols(osymbols)
         # Empty Wfst.
         self.fst = fst  # Wrapped Fst.
         self._state2label = {}  # State id -> state label.
@@ -56,14 +50,14 @@ class Wfst():
         """ Get mutable output symbol table. """
         return self.fst.mutable_output_symbols()
 
-    def set_input_symbols(self, input_symtable):
+    def set_input_symbols(self, isymbols):
         """ Set input symbol table. """
-        self.fst.set_input_symbols(input_symtable)
+        self.fst.set_input_symbols(isymbols)
         return self
 
-    def set_output_symbols(self, output_symtable):
+    def set_output_symbols(self, osymbols):
         """ Set output symbol table. """
-        self.fst.set_output_symbols(output_symtable)
+        self.fst.set_output_symbols(osymbols)
         return self
 
     def input_label(self, sym):
@@ -86,6 +80,7 @@ class Wfst():
 
     def add_state(self, label=None):
         """ Add new state, optionally specifying its label. """
+        # todo: start/initial and final flags
         # Enforce unique labels.
         if label is not None:
             if label in self._label2state:
@@ -115,6 +110,9 @@ class Wfst():
         if not isinstance(q, int):
             q = self.state_id(q)
         return self.fst.set_start(q)
+
+    # Alias for set_start().
+    set_initial = set_start
 
     def start(self, label=True):
         """ Start state label (or id). """
@@ -178,6 +176,8 @@ class Wfst():
                 weight=None,
                 dest=None):
         """ Add arc (accepts id or label for src/ilabel/olabel/dest). """
+        # todo: add src/dest states if they do not already exist
+        # todo: add unweighted arc without specifying weight=None
         fst = self.fst
         if not isinstance(src, int):
             src = self.state_id(src)
@@ -707,13 +707,13 @@ def accep(x, sigma=None, add_delim=True, **kwargs):
         x = config.bos + ' ' + x + ' ' + config.eos
 
     if sigma is None:
-        symtable = config.symtable
+        isymbols = config.symtable
     else:
-        symtable = config.make_symtable(sigma)
+        isymbols, _ = config.make_symtable(sigma)
 
-    fst = pynini.accep(x, token_type=symtable, **kwargs)
-    fst.set_input_symbols(symtable)
-    fst.set_output_symbols(symtable)
+    fst = pynini.accep(x, token_type=isymbols, **kwargs)
+    fst.set_input_symbols(isymbols)
+    fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
     return wfst
 
@@ -744,9 +744,9 @@ def trellis(length=1,
     # Input/output alphabet.
     if sigma is None:
         sigma = config.sigma
-        symtable = config.symtable
+        isymbols = config.symtable
     else:
-        symtable, _ = config.make_symtable(sigma)
+        isymbols, _ = config.make_symtable(sigma)
 
     # Subset of alphabet for tier.
     if sigma_tier is None:
@@ -755,7 +755,7 @@ def trellis(length=1,
     else:
         sigma_skip = set(config.sigma) - sigma_tier
 
-    wfst = Wfst(symtable, arc_type=arc_type)
+    wfst = Wfst(isymbols, arc_type=arc_type)
 
     # Initial and peninitial states.
     q0 = wfst.add_state()  # id 0
@@ -847,9 +847,9 @@ def ngram_left(length=1, sigma=None, sigma_tier=None, arc_type='standard'):
     # Input/output alphabet.
     if sigma is None:
         sigma = config.sigma
-        symtable = config.symtable
+        isymbols = config.symtable
     else:
-        symtable, _ = config.make_symtable(sigma)
+        isymbols, _ = config.make_symtable(sigma)
 
     # Subset of alphabet for tier.
     if sigma_tier is None:
@@ -858,7 +858,7 @@ def ngram_left(length=1, sigma=None, sigma_tier=None, arc_type='standard'):
     else:
         sigma_skip = set(sigma) - sigma_tier
 
-    wfst = Wfst(symtable, arc_type=arc_type)
+    wfst = Wfst(isymbols, arc_type=arc_type)
 
     # Initial and peninitial states.
     q0 = ('λ', )
@@ -919,9 +919,9 @@ def ngram_right(length=1, sigma=None, sigma_tier=None, arc_type='standard'):
     # Input/output alphabet.
     if sigma is None:
         sigma = config.sigma
-        symtable = config.symtable
+        isymbols = config.symtable
     else:
-        symtable, _ = config.make_symtable(sigma)
+        isymbols, _ = config.make_symtable(sigma)
 
     # Subset of alphabet for tier.
     if sigma_tier is None:
@@ -930,7 +930,7 @@ def ngram_right(length=1, sigma=None, sigma_tier=None, arc_type='standard'):
     else:
         sigma_skip = set(sigma) - sigma_tier
 
-    wfst = Wfst(symtable, arc_type=arc_type)
+    wfst = Wfst(isymbols, arc_type=arc_type)
 
     # Final and penultimate state.
     qf = ('λ', )
@@ -996,6 +996,9 @@ def _suffix(x, l):
     return x[-l:]
 
 
+# todo: complete (any-to-any except bos/eos) transducer
+
+
 def compose(wfst1, wfst2, phi1=None, phi2=None):
     """
     Composition/intersection, retaining contextual info from 
@@ -1006,19 +1009,22 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
     todo: matcher/filter options for compose; 
     flatten state labels created by repeated composition
     """
-    input_symtable = wfst1.input_symbols()
-    output_symtable = wfst2.output_symbols()
+    isymbols = wfst1.input_symbols()
+    osymbols = wfst2.output_symbols()
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     arc_type = wfst2.arc_type() if common_weights else 'standard'
     phi = {}  # Feature function (arcs -> feature violations).
+    #print('phi1:', phi1)
+    #print('phi2', phi2)
+    #sys.exit(0)
 
-    wfst = Wfst(input_symtable, output_symtable, arc_type)
+    wfst = Wfst(isymbols, osymbols, arc_type)
     one = Weight.one(wfst.weight_type())
     zero = Weight.zero(wfst.weight_type())
 
-    q0 = (wfst1.start(), wfst2.start())
+    q0 = (wfst1.start(label=False), wfst2.start(label=False))
     wfst.add_state(q0)
-    wfst.set_start(q0)
+    wfst.set_initial(q0)
 
     # Lazy state and arc construction.
     # todo: sort arcs wfst2
@@ -1032,6 +1038,9 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
             src1, src2 = src
             for t1 in wfst1.arcs(src1):
                 phi_t1 = get_features(phi, src1, t1)
+                if phi_t1 is not None:  # xxx debugging
+                    print(t1, phi_t1)
+                    sys.exit(0)
 
                 for t2 in wfst2.arcs(src2):
                     if t1.olabel != t2.ilabel:
@@ -1057,16 +1066,19 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
                                  weight=weight,
                                  dest=dest)
 
-                    # Features of composed arc are union of features
+                    # Features of composed arc: union of features
                     # of source arcs (with None equiv. to {}).
                     phi_t1_flag = (phi_t1 is not None)
                     phi_t2_flag = (phi_t2 is not None)
                     if phi_t1_flag and phi_t2_flag:
-                        phi[(src, ilabel, olabel, dest)] = phi_t1 | phi_t2
+                        t_ = (src, t1.ilabel, t2.olabel, dest)
+                        phi[t_] = phi_t1 | phi_t2
                     elif phi_t1_flag:
-                        phi[(src, ilabel, olabel, dest)] = phi_t1
+                        t_ = (src, t1.ilabel, t2.olabel, dest)
+                        phi[t_] = phi_t1
                     elif phi_t2_flag:
-                        phi[(src, ilabel, olabel, dest)] = phi_t2
+                        t_ = (src, t1.ilabel, t2.olabel, dest)
+                        phi[t_] = phi_t2
 
                     # Dest is final if both dest1 and dest2 are final.
                     wfinal1 = wfst1.final(dest1)
@@ -1107,6 +1119,19 @@ def arc_equal(arc1, arc2):
             (arc1.nextstate == arc2.nextstate) and \
             (arc1.weight == arc2.weight)
     return val
+
+
+def assign_features(M, phi_func):
+    """
+    Assign feature violations to arcs in wfst M with 
+    arbitrary function (M, q, t -> feature violations).
+    """
+    phi = {}
+    for q in M.fst.states():
+        for t in M.fst.arcs(q):
+            _t = (q, t.ilabel, t.olabel, t.nextstate)
+            phi[_t] = phi_func(M, q, t)
+    return phi
 
 
 def get_features(phi, src, t, default=None):

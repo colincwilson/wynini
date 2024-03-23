@@ -27,10 +27,10 @@ def init(config):
         bos = config['bos']
     if 'eos' in config:
         eos = config['eos']
-    if 'sigma' in config:
-        sigma = config['sigma']
     if 'special_syms' in config:
         special_syms = config['special_syms']
+    if 'sigma' in config:
+        sigma = config['sigma']
     symtable_, syms_ = make_symtable(sigma)
     symtable = symtable_
     syms = syms_
