@@ -10,7 +10,16 @@ class Wfst():
     (strings, tuples, etc.). Pynini constructive and destructive 
     operations generally lose track of state ids and symbol labels, 
     so some operations are reimplemented here (e.g., connect, compose).
-    Fst() arguments: arc_type ("standard", "log", or "log64")
+    Fst() arguments: arc_type ("standard", "log", or "log64").
+    
+    Reference for arc types and weights:
+    - "The OpenFst library predefines TropicalWeight and LogWeight 
+    as well as the corresponding StdArc and LogArc."
+    - https://www.openfst.org/doxygen/fst/html/arc_8h_source.html
+    - https://www.openfst.org/twiki/bin/view/FST/FstQuickTour#FstWeights
+    - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#Weights
+    General reference for OpenFst advanced usage:
+    - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#OpenFst%20Advanced%20Usage
     """
 
     def __init__(self, isymbols=None, osymbols=None, arc_type='standard'):
@@ -179,7 +188,9 @@ class Wfst():
                 olabel=None,
                 weight=None,
                 dest=None):
-        """ Add arc (accepts id or label for src/ilabel/olabel/dest). """
+        """
+        Add arc (accepts id or label for src/ilabel/olabel/dest).
+        """
         # todo: add src/dest states if they do not already exist
         # todo: add unweighted arc without specifying weight=None
         fst = self.fst
@@ -290,25 +301,26 @@ class Wfst():
         self.fst = fst_out
         return self
 
-    def assign_weights(self, wfunc=None):
+    def assign_weights(self, func=None):
         """
         Assign weights to arcs in this machine with an arbitrary 
-        function wfunc (Wfst, Src, Arc -> Weight), which can 
+        function func (Wfst, Src, Arc -> Weight), which can 
         examine input/output/src/dest and their labels of each arc.
         See also map_type options "identity", "plus", "power", 
         "times" in map_weights().
         """
-        if wfunc is None:
+        if func is None:
             # Identity function by default.
             return self
         fst = self.fst
-        weight_type = fst.weight_type()
+        weight_type = self.weight_type()
         for q in fst.states():
             q_arcs = fst.mutable_arcs(q)
             for t in q_arcs:
-                w = wfunc(self, q, t)
+                w = func(self, q, t)
                 if isinstance(w, int) or isinstance(w, float):
                     w = Weight(weight_type, w)
+                # todo: handle non-numerical weights
                 t.weight = w
                 q_arcs.set_value(t)
         return self
@@ -596,11 +608,11 @@ class Wfst():
 
     def randgen(self, npath=1, select=None, output_strings=True, **kwargs):
         """
-        Randomly generate paths through this machine, returning an 
-        iterator over output strings (default) or machine accepting 
-        the paths. pynini.randgen() arguments: npath, seed, select
-        ("uniform", "log_prob", or "fast_log_prob"), max_length, 
-        weighted, remove_total_weight.
+        Randomly generate paths through this machine, returning
+        an iterator over output strings (default) or machine 
+        accepting the paths. pynini.randgen() arguments: npath, 
+        seed, select ("uniform", "log_prob", or "fast_log_prob"),
+        max_length, weighted, remove_total_weight.
         """
         fst = self.fst
         if select is None:
@@ -619,7 +631,9 @@ class Wfst():
         return wfst_samp
 
     def invert(self):
-        """ Invert mapping (exchange input and output labels). """
+        """
+        Invert mapping (exchange input and output labels).
+        """
         # assumption: Fst.invert() does not reindex states.
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -633,7 +647,8 @@ class Wfst():
 
     def copy(self):
         """
-        Deep copy preserving input/output/state symbols and string outputs.
+        Deep copy preserving input/output/state symbols and 
+        string outputs.
         """
         fst = self.fst
         wfst = Wfst(\
@@ -1075,15 +1090,15 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
                     # of source arcs (with None equiv. to {}).
                     phi_t1_flag = (phi_t1 is not None)
                     phi_t2_flag = (phi_t2 is not None)
-                    if phi_t1_flag and phi_t2_flag:
+                    if phi_t1_flag or phi_t2_flag:
+                        if phi_t1_flag and phi_t2_flag:
+                            phi_t = (phi_t1 | phi_t2)
+                        elif phi_t1_flag:
+                            phi_t = phi_t1
+                        elif phi_t2_flag:
+                            phi_t = phi_t2
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
-                        phi[t_] = phi_t1 | phi_t2
-                    elif phi_t1_flag:
-                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
-                        phi[t_] = phi_t1
-                    elif phi_t2_flag:
-                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
-                        phi[t_] = phi_t2
+                        phi[t_] = phi_t
 
                     # Dest is final if both dest1 and dest2 are final.
                     wfinal1 = wfst1.final(dest1)
