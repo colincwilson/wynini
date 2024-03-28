@@ -12,7 +12,7 @@ class Wfst():
     so some operations are reimplemented here (e.g., connect, compose).
     Fst() arguments: arc_type ("standard", "log", or "log64").
     
-    Reference for arc types and weights:
+    Reference for OpenFst / Fst(_pywrapfst.VectorFst) arc types and weights:
     - "The OpenFst library predefines TropicalWeight and LogWeight 
     as well as the corresponding StdArc and LogArc."
     - https://www.openfst.org/doxygen/fst/html/arc_8h_source.html
@@ -1024,10 +1024,12 @@ def compose(wfst1, wfst2, phi1=None, phi2=None):
     Composition/intersection, retaining contextual info from 
     original machines by labeling each state q = (q1, q2) as 
     (label(q1), label(q2)). Multiplies arc and final weights 
-    if machines have the same arc type. Combines (unions) 
-    arc feature functions phi1 and phi2 if provided.
-    todo: matcher/filter options for compose; 
-    flatten state labels created by repeated composition
+    if machines have the same arc type. If at least one of 
+    the feature functions phi1 or phi2 is provided, combines 
+    (unions) features of composed arcs; note that features 
+    appearing in phi1 and phi2 are assumed to be disjoint.
+    todo: matcher/filter options for compose
+    todo: flatten state labels created by repeated composition
     """
     isymbols = wfst1.input_symbols()
     osymbols = wfst2.output_symbols()
@@ -1143,8 +1145,8 @@ def arc_equal(arc1, arc2):
 
 def assign_features(wfst, phi_func):
     """
-    Assign feature violations to arcs in wfst M with 
-    arbitrary function (Wfst, state, transition -> feature violations).
+    Assign features to arcs in wfst M with arbitrary function 
+    (<Wfst, src_id, transition> -> feature violations).
     """
     phi = {}
     for src_id in wfst.fst.states():
@@ -1158,7 +1160,7 @@ def get_features(phi, src_id, t, default=None):
     """
     Get features (i.e., weighted constraint violations 
     as in maxent models, 'linear' transducers, HG, ...)
-    for arc t.
+    for arc t from state src_id.
     """
     if phi is None:
         return default
