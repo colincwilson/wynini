@@ -2,7 +2,7 @@ import numpy as np
 
 from pynini import Weight
 from . import config
-from .wfst import Wfst, shortestdistance, get_features
+from .wfst import Wfst, shortestdistance
 
 # todo: stable mapping from Arcs to violation vectors
 # Reference:
@@ -14,20 +14,19 @@ from .wfst import Wfst, shortestdistance, get_features
 # INTERSPEECH (pp. 1258-1262).
 
 
-def assign_weights(wfst, phi, w):
+def assign_weights(wfst, w):
     """
     Assign unnormalized plog weight to each arc t in wfst M 
     according to its Harmony: $-\sum_k (w_k \cdot \phi_k(t))$.
-    phi: 
-    phi: arc t -> [\phi_0(t), \phi_1(t), ...] (violation vector)
-    w: [w_0, w_1, ...] (weight vector)
+    phi: arc t -> dictionary of feature values ('violations') {\phi_0:v_0, \phi_1:v_1, ...}
+    w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
     """
     fst = wfst.fst
     one = Weight('log', 0)
     for src in fst.states():
         q_arcs = fst.mutable_arcs(src)
         for t in q_arcs:
-            phi_t = get_features(phi, src, t)
+            phi_t = wfst.get_features(src, t)
             #print((src, t.ilabel, t.olabel, t.nextstate), phi_t)
             if phi_t is None:
                 t.weight = one
@@ -37,14 +36,14 @@ def assign_weights(wfst, phi, w):
     return wfst
 
 
-def expected(wfst, phi, w):
+def expected(wfst, w):
     """
     Expected violation counts of features/constraints
     in phi given weights w.
     """
     # Set arc weights equal to Harmonies
     # (sum of weighted feature violations).
-    assign_weights(wfst, phi, w)
+    assign_weights(wfst, w)
 
     # Forward potentials
     # (sum over all paths from initial to q).
@@ -64,7 +63,7 @@ def expected(wfst, phi, w):
     for q in fst.states():
         for t in fst.arcs(q):
             # Feature vector.
-            phi_t = get_features(phi, q, t)
+            phi_t = wfst.get_features(q, t)
             if phi_t is None or len(phi_t) == 0:
                 continue
             # Unnormalized plog of all paths through t.

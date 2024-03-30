@@ -3,7 +3,9 @@ import numpy as np
 
 sys.path.append('..')
 from wynini.wfst import *
-from wynini import loglinear
+from wynini import config, loglinear
+
+config.init()
 
 # Simple acceptor.
 M = trellis(length=2, arc_type='log')
@@ -12,52 +14,49 @@ print(M.print(acceptor=True, show_weight_one=True))
 
 # Map from arc to violation vector.
 def phi_func(wfst, src_id, t):
-    ret = {}
     if wfst.ilabel(t) == 'a':
-        ret['*a'] = 1.0
-    elif wfst.ilabel(t) == 'b':
-        ret['*b'] = 1.0
-    return ret
+        return {'*a': 1.0}
+    if wfst.ilabel(t) == 'b':
+        return {'*b': 1.0}
+    return None
 
 
-phi = assign_features(M, phi_func)
+M.assign_features(phi_func)
 
 print('Arc violation vectors:')
-for _t in phi:
-    print('\t', _t, '->', phi[_t])
+for _t in M.phi:
+    print('\t', _t, '->', M.phi[_t])
 
 # Constraint weights (non-negative).
 w = {'*a': 1.0, '*b': 2.0}
 print('Constraint weights:', w)
 
 # Loglinear arc weights.
-loglinear.assign_weights(M, phi, w)
+loglinear.assign_weights(M, w)
 print(M.print(acceptor=True, show_weight_one=True))
 
 # Expected constraint violations.
-expect = loglinear.expected(M, phi, w)
+expect = loglinear.expected(M, w)
 print('Expected:', expect)
 print()
 
 # # # # # # # # # #
 
 # Composition of two transducers with features.
-M1 = trellis(length=2, sigma=['a', 'b'], arc_type='log')
-print(M1.print(acceptor=True, show_weight_one=True))
+M1 = trellis(length=2, isymbols=['a', 'b'], arc_type='log')
+print('M1:', M1.print(acceptor=True, show_weight_one=True))
 
 
 def phi1_func(wfst, src_id, t):
-    ret = {}
     if wfst.ilabel(t) == 'a':
-        ret['*a'] = 1.0
-    elif wfst.ilabel(t) == 'b':
-        ret['*b'] = 1.0
-    return ret
+        return {'*a': 1.0}
+    if wfst.ilabel(t) == 'b':
+        return {'*b': 1.0}
+    return None
 
 
-phi1 = assign_features(M1, phi1_func)
-print('phi1:', phi1)
-#print(phi1[(1, 3, 3, 2)])
+M1.assign_features(phi1_func)
+print('M1.phi:', M1.phi)
 print()
 
 isymbols2, _ = config.make_symtable(['a', 'b'])
@@ -73,7 +72,7 @@ for x in ['a', 'b']:
 M2.add_arc(1, config.eos, config.eos, None, 2)
 M2.set_initial(0)
 M2.set_final(2)
-print(M2.print())
+print('M2:\n', M2.print())
 
 
 def phi2_func(wfst, src_id, t):
@@ -82,22 +81,27 @@ def phi2_func(wfst, src_id, t):
         ret['Ident'] = 1.0
     if wfst.olabel(t) == 'B':
         ret['*B'] = 1.0
+    if len(ret) == 0:
+        return None
     return ret
 
 
-phi2 = assign_features(M2, phi2_func)
-print('phi2:', phi2)
+M2.assign_features(phi2_func)
+print('M2.phi:', M2.phi)
 print()
 
-M, phi = compose(M1, M2, phi1=phi1, phi2=phi2)
-print(M.print())
+M = compose(M1, M2)
+print('M:\n', M.print())
+print(M.phi)
+
 print(M.draw('M.dot'))
-print('phi:')
-for t, v in phi.items():
+print('M.phi:')
+for t, v in M.phi.items():
     print(t, v)
+print()
 
 w = {'*a': 1.0, '*b': 2.0, '*Ident': 5.0, '*B': 6.0}
-M = loglinear.assign_weights(M, phi, w)
+M = loglinear.assign_weights(M, w)
 print(M.print(show_weight_one=True))
-E = loglinear.expected(M, phi, w)
+E = loglinear.expected(M, w)
 print(E)

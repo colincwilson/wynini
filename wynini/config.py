@@ -12,8 +12,10 @@ symtable = None  # SymbolTable
 
 verbosity = 0
 
+# todo: input vs. output alphabets
 
-def init(config):
+
+def init(config={}):
     """ Set globals with dictionary or module """
     global epsilon, bos, eos
     global sigma, special_syms
@@ -31,9 +33,7 @@ def init(config):
         special_syms = config['special_syms']
     if 'sigma' in config:
         sigma = config['sigma']
-    symtable_, syms_ = make_symtable(sigma)
-    symtable = symtable_
-    syms = syms_
+    symtable, syms = make_symtable(sigma)
 
 
 def make_symtable(sigma):
@@ -47,3 +47,6 @@ def make_symtable(sigma):
         symtable.add_symbol(sym)
     syms = [sym for (sym_id, sym) in symtable]
     return symtable, syms
+
+
+# todo: pretty-print symbol table
