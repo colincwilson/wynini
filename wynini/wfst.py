@@ -347,7 +347,7 @@ class Wfst():
         for src_id in self.fst.states():
             for t in self.fst.arcs(src_id):
                 phi_t = phi_func(self, src_id, t)
-                if phi_t is None:  # Handl partial functions.
+                if phi_t is None:  # Handle partial functions.
                     continue
                 t_ = (src_id, t.ilabel, t.olabel, t.nextstate)
                 phi[t_] = phi_t
