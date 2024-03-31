@@ -385,15 +385,15 @@ class Wfst():
 
     def istrings(self):
         """
-        Iterator over input strings of paths through this machine 
-        (assumed to be acyclic).
+        Iterator over input strings of paths through this 
+        machine (assumed to be acyclic).
         """
         return self.paths().istrings()
 
     def ostrings(self):
         """
-        Iterator over output strings of paths through this machine 
-        (assumed to be acyclic).
+        Iterator over output strings of paths through this 
+        machine (assumed to be acyclic).
         """
         return self.paths().ostrings()
 
@@ -521,7 +521,7 @@ class Wfst():
     def delete_states(self, states, connect=True):
         """
         Remove states by id while preserving labels, 
-        arc weights, arc features.
+        arc weights, and arc features.
         [nondestructive]
         """
         fst = self.fst
@@ -695,8 +695,8 @@ class Wfst():
 
     def copy(self):
         """
-        Deep copy preserving input/output/state symbols and 
-        string outputs.
+        Deep copy preserving input/output/state symbols 
+        and string outputs.
         """
         fst = self.fst
         wfst = Wfst( \
