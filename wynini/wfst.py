@@ -1222,12 +1222,19 @@ def compose(wfst1, wfst2):
     return wfst
 
 
-def shortestdistance(wfst, reverse=False):
+def shortestdistance(wfst, delta=1e-6, reverse=False):
     """
-    Shortest distance from each state to final states, 
+    'Shortest distance' from each state to final states, 
     or from each state to source state; delegates to Pynini.
+    Pynini doc:
+    "The shortest distance from p to q is the \otimes-sum of 
+    the weights of all the paths between p and q."
+    Mohri, M. (2002). Semiring frameworks and algorithms for 
+    shortest-distance problems. Journal of Automata, Languages 
+    and Combinatorics, 7(3), 321-350.
     """
-    return pynini.shortestdistance(wfst.fst, reverse=reverse)
+    return pynini.shortestdistance( \
+        wfst.fst, delta=delta, reverse=reverse)
 
 
 def arc_equal(arc1, arc2):
