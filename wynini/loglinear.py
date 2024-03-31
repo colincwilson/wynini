@@ -29,12 +29,11 @@ def assign_weights(wfst, w):
         q_arcs = fst.mutable_arcs(src)
         for t in q_arcs:
             phi_t = wfst.get_features(src, t)
-            #print((src, t.ilabel, t.olabel, t.nextstate), phi_t)
             if phi_t is None:
                 t.weight = one
             else:
                 t.weight = Weight('log', dot_product(phi_t, w))
-                print(phi_t, t.weight)
+                #print(phi_t, t.weight)
             q_arcs.set_value(t)
     return wfst
 
