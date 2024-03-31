@@ -1,8 +1,8 @@
 import numpy as np
 
 from pynini import Weight
-from . import config
-from .wfst import Wfst, shortestdistance
+from wynini import config
+from wynini.wfst import Wfst, shortestdistance
 
 # todo: stable mapping from Arcs to violation vectors
 # Reference:
@@ -20,7 +20,9 @@ def assign_weights(wfst, w):
     according to its Harmony: $-\sum_k (w_k \cdot \phi_k(t))$.
     phi: arc t -> dictionary of feature values ('violations') {\phi_0:v_0, \phi_1:v_1, ...}
     w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
+    All feature values and weights should be non-negative.
     """
+    wfst.map_weights('to_log')
     fst = wfst.fst
     one = Weight('log', 0)
     for src in fst.states():
@@ -32,6 +34,7 @@ def assign_weights(wfst, w):
                 t.weight = one
             else:
                 t.weight = Weight('log', dot_product(phi_t, w))
+                print(phi_t, t.weight)
             q_arcs.set_value(t)
     return wfst
 
@@ -39,7 +42,8 @@ def assign_weights(wfst, w):
 def expected(wfst, w):
     """
     Expected violation counts of features/constraints
-    in phi given weights w.
+    in phi given feature weights w.
+    All feature values and weights should be non-negative.
     """
     # Set arc weights equal to Harmonies
     # (sum of weighted feature violations).
@@ -80,10 +84,26 @@ def expected(wfst, w):
     return expect
 
 
+def arc_features(wfst):
+    """
+    Collect all feature names on arcs of wfst.
+    """
+    ftrs = set()
+    fst = wfst.fst
+    for q in fst.states():
+        for t in fst.arcs(q):
+            # Feature vector.
+            phi_t = wfst.get_features(q, t)
+            if phi_t is None or len(phi_t) == 0:
+                continue
+            ftrs |= phi_t.keys()
+    return ftrs
+
+
 def dot_product(phi_t, w):
     """
     Dot product of features and weights represented 
-    with dictionaries of non-zero values.
+    with dictionaries of non-negative values.
     """
     ret = 0.0
     for ftr, violn in phi_t.items():
