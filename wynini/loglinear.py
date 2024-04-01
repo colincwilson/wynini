@@ -11,6 +11,7 @@ from wynini.wfst import Wfst, shortestdistance
 # * Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014).
 # Encoding linear models as weighted finite-state transducers. In
 # INTERSPEECH (pp. 1258-1262).
+# * Markus Dreyer's fstrain (https://github.com/markusdr/fstrain).
 # todo: stable mapping from Arcs to violation vectors
 
 
