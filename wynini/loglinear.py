@@ -4,7 +4,6 @@ from pynini import Weight
 from wynini import config
 from wynini.wfst import Wfst, shortestdistance
 
-# todo: stable mapping from Arcs to violation vectors
 # Reference:
 # * Eisner, J. (2002). Parameter estimation for probabilistic
 # finite-state transducers. In Proceedings of the 40th Annual
@@ -12,6 +11,7 @@ from wynini.wfst import Wfst, shortestdistance
 # * Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014).
 # Encoding linear models as weighted finite-state transducers. In
 # INTERSPEECH (pp. 1258-1262).
+# todo: stable mapping from Arcs to violation vectors
 
 
 def assign_weights(wfst, w):
