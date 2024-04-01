@@ -46,7 +46,7 @@ class Wfst():
         self._state2label = {}  # State id -> state label.
         self._label2state = {}  # State label -> state id.
         self.sigma = {}  # State id -> output string.
-        self.phi = {}  # Loglinear arc features.
+        self.phi = {}  # Arc -> loglinear features.
 
     # Input/output labels (delegate to Fst).
 
@@ -361,7 +361,7 @@ class Wfst():
 
     def get_features(self, q, t, default=None):
         """
-        Get features for arc t from state with id q.
+        Get features for raw arc t from state with id q.
         """
         if len(self.phi) == 0:
             return default
@@ -612,7 +612,7 @@ class Wfst():
         fst = self.fst
         for q in fst.states():
             for t in fst.arcs(q):
-                if func(self, q, t_):
+                if func(self, q, t):
                     dead_arcs.append(t)
         return delete_arcs(dead_arcs)
 
@@ -686,7 +686,8 @@ class Wfst():
         """
         fst = self.fst
         if select is None:
-            if fst.weight_type() == 'log' or fst.weight_type() == 'log64':
+            if fst.weight_type() == 'log' \
+                or fst.weight_type() == 'log64':
                 select = 'log_prob'
             else:
                 select = 'uniform'
@@ -1216,13 +1217,13 @@ def compose(wfst1, wfst2):
                     phi_t1_flag = (phi_t1 is not None)
                     phi_t2_flag = (phi_t2 is not None)
                     if phi_t1_flag or phi_t2_flag:
-                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         if phi_t1_flag and phi_t2_flag:
                             phi_t = phi_t1 | phi_t2
                         elif phi_t1_flag:
                             phi_t = phi_t1
                         else:
                             phi_t = phi_t2
+                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
                     # Dest is final if both dest1 and dest2 are final.
