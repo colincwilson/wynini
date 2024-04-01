@@ -13,7 +13,7 @@ print(M.print(acceptor=True, show_weight_one=True))
 
 
 # Map from arc to violation vector.
-def phi_func(wfst, src_id, t):
+def phi_func(wfst, q, t):
     if wfst.ilabel(t) == 'a':
         return {'*a': 1.0}
     if wfst.ilabel(t) == 'b':
@@ -47,7 +47,7 @@ M1 = trellis(length=2, isymbols=['a', 'b'], arc_type='log')
 print('M1:', M1.print(acceptor=True, show_weight_one=True))
 
 
-def phi1_func(wfst, src_id, t):
+def phi1_func(wfst, q, t):
     if wfst.ilabel(t) == 'a':
         return {'*a': 1.0}
     if wfst.ilabel(t) == 'b':
@@ -75,7 +75,7 @@ M2.set_final(2)
 print('M2:\n', M2.print())
 
 
-def phi2_func(wfst, src_id, t):
+def phi2_func(wfst, q, t):
     ret = {}
     if wfst.ilabel(t) != wfst.olabel(t):
         ret['Ident'] = 1.0

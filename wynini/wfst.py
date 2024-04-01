@@ -316,8 +316,10 @@ class Wfst():
     def assign_weights(self, func=None):
         """
         Assign weights to arcs in this machine with an arbitrary 
-        function func (Wfst, Src, Arc -> Weight), which can 
-        examine input/output/src/dest and their labels of each arc.
+        function func (<Wfst, q, t> -> Weight) that receives this 
+        machine, a source state id, and a raw arc as inputs and 
+        returns an arc weight. The function can examine the src/ 
+        input/output/dest and associated labels of the arc.
         See also map_type options "identity", "plus", "power", 
         "times" in map_weights().
         """
@@ -337,29 +339,33 @@ class Wfst():
                 q_arcs.set_value(t)
         return self
 
-    def assign_features(self, phi_func):
+    def assign_features(self, func):
         """
         Assign features (as in loglinear/maxent/HG/OT models) 
-        to arcs in this machine with arbitrary function.
-        (<Wfst, src_id, transition> -> feature violations).
+        to arcs in this machine with an arbitrary function
+        func (<Wfst, q, t> -> feature violations) that receives 
+        this machine, a source state id, and a raw arc as inputs 
+        and returns a dictionary of feature 'violations'.
+        The function can examine the src/input/output/dest and 
+        associated labels of the arc.
         """
         phi = {}
-        for src_id in self.fst.states():
-            for t in self.fst.arcs(src_id):
-                phi_t = phi_func(self, src_id, t)
+        for q in self.fst.states():  # Source state id.
+            for t in self.fst.arcs(q):  # Raw arc.
+                phi_t = func(self, q, t)
                 if phi_t is None:  # Handle partial functions.
                     continue
-                t_ = (src_id, t.ilabel, t.olabel, t.nextstate)
+                t_ = (q, t.ilabel, t.olabel, t.nextstate)
                 phi[t_] = phi_t
         self.phi = phi
 
-    def get_features(self, src_id, t, default=None):
+    def get_features(self, q, t, default=None):
         """
-        Get features for arc t from state src_id.
+        Get features for arc t from state with id q.
         """
         if len(self.phi) == 0:
             return default
-        t_ = (src_id, t.ilabel, t.olabel, t.nextstate)
+        t_ = (q, t.ilabel, t.olabel, t.nextstate)
         return self.phi.get(t_, default)
 
     def info(self):
@@ -374,7 +380,7 @@ class Wfst():
         Iterator over paths through this machine 
         (assumed to be acyclic). 
         Path iterator has methods: ilabels(), istring(), labels(), 
-        ostring(), weights(), items(); istrings(), ostrings().
+        ostring(), weights(), funcitems(); istrings(), ostrings().
         """
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -593,6 +599,22 @@ class Wfst():
                     self.add_arc(q, t1.ilabel, t1.olabel, t1.weight,
                                  t1.nextstate)
         return self
+
+    def remove_arcs(self, func):
+        """
+        Delete arcs for which an arbitracy function 
+        func(<Wfst, q, t> -> boolean) is True. The function 
+        receives this machine, a source state id, and a raw arc 
+        as inputs; it can examine the src/input/output/dest and 
+        associated labels of the arc.
+        """
+        dead_arcs = []
+        fst = self.fst
+        for q in fst.states():
+            for t in fst.arcs(q):
+                if func(self, q, t_):
+                    dead_arcs.append(t)
+        return delete_arcs(dead_arcs)
 
     def transduce(self, x, add_delim=True, output_strings=True):
         """
@@ -1118,7 +1140,7 @@ def compose(wfst1, wfst2):
     original machines by labeling each state q = (q1, q2) as 
     (label(q1), label(q2)). Multiplies arc and final weights 
     if machines have the same arc type. If at least one of 
-    arc feature functions phi1 or phi2 is non-null, combines 
+    arc feature maps phi1 or phi2 is non-null, combines 
     (unions) features of composed arcs; note that features 
     appearing in phi1 and phi2 are assumed to be disjoint.
     todo: matcher/filter options for compose
