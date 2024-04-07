@@ -5,14 +5,15 @@ from . import config
 
 class Wfst():
     """
-    Pynini Fst wrapper with automatic handling of labels for inputs / 
-    outputs / states and output strings. State labels must be hashable 
-    (strings, tuples, etc.). Pynini constructive and destructive 
-    operations generally lose track of state ids and symbol labels, 
-    so some operations are reimplemented here (e.g., connect, compose).
-    Fst() arguments: arc_type ("standard", "log", or "log64").
+    Wrapper for Pynini Fst with automatic handling of labels for 
+    inputs / outputs / states and output strings. State labels must 
+    be hashable (strings, tuples, etc.). Pynini constructive and 
+    destructive operations generally lose track of state ids and 
+    symbol labels, so some operations are reimplemented here 
+    (e.g., connect, compose).
     
     Reference for OpenFst / Fst(_pywrapfst.VectorFst) arc types and weights:
+    - Fst() argument arc_type: "standard" | "log" | "log64".
     - "The OpenFst library predefines TropicalWeight and LogWeight 
     as well as the corresponding StdArc and LogArc."
     - https://www.openfst.org/doxygen/fst/html/arc_8h_source.html
@@ -41,14 +42,14 @@ class Wfst():
         fst.set_output_symbols(osymbols)
         # Empty Wfst.
         self.fst = fst  # Wrapped Fst.
-        self._isymbols = isymbols
-        self._osymbols = osymbols
+        self._isymbols = isymbols  # Arc label input symbols.
+        self._osymbols = osymbols  # Arc label output symbols.
         self._state2label = {}  # State id -> state label.
         self._label2state = {}  # State label -> state id.
         self.sigma = {}  # State id -> output string.
-        self.phi = {}  # Arc -> loglinear features.
+        self.phi = {}  # Arc -> loglinear features ({f_k: v_k}).
 
-    # Input/output labels (delegate to Fst).
+    # Input/output labels (most delegate to Fst).
 
     def input_symbols(self):
         """ Get input symbol table. """
@@ -70,11 +71,13 @@ class Wfst():
 
     def set_input_symbols(self, isymbols):
         """ Set input symbol table. """
+        self._isymbols = isymbols
         self.fst.set_input_symbols(isymbols)
         return self
 
     def set_output_symbols(self, osymbols):
         """ Set output symbol table. """
+        self._osymbols = osymbols
         self.fst.set_output_symbols(osymbols)
         return self
 
@@ -96,14 +99,26 @@ class Wfst():
 
     # States.
 
+    def state_label(self, q):
+        """ State label from id. """
+        if not isinstance(q, int):
+            return q
+        return self._state2label[q]
+
+    def state_id(self, q):
+        """ State id from label. """
+        if isinstance(q, int):
+            return q
+        return self._label2state[q]
+
     def add_state(self, label=None):
         """ Add new state, optionally specifying its label. """
         # todo: start/initial and final flags
-        # Enforce unique labels.
+        # Enforce unique state labels.
         if label is not None:
             if label in self._label2state:
                 return self._label2state[label]
-        # Create new state.
+        # Add new state.
         q = self.fst.add_state()
         # Self-labeling by int as default.
         if label is None:
@@ -137,6 +152,9 @@ class Wfst():
         if not label:
             return self.fst.start()
         return self.state_label(self.fst.start())
+
+    # Alias for start().
+    initial = start
 
     def is_start(self, q):
         """ Check start status by id or label. """
@@ -180,18 +198,6 @@ class Wfst():
             state_iter = map(lambda q: self.state_label(q), state_iter)
         return state_iter
 
-    def state_label(self, q):
-        """ State label from id. """
-        if not isinstance(q, int):
-            return q
-        return self._state2label[q]
-
-    def state_id(self, q):
-        """ State id from label. """
-        if isinstance(q, int):
-            return q
-        return self._label2state[q]
-
     # Arcs.
 
     def add_arc(self,
@@ -201,7 +207,8 @@ class Wfst():
                 weight=None,
                 dest=None):
         """
-        Add arc (accepts id or label for src/ilabel/olabel/dest).
+        Add arc (accepts id or label for each of 
+        src / ilabel / olabel / dest).
         """
         # todo: add src/dest states if they do not already exist
         # todo: add unweighted arc without specifying weight=None
@@ -223,7 +230,7 @@ class Wfst():
         return self
 
     def arcs(self, src):
-        """ Iterator over arcs from a state. """
+        """ Iterator over arcs out of a state. """
         # todo: decorate arcs with input/output labels if requested.
         if not isinstance(src, int):
             src = self.state_id(src)
@@ -288,10 +295,10 @@ class Wfst():
         fst = self.fst
         if project_type == 'input':
             isymbols = fst.input_symbols()
-            fst.set_output_symbols(isymbols)
+            self.set_output_symbols(isymbols)
         if project_type == 'output':
             osymbols = fst.output_symbols()
-            fst.set_input_symbols(osymbols)
+            self.set_input_symbols(osymbols)
         fst.project(project_type)
         return self
 
@@ -377,8 +384,7 @@ class Wfst():
 
     def paths(self):
         """
-        Iterator over paths through this machine 
-        (assumed to be acyclic). 
+        Iterator over paths through this machine (must be acyclic). 
         Path iterator has methods: ilabels(), istring(), labels(), 
         ostring(), weights(), funcitems(); istrings(), ostrings().
         """
@@ -392,14 +398,14 @@ class Wfst():
     def istrings(self):
         """
         Iterator over input strings of paths through this 
-        machine (assumed to be acyclic).
+        machine (must be acyclic).
         """
         return self.paths().istrings()
 
     def ostrings(self):
         """
         Iterator over output strings of paths through this 
-        machine (assumed to be acyclic).
+        machine (must be acyclic).
         """
         return self.paths().ostrings()
 
@@ -526,7 +532,7 @@ class Wfst():
 
     def delete_states(self, states, connect=True):
         """
-        Remove states by id while preserving labels, 
+        Remove states by id while preserving state labels, 
         arc weights, and arc features.
         [nondestructive]
         """
@@ -692,7 +698,8 @@ class Wfst():
             else:
                 select = 'uniform'
 
-        fst_samp = pynini.randgen(fst, npath=npath, select=select, **kwargs)
+        fst_samp = pynini.randgen( \
+            fst, npath=npath, select=select, **kwargs)
 
         if output_strings:
             osymbols = fst.output_symbols()
@@ -710,8 +717,8 @@ class Wfst():
         isymbols = fst.input_symbols()
         osymbols = fst.output_symbols()
         fst.invert()
-        fst.set_input_symbols(isymbols)
-        fst.set_output_symbols(osymbols)
+        self.set_input_symbols(osymbols)
+        self.set_output_symbols(isymbols)
         return self
 
     # Copy/create machines
@@ -791,8 +798,7 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
     """
     Acceptor for space-delimited sequence (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
-    arc_type ("standard", "log", or "log64")
-    # todo: explicit epsilon self-loops on interior states
+    arc_type ("standard", "log", or "log64").
     """
     if not isinstance(x, str):
         x = ' '.join(x)
@@ -1161,7 +1167,7 @@ def compose(wfst1, wfst2):
     wfst.set_initial(q0)
 
     # Lazy state and arc construction.
-    # todo: sort arcs wfst2
+    # todo: sort arcs in wfst2
     Q = set([q0])
     Q_old, Q_new = set(), set([q0])
     while len(Q_new) != 0:

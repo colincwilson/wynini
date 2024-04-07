@@ -42,7 +42,7 @@ def assign_weights(wfst, w):
 def expected(wfst, w):
     """
     Expected violation counts of features/constraints
-    in phi given feature weights w.
+    given feature weights w.
     All feature values and weights should be non-negative.
     """
     # Set arc weights equal to Harmonies
@@ -77,7 +77,7 @@ def expected(wfst, w):
             for ftr, violn in phi_t.items():
                 expect[ftr] = expect.get(ftr, 0.0) + (pstar * violn)
 
-    # Divide by partitition function (sum over all paths)
+    # Divide by partitition function (sum over all paths).
     Z = np.exp(-beta[0])
     for ftr in expect:
         expect[ftr] /= Z
@@ -86,7 +86,7 @@ def expected(wfst, w):
 
 def arc_features(wfst):
     """
-    Collect all feature names on arcs of wfst.
+    Collect all features on arcs of wfst.
     """
     ftrs = set()
     fst = wfst.fst

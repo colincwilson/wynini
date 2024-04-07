@@ -8,50 +8,49 @@ from .wfst import Wfst
 
 class SimpleFst():
     """
-    Bare-bones unweighted FST implementation
+    Bare-bones unweighted FST implementation.
     """
 
     def __init__(self, Q=None, q0=None, F=None, T=None):
-        self.Q = set(Q) if Q is not None else set()  # States
-        self.q0 = q0 if q0 is not None else -1  # Initial state
-        self.F = set(F) if F is not None else set()  # Final states
-        self.T = T if T is not None else {}  # mapping state -> outgoing arcs
-        # (outgoing arc collection is Set [default] or List)
+        self.Q = set(Q) if Q is not None else set()  # States.
+        self.q0 = q0 if q0 is not None else -1  # Initial state.
+        self.F = set(F) if F is not None else set()  # Final states.
+        # Mapping state -> outgoing arcs (outgoing arc collection
+        # is Set [default] or List).
+        self.T = T if T is not None else {}
 
     def add_state(self, q):
         """
-        Add to set of states
+        Add to set of states.
         """
-        self.Q.add(q)
-        self.T[q] = set()
+        if q not in Q:
+            self.Q.add(q)
+            self.T[q] = set()
 
     def set_start(self, q):
         """
-        Set unique start state to q
-        (add q to state set if not already present)
+        Set unique start state to q (adding q to state 
+        set if not already present).
         """
-        if q not in self.Q:
-            self.add_state(q)
+        self.add_state(q)
         self.q0 = q
 
     def set_final(self, q):
         """
-        Add q to set of final states
-        (add q to state set if not already present)
+        Add q to set of final states (adding q to state 
+        set if not already present).
         """
-        if q not in self.Q:
-            self.add_state(q)
+        self.add_state(q)
         self.F.add(q)
 
     def add_arc(self, t):
         """
-        Add arc (and src/dest to state set if not already present)
+        Add arc (adding src/dest to state set if not 
+        already present).
         """
-        if t.src not in self.Q:
-            self.add_state(t.src)
-        if t.dest not in self.Q:
-            self.add_state(t.dest)
-        if t.src not in self.T:  # xxx
+        self.add_state(t.src)
+        self.add_state(t.dest)
+        if t.src not in self.T:
             self.T[t.src] = set()
         if isinstance(self.T[t.src], set):
             self.T[t.src].add(t)
@@ -60,7 +59,8 @@ class SimpleFst():
 
     def delete_states(self, dead_states):
         """
-        Delete states and their outgoing/incoming arcs [nondestructive]
+        Delete states and their outgoing/incoming arcs.
+        [nondestructive]
         """
         Q = self.Q.difference(dead_states)
         q0 = self.q0 if self.q0 not in dead_states else -1
@@ -77,7 +77,7 @@ class SimpleFst():
 
     def copy(self):
         """
-        Deep copy of this machine
+        Deep copy of this machine.
         """
         Q = {q for q in self.Q}
         q0 = self.q0
@@ -92,7 +92,7 @@ class SimpleFst():
 
     def print(self):
         """
-        String representations of Q, q0, F, T
+        String representations of Q, q0, F, T.
         """
         val = f'Q {self.Q}\n'
         val += f'q0 {self.q0}\n'
@@ -105,25 +105,25 @@ class SimpleFst():
 
     def to_wfst(self):
         """
-        Convert to Wfst
+        Convert to Wfst.
         """
-        # Starter symbol table
+        # Initialize symbol table.
         input_symbols = SymbolTable()
         output_symbols = SymbolTable()
         input_symbols.add_symbol(config.epsilon)
         output_symbols.add_symbol(config.epsilon)
         wfst = Wfst(input_symbols, output_symbols)
 
-        # States
+        # States.
         for q in self.Q:
             wfst.add_state(q)
 
-        # Initial and final states
+        # Initial and final states.
         wfst.set_start(self.q0)
         for q in self.F:
             wfst.set_final(q)
 
-        # Transitions
+        # Transitions.
         for q in self.T:
             for t in self.T[q]:
                 wfst.add_arc(t.src, t.ilabel, t.olabel, None, t.dest)
@@ -133,7 +133,7 @@ class SimpleFst():
 @total_ordering
 class SimpleArc():
     """
-    Arc of SimpleFST
+    Arc of SimpleFST.
     """
 
     def __init__(self, src, ilabel, olabel, dest):
@@ -157,7 +157,8 @@ class SimpleArc():
         if not isinstance(other, type(self)):
             raise Error('Incorrect type for SimpleArc lt()')
         return (self.src, self.ilabel, self.olabel,
-                self.dest) < (other.src, other.ilabel, other.olabel, other.dest)
+                self.dest) < (other.src, other.ilabel, other.olabel,
+                              other.dest)
 
     def __hash__(self):
         return hash((self.src, self.ilabel, self.olabel, self.dest))
