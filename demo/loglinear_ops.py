@@ -60,7 +60,7 @@ print('M1.phi:', M1.phi)
 print()
 
 isymbols2, _ = config.make_symtable(['a', 'b'])
-osymbols2, _ = config.make_symtable(['a', 'b', 'c'])
+osymbols2, _ = config.make_symtable(['A', 'B', 'C'])
 M2 = Wfst(isymbols2, osymbols2, arc_type='log')
 M2.add_state(0)
 M2.add_state(1)
