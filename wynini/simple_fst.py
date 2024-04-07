@@ -23,7 +23,7 @@ class SimpleFst():
         """
         Add to set of states.
         """
-        if q not in Q:
+        if q not in self.Q:
             self.Q.add(q)
             self.T[q] = set()
 
