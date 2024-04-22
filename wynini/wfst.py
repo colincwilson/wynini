@@ -101,15 +101,24 @@ class Wfst():
 
     def state_label(self, q):
         """ State label from id. """
-        if not isinstance(q, int):
-            return q
+        #if not isinstance(q, int):
+        #    return q
         return self._state2label[q]
 
     def state_id(self, q):
         """ State id from label. """
-        if isinstance(q, int):
-            return q
+        #if isinstance(q, int):
+        #    return q
         return self._label2state[q]
+
+    def set_state_label(self, q, label):
+        """
+        Update label of state with id q.
+        (NB. State labels are assumed biunique.)
+        """
+        self._state2label[q] = label
+        self._label2state[label] = q
+        return None
 
     def add_state(self, label=None):
         """ Add new state, optionally specifying its label. """
@@ -253,7 +262,7 @@ class Wfst():
             src = self.state_id(src)
         return self.fst.num_arcs(src)
 
-    def num_arcs(self):
+    def total_arcs(self):
         """ Total count of arcs. """
         fst = self.fst
         n = 0
@@ -377,7 +386,7 @@ class Wfst():
 
     def info(self):
         nstate = self.num_states()
-        narc = self.num_arcs()
+        narc = self.total_arcs()
         return f'{nstate} states | {narc} arcs'
 
     # Algorithms.

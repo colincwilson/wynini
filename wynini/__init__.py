@@ -2,7 +2,8 @@ __all__ = [ \
     "config",
     "loglinear",
     "simple_fst",
-    "wfst" \
-]
+    "wfst",
+    "trie" \
+    ]
 
 from . import *
