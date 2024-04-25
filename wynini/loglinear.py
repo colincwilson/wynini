@@ -17,7 +17,7 @@ from wynini.wfst import Wfst, shortestdistance
 
 def assign_weights(wfst, w):
     """
-    Assign unnormalized plog weight to each arc t in wfst M 
+    Assign unnormalized -logprob weight to each arc t in wfst M 
     according to its Harmony: $-\sum_k (w_k \cdot \phi_k(t))$.
     phi: arc t -> dictionary of feature values ('violations') {\phi_0:v_0, \phi_1:v_1, ...}
     w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
@@ -70,7 +70,7 @@ def expected(wfst, w):
             phi_t = wfst.get_features(q, t)
             if phi_t is None or len(phi_t) == 0:
                 continue
-            # Unnormalized plog of all paths through t.
+            # Unnormalized -logprob of all paths through t.
             plog = alpha[q] + float(t.weight) + beta[t.nextstate]
             # Accumulate pstar[t] * violations[t].
             pstar = np.exp(-plog)
