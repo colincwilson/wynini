@@ -256,8 +256,13 @@ class Wfst():
         self.fst.arcsort(sort_type)
         return self
 
-    def num_arcs(self, src):
-        """ Number of arcs from state. """
+    def num_arcs(self, src=None):
+        """
+        Number of arcs from state or
+        total number of arcs in machine.
+        """
+        if src is None:
+            return self.total_arcs()
         if not isinstance(src, int):
             src = self.state_id(src)
         return self.fst.num_arcs(src)
