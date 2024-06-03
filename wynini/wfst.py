@@ -238,6 +238,20 @@ class Wfst():
         fst.add_arc(src, arc)
         return self
 
+    def add_mapping(self,
+                    src=None,
+                    ilabels=None,
+                    olabels=None,
+                    weight=None,
+                    dest=None):
+        """
+        Add mapping from space-separated ilabels 
+        to space-separated olabels, using epsilons
+        for different-length inputs/outputs.
+        """
+        print('*** Error: add_mapping() not yet implemented')
+        return
+
     def arcs(self, src):
         """ Iterator over arcs out of a state. """
         # todo: decorate arcs with input/output labels if requested.
@@ -808,6 +822,10 @@ class Wfst():
     # minimize(), prune(), rmepsilon()
 
 
+# # # # # # # # # #
+# Machine constructors.
+
+
 def accep(x, isymbols=None, add_delim=True, **kwargs):
     """
     Acceptor for space-delimited sequence (see pynini.accep).
@@ -1152,7 +1170,10 @@ def _suffix(x, l):
     return x[-l:]
 
 
-# todo: complete (any-to-any except bos/eos) transducer
+# todo: complete transducer (any-to-any except bos/eos)
+
+# # # # # # # # # #
+# Operations.
 
 
 def compose(wfst1, wfst2):
