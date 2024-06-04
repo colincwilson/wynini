@@ -238,18 +238,33 @@ class Wfst():
         fst.add_arc(src, arc)
         return self
 
-    def add_mapping(self,
-                    src=None,
-                    ilabels=None,
-                    olabels=None,
-                    weight=None,
-                    dest=None):
+    def add_path(self,
+                 src=None,
+                 ilabel=None,
+                 olabel=None,
+                 weight=None,
+                 dest=None):
         """
-        Add mapping from space-separated ilabels 
-        to space-separated olabels, using epsilons
-        for different-length inputs/outputs.
+        Add path labeled by space-separated ilabel and 
+        olabel (possibly of different lengths, either
+        can be null).
         """
-        print('*** Error: add_mapping() not yet implemented')
+        fst = self.fst
+        if not isinstance(src, int):
+            src = self.state_id(src)
+        if weight is None:
+            weight = Weight.one(self.weight_type())
+        if not isinstance(dest, int):
+            dest = self.state_id(dest)
+        if ilabel is not None:
+            ilabels = ilabel.split(' ')
+        else:
+            ilabels = None
+        if olabel is not None:
+            # todo
+
+
+        print('*** Error: add_path() not yet implemented')
         return
 
     def arcs(self, src):
