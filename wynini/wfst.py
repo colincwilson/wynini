@@ -249,23 +249,34 @@ class Wfst():
         olabel (possibly of different lengths, either
         can be null).
         """
+        # Process labels to same-length sequences.
+        if ilabel is None and olabel is None:
+            # no-op
+            return self
+        if ilabel is None:
+            ilabel = config.epsilon
+        if olabel is None:
+            olabel = config.epsilon
+        ilabels = ilabel.split(' ')
+        ilength = len(ilabels)
+        olabels = olabel.split(' ')
+        olength = len(olabels)
+        if ilength < olength:
+            ilabels += [config.epsilon] * (olength - ilength)
+        if ilength > olength:
+            olabels += [config.epsilon] * (ilength - olength)
+        print(ilabels, olabels)
+        # Add path.
         fst = self.fst
-        if not isinstance(src, int):
-            src = self.state_id(src)
-        if weight is None:
-            weight = Weight.one(self.weight_type())
-        if not isinstance(dest, int):
-            dest = self.state_id(dest)
-        if ilabel is not None:
-            ilabels = ilabel.split(' ')
-        else:
-            ilabels = None
-        if olabel is not None:
-            # todo
-
-
-        print('*** Error: add_path() not yet implemented')
-        return
+        n = len(ilabels)  # == len(olabels)
+        q = src
+        r = None
+        for i in range(n - 1):
+            r = self.add_state()
+            self.add_arc(q, ilabels[i], olabels[i], None, r)
+            q = r
+        self.add_arc(q, ilabels[n - 1], olabels[n - 1], weight, dest)
+        return self
 
     def arcs(self, src):
         """ Iterator over arcs out of a state. """
