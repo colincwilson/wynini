@@ -120,9 +120,8 @@ class Wfst():
         self._label2state[label] = q
         return None
 
-    def add_state(self, label=None):
+    def add_state(self, label=None, start=False, initial=False, final=False):
         """ Add new state, optionally specifying its label. """
-        # todo: start/initial and final flags
         # Enforce unique state labels.
         if label is not None:
             if label in self._label2state:
@@ -135,6 +134,13 @@ class Wfst():
         # State <-> label map.
         self._state2label[q] = label
         self._label2state[label] = q
+
+        # Start/initial and final props.
+        if start or initial:
+            self.set_start(q)
+        if final:
+            self.set_final(q, final)
+
         return q
 
     def states(self, labels=True):
@@ -178,7 +184,7 @@ class Wfst():
         """ Set final weight of state by id or label. """
         if not isinstance(q, int):
             q = self.state_id(q)
-        if weight is None:
+        if weight is None or weight is True:
             weight = Weight.one(self.weight_type())
         return self.fst.set_final(q, weight)
 
@@ -194,6 +200,9 @@ class Wfst():
         if not isinstance(q, int):
             q = self.state_id(q)
         return self.fst.final(q)
+
+    # Alias for final.
+    final_weight = final
 
     def finals(self, labels=True):
         """
@@ -265,7 +274,7 @@ class Wfst():
             ilabels += [config.epsilon] * (olength - ilength)
         if ilength > olength:
             olabels += [config.epsilon] * (ilength - olength)
-        print(ilabels, olabels)
+        #print(ilabels, olabels)
         # Add path.
         fst = self.fst
         n = len(ilabels)  # == len(olabels)
@@ -280,16 +289,23 @@ class Wfst():
 
     def arcs(self, src):
         """ Iterator over arcs out of a state. """
-        # todo: decorate arcs with input/output labels if requested.
+        # todo: decorate arcs with input/output labels if requested
+        # todo: iterate over all arcs in machine
         if not isinstance(src, int):
             src = self.state_id(src)
         return self.fst.arcs(src)
+
+    # Alias for arcs().
+    transitions = arcs
 
     def mutable_arcs(self, src):
         """ Mutable iterator over arcs from a state. """
         if not isinstance(src, int):
             src = self.state_id(src)
         return self.fst.mutable_arcs(src)
+
+    # Alias for mutable_arcs().
+    mutable_transitions = mutable_arcs
 
     def arcsort(self, sort_type='ilabel'):
         """ Sort arcs from each state. """
@@ -334,6 +350,10 @@ class Wfst():
     def olabel(self, arc):
         """ Label of arc output. """
         return self.fst.output_symbols().find(arc.olabel)
+
+    def weight(self, arc):
+        """ Weight on arc. """
+        return arc.weight
 
     def arc_type(self):
         """ Arc type (standard, log, log64). """
@@ -1281,15 +1301,15 @@ def compose(wfst1, wfst2):
 
                     # Features of composed arc: union of features
                     # of source arcs (with None equiv. to {}).
-                    phi_t1_flag = (phi_t1 is not None)
-                    phi_t2_flag = (phi_t2 is not None)
-                    if phi_t1_flag or phi_t2_flag:
-                        if phi_t1_flag and phi_t2_flag:
-                            phi_t = phi_t1 | phi_t2
-                        elif phi_t1_flag:
-                            phi_t = phi_t1
+                    phi_t = None
+                    if phi_t1 is not None:
+                        phi_t = phi_t1.copy()  # shallow copy
+                    if phi_t2 is not None:
+                        if phi_t is None:
+                            phi_t = phi_t2.copy()  # shallow copy
                         else:
-                            phi_t = phi_t2
+                            phi_t |= phi_t2
+                    if phi_t is not None:
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
@@ -1309,6 +1329,93 @@ def compose(wfst1, wfst2):
                         Q_new.add(dest)
 
     wfst = wfst.connect()
+    return wfst
+
+
+def concat(wfst1, wfst2):
+    """
+    Concatenation of two machines, assumed to share the 
+    same input/output symbol tables and arc type.
+    """
+    isymbols = wfst1.input_symbols()
+    osymbols = wfst1.output_symbols()
+    arc_type = wfst1.arc_type()
+    wfst = Wfst(isymbols, osymbols, arc_type)
+    one = Weight.one(wfst.weight_type())
+
+    # States and arcs from wfst1.
+    for q in wfst1.states():
+        wfst.add_state((q, 1))
+    wfst.set_initial((wfst1.initial(), 1))
+    for q in wfst1.states():
+        for t in wfst1.transitions(q):
+            wfst.add_arc( \
+                (q, 1),
+                wfst1.ilabel(t),
+                wfst1.olabel(t),
+                wfst1.weight(t),
+                (wfst1.state_label(t.nextstate), 1))
+
+    # States and arcs from wfst2.
+    for q in wfst2.states():
+        wfst.add_state((q, 2))
+    for q in wfst2.finals():
+        wfst.set_final((q, 2), wfst2.final_weight(q))
+    for q in wfst2.states():
+        for t in wfst1.transitions(q):
+            wfst.add_arc( \
+                (q, 2),
+                wfst2.ilabel(t),
+                wfst2.olabel(t),
+                wfst2.weight(t),
+                (wfst2.state_label(t.nextstate), 2))
+
+    # Bridging arcs.
+    for q1 in wfst1.finals():
+        wfst.add_arc( \
+            (q1, 1),
+            config.epsilon,
+            config.epsilon,
+            one,
+            (wfst2.initial(), 2))
+
+    # todo: remove epsilons / minimize
+    return wfst
+
+
+# Alias for concat().
+concatenate = concat
+
+
+def ques(wfst):
+    """ Optionality op. """
+    wfst = wfst.copy()
+    one = Weight.one(wfst.weight_type())
+    q0 = wfst.initial()
+    qf = wfst.add_state(final=True)
+    wfst.add_arc( \
+        q0,
+        config.epsilon,
+        config.epsilon,
+        one,
+        qf)
+
+    return wfst
+
+
+def star(wfst):
+    """ Repetition op. """
+    wfst = wfst.copy()
+    one = Weight.one(wfst.weight_type())
+    q0 = wfst.initial()
+    for qf in wfst.finals():
+        wfst.add_arc( \
+            qf,
+            config.epsilon,
+            config.epsilon,
+            one,
+            q0)
+
     return wfst
 
 
