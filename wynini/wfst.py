@@ -143,10 +143,10 @@ class Wfst():
 
         return q
 
-    def states(self, labels=True):
+    def states(self, label=True):
         """ Iterator over state labels (or ids). """
         fst = self.fst
-        if not labels:
+        if not label:
             return fst.states()
         return map(lambda q: self.state_label(q), fst.states())
 
@@ -204,7 +204,7 @@ class Wfst():
     # Alias for final.
     final_weight = final
 
-    def finals(self, labels=True):
+    def finals(self, label=True):
         """
         Iterator over states with non-zero final weights.
         """
@@ -212,9 +212,22 @@ class Wfst():
         zero = pynini.Weight.zero(fst.weight_type())
         state_iter = fst.states()
         state_iter = filter(lambda q: fst.final(q) != zero, state_iter)
-        if labels:
+        if label:
             state_iter = map(lambda q: self.state_label(q), state_iter)
         return state_iter
+
+    def relabel_states(self):
+        """
+        Simplify state labels (e.g., after composition).
+        """
+        state2label = {}  # State id -> state label.
+        label2state = {}  # State label -> state id.
+        for q in self.states(label=False):
+            state2label[q] = q
+            label2state[q] = q
+        self._state2label = state2label
+        self._label2state = label2state
+        return self
 
     # Arcs.
 
@@ -560,9 +573,9 @@ class Wfst():
         Remove states and arcs that are not on successful paths.
         [nondestructive]
         """
-        accessible = self.accessible(forward=True)
-        coaccessible = self.accessible(forward=False)
-        live_states = accessible & coaccessible
+        accessible = self.accessible()
+        coaccessible = self.coaccessible()
+        live_states = set(accessible) & set(coaccessible)
         dead_states = set(self.fst.states()) - live_states
         wfst = self.delete_states(dead_states, connect=False)
         return wfst
@@ -571,12 +584,15 @@ class Wfst():
         """
         Ids of states accessible from initial state (forward) 
         -or- coaccessible from final states (backward).
+        States are sorted (reverse-)topologically.
         """
         fst = self.fst
 
+        states = []
         if forward:
             # Initial state id; forward arcs.
             Q = set([fst.start()])
+            states += Q
             T = {}
             for src in fst.states():
                 T[src] = set()
@@ -585,7 +601,9 @@ class Wfst():
                     T[src].add(dest)
         else:
             # Final state ids; backward arcs
+            # todo: use finals()
             Q = set([q for q in fst.states() if self.is_final(q)])
+            states += Q
             T = {}
             for src in fst.states():
                 for t in fst.arcs(src):
@@ -604,7 +622,13 @@ class Wfst():
                 for dest in filter(lambda q2: q2 not in Q, T[src]):
                     Q.add(dest)
                     Q_new.add(dest)
-        return Q
+                    states.append(dest)
+        #return Q
+        return states
+
+    def coaccessible(self):
+        """ Alias for accessible. """
+        return self.accessible(forward=False)
 
     def delete_states(self, states, connect=True):
         """
@@ -1246,52 +1270,75 @@ def compose(wfst1, wfst2):
     one = Weight.one(wfst.weight_type())
     zero = Weight.zero(wfst.weight_type())
 
+    # Initial state (possibly also final).
     q0 = (wfst1.start(), wfst2.start())
     wfst.add_state(q0)
     wfst.set_initial(q0)
+    wfinal1 = wfst1.final(q0[0])  # fix notation.
+    wfinal2 = wfst2.final(q0[1])
+    if wfinal1 != zero and wfinal2 != zero:
+        if common_weights:
+            wfinal = pynini.times(wfinal1, wfinal2)
+        else:
+            wfinal = one  # or wfinal2?
+        wfst.set_final(dest, wfinal)
+
+    # Organize arcs of wfst2 by src, ilabel
+    # for fast matching with wfst1 arcs.
+    wfst2_arcs = {}
+    for q2 in wfst2.states(label=False):
+        q2_arcs = {}
+        for t2 in wfst2.arcs(q2):
+            t2_ilabel = wfst2.ilabel(t2)
+            if t2_ilabel in q2_arcs:
+                q2_arcs[t2_ilabel].append(t2)
+            else:
+                q2_arcs[t2_ilabel] = [t2]
+        wfst2_arcs[q2] = q2_arcs
 
     # Lazy state and arc construction.
-    # todo: sort arcs in wfst2
     Q = set([q0])
     Q_old, Q_new = set(), set([q0])
     while len(Q_new) != 0:
         Q_old, Q_new = Q_new, Q_old
         Q_new.clear()
+
+        # Source states.
         for src in Q_old:
-            # Source state.
-            src1, src2 = src  # State labels.
-            src_id = wfst.state_id(src)  # State ids.
-            src1_id = wfst1.state_id(src1)
+            src_id = wfst.state_id(src)  # Source id.
+            src1, src2 = src  # Source labels in wfst1, wfst2.
+            src1_id = wfst1.state_id(src1)  # Source ids in wfst1, wfst2.
             src2_id = wfst2.state_id(src2)
 
+            # Skip src2 if it has no outgoing arcs.
+            if not src2_id in wfst2_arcs:
+                continue
+
             for t1 in wfst1.arcs(src1):
-                # Symbolic output label.
-                t1_olabel = wfst1.olabel(t1)
-                # Arc features.
-                phi_t1 = wfst1.get_features(src1_id, t1)
+                t1_olabel = wfst1.olabel(t1)  # Output label.
+                dest1_id = t1.nextstate  # Destination id.
+                dest1 = wfst1.state_label(dest1_id)  # Destination label.
+                wfinal1 = wfst1.final(dest1_id)  # Final weight.
+                phi_t1 = wfst1.get_features(src1_id, t1)  # Arc features.
 
-                for t2 in wfst2.arcs(src2):
-                    # Symbolic input label.
-                    t2_ilabel = wfst2.ilabel(t2)
-                    # Compare symbolic labels.
-                    if t1_olabel != t2_ilabel:
-                        continue
-                    #if t1.olabel != t2.ilabel:
-                    #    continue
-
-                    # Arc features.
-                    phi_t2 = wfst2.get_features(src2_id, t2)
-                    #print('phi_t2', phi_t2)
+                for t2 in wfst2_arcs[src2_id].get(t1_olabel, []):
+                    dest2_id = t2.nextstate  # Destination id.
+                    dest2 = wfst2.state_label(dest2_id)  # Destination label.
+                    wfinal2 = wfst2.final(dest2)  # Final weight.
 
                     # Destination state.
-                    dest1 = t1.nextstate
-                    dest2 = t2.nextstate
-                    dest = (wfst1.state_label(dest1), \
-                            wfst2.state_label(dest2))
-                    wfst.add_state(dest)  # No change if dest exists.
-                    dest_id = wfst.state_id(dest)
+                    dest = (dest1, dest2)
+                    dest_id = wfst.add_state(dest)  # No change if dest exists.
 
-                    # Arc.
+                    # Dest is final if both dest1 and dest2 are final.
+                    if wfinal1 != zero and wfinal2 != zero:
+                        if common_weights:
+                            wfinal = pynini.times(wfinal1, wfinal2)
+                        else:
+                            wfinal = one  # or wfinal2?
+                        wfst.set_final(dest, wfinal)
+
+                    # Arc with product weight.
                     if common_weights:
                         weight = pynini.times(t1.weight, t2.weight)
                     else:
@@ -1302,29 +1349,20 @@ def compose(wfst1, wfst2):
                                  weight=weight,
                                  dest=dest)
 
-                    # Features of composed arc: union of features
-                    # of source arcs (with None equiv. to {}).
+                    # Arc features: union of features assigned
+                    # to source arcs (with None equiv. to {}).
                     phi_t = None
                     if phi_t1 is not None:
-                        phi_t = phi_t1.copy()  # shallow copy
+                        phi_t = phi_t1.copy()  # Shallow copy.
+                    phi_t2 = wfst2.get_features(src2_id, t2)
                     if phi_t2 is not None:
                         if phi_t is None:
-                            phi_t = phi_t2.copy()  # shallow copy
+                            phi_t = phi_t2.copy()  # Shallow copy.
                         else:
                             phi_t |= phi_t2
                     if phi_t is not None:
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
-
-                    # Dest is final if both dest1 and dest2 are final.
-                    wfinal1 = wfst1.final(dest1)
-                    wfinal2 = wfst2.final(dest2)
-                    if wfinal1 != zero and wfinal2 != zero:
-                        if common_weights:
-                            wfinal = pynini.times(wfinal1, wfinal2)
-                        else:
-                            wfinal = one  # or wfinal2?
-                        wfst.set_final(dest, wfinal)
 
                     # Enqueue new state.
                     if dest not in Q:
