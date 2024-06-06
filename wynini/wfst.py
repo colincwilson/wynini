@@ -919,13 +919,13 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
     fst.set_input_symbols(isymbols)
     fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
-    # Explicit epsilon transitions on interior states.
-    # todo: epsilon transitions on all states?
-    epsilon = config.epsilon
-    for q in wfst.states():
-        if wfst.is_initial(q) or wfst.is_final(q):
-            continue
-        wfst.add_arc(q, epsilon, epsilon, None, q)
+    # # Explicit epsilon transitions on interior states.
+    # # todo: epsilon transitions on all states?
+    # epsilon = config.epsilon
+    # for q in wfst.states():
+    #     if wfst.is_initial(q) or wfst.is_final(q):
+    #         continue
+    #     wfst.add_arc(q, epsilon, epsilon, None, q)
 
     return wfst
 
@@ -995,7 +995,7 @@ def trellis(length=1,
         for x in tier:
             wfst.add_arc(src=q, ilabel=x, dest=r)
         # Loop.
-        wfst.add_arc(src=r, ilabel=epsilon, dest=r)
+        # wfst.add_arc(src=r, ilabel=epsilon, dest=r)
         for x in skip:
             wfst.add_arc(src=r, ilabel=x, dest=r)
         # End.
@@ -1018,9 +1018,9 @@ def braid(length=1, isymbols=None, tier=None, arc_type='standard'):
 
 def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
     """
-    Starter transducer with three states and arcs:
+    Starter transducer with three states and two arcs:
         0 -> bos:bos -> 0
-        1 -> epsilon:epsilon -> 1
+        # 1 -> epsilon:epsilon -> 1
         1 -> eos:eos -> 1
     isymbols and osymbols are lists of ordinary symbols
     (delegate to config for epsilon, bos, eos).
@@ -1036,7 +1036,7 @@ def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
     wfst.set_initial(0)
     wfst.set_final(2)
     wfst.add_arc(0, config.bos, config.bos, None, 1)
-    wfst.add_arc(1, config.epsilon, config.epsilon, None, 1)
+    # wfst.add_arc(1, config.epsilon, config.epsilon, None, 1)
     wfst.add_arc(1, config.eos, config.eos, None, 2)
     return wfst
 
@@ -1062,11 +1062,10 @@ def ngram(context='left',
             # Same context length on both sides.
             length_L = length_R = length
         else:
-            # Separate context lengths.
+            # Independent context lengths.
             length_L, length_R = length
         L = ngram_left(length_L, isymbols, tier, arc_type)
         R = ngram_right(length_R, isymbols, tier, arc_type)
-        #R.project('input')
         LR = compose(L, R)
         return LR
     print(f'Bad side argument {side} to ngram_acceptor.')
@@ -1147,6 +1146,7 @@ def ngram_left(length=1, isymbols=None, tier=None, arc_type='standard'):
             continue
         for x in skip:
             wfst.add_arc(src=q, ilabel=x, dest=q)
+        # wfst.add_arc(src=q, ilabel=epsilon, dest=q)
 
     return wfst
 
@@ -1261,27 +1261,35 @@ def compose(wfst1, wfst2):
     todo: matcher/filter options for compose
     todo: flatten state labels created by repeated composition
     """
-    isymbols = wfst1.input_symbols()
-    osymbols = wfst2.output_symbols()
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
-    arc_type = wfst2.arc_type() if common_weights else 'standard'
-
-    wfst = Wfst(isymbols, osymbols, arc_type)
+    wfst = Wfst( \
+        wfst1.input_symbols(),
+        wfst2.output_symbols(),
+        wfst1.arc_type() if common_weights else 'standard')
     one = Weight.one(wfst.weight_type())
     zero = Weight.zero(wfst.weight_type())
 
     # Initial state (possibly also final).
-    q0 = (wfst1.start(), wfst2.start())
-    wfst.add_state(q0)
-    wfst.set_initial(q0)
-    wfinal1 = wfst1.final(q0[0])  # fix notation.
-    wfinal2 = wfst2.final(q0[1])
+    q1, q2 = wfst1.start(), wfst2.start()
+    q0 = (q1, q2)
+    wfst.add_state(q0, initial=True)
+    wfinal1 = wfst1.final(q1)
+    wfinal2 = wfst2.final(q2)
     if wfinal1 != zero and wfinal2 != zero:
         if common_weights:
             wfinal = pynini.times(wfinal1, wfinal2)
         else:
             wfinal = one  # or wfinal2?
-        wfst.set_final(dest, wfinal)
+        wfst.set_final(q0, wfinal)
+
+    # Add explicit epsilon self-transitions
+    # to all states in wfst1 and wfst2.
+    # todo: checkme
+    epsilon = config.epsilon
+    for q1 in wfst1.states(label=False):
+        wfst1.add_arc(q1, epsilon, epsilon, None, q1)
+    for q2 in wfst2.states(label=False):
+        wfst2.add_arc(q2, epsilon, epsilon, None, q2)
 
     # Organize arcs of wfst2 by src, ilabel
     # for fast matching with wfst1 arcs.
@@ -1315,6 +1323,7 @@ def compose(wfst1, wfst2):
                 continue
 
             for t1 in wfst1.arcs(src1):
+                t1_ilabel = wfst1.ilabel(t1)  # Input label.
                 t1_olabel = wfst1.olabel(t1)  # Output label.
                 dest1_id = t1.nextstate  # Destination id.
                 dest1 = wfst1.state_label(dest1_id)  # Destination label.
@@ -1322,9 +1331,11 @@ def compose(wfst1, wfst2):
                 phi_t1 = wfst1.get_features(src1_id, t1)  # Arc features.
 
                 for t2 in wfst2_arcs[src2_id].get(t1_olabel, []):
+                    t2_olabel = wfst2.olabel(t2)
                     dest2_id = t2.nextstate  # Destination id.
                     dest2 = wfst2.state_label(dest2_id)  # Destination label.
                     wfinal2 = wfst2.final(dest2)  # Final weight.
+                    phi_t2 = wfst2.get_features(src2_id, t2)  # Arc features.
 
                     # Destination state.
                     dest = (dest1, dest2)
@@ -1337,6 +1348,17 @@ def compose(wfst1, wfst2):
                         else:
                             wfinal = one  # or wfinal2?
                         wfst.set_final(dest, wfinal)
+
+                    # Enqueue new state.
+                    if dest not in Q:
+                        Q.add(dest)
+                        Q_new.add(dest)
+
+                    # Do not add epsilon self-arcs.
+                    # todo: checkme
+                    if src_id == dest_id and t1_ilabel == epsilon \
+                        and t2_olabel == epsilon:
+                        continue
 
                     # Arc with product weight.
                     if common_weights:
@@ -1354,7 +1376,6 @@ def compose(wfst1, wfst2):
                     phi_t = None
                     if phi_t1 is not None:
                         phi_t = phi_t1.copy()  # Shallow copy.
-                    phi_t2 = wfst2.get_features(src2_id, t2)
                     if phi_t2 is not None:
                         if phi_t is None:
                             phi_t = phi_t2.copy()  # Shallow copy.
@@ -1364,12 +1385,8 @@ def compose(wfst1, wfst2):
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
-                    # Enqueue new state.
-                    if dest not in Q:
-                        Q.add(dest)
-                        Q_new.add(dest)
-
     wfst = wfst.connect()
+
     return wfst
 
 
@@ -1378,10 +1395,10 @@ def concat(wfst1, wfst2):
     Concatenation of two machines, assumed to share the 
     same input/output symbol tables and arc type.
     """
-    isymbols = wfst1.input_symbols()
-    osymbols = wfst1.output_symbols()
-    arc_type = wfst1.arc_type()
-    wfst = Wfst(isymbols, osymbols, arc_type)
+    wfst = Wfst( \
+        wfst1.input_symbols(),
+        wfst2.output_symbols(),
+        wfst1.arc_type())
     one = Weight.one(wfst.weight_type())
 
     # States and arcs from wfst1.
@@ -1428,8 +1445,58 @@ def concat(wfst1, wfst2):
 concatenate = concat
 
 
+def union(wfst1, wfst2):
+    """
+    Union of two machines, assumed to share the 
+    same input/output symbol tables and arc type.
+    """
+    wfst = Wfst( \
+        wfst1.input_symbols(),
+        wfst2.output_symbols(),
+        wfst1.arc_type())
+    one = Weight.one(wfst.weight_type())
+
+    q0 = wfst.add_state(initial=True)
+
+    # States and arcs from wfst1.
+    for q in wfst1.states():
+        wfst.add_state((q, 1))
+    for q in wfst1.finals():
+        wfst.set_final((q, 1), wfst1.final_weight(q))
+    for q in wfst1.states():
+        for t in wfst1.transitions(q):
+            wfst.add_arc( \
+                (q, 1),
+                wfst1.ilabel(t),
+                wfst1.olabel(t),
+                wfst1.weight(t),
+                (wfst1.state_label(t.nextstate), 1))
+
+    # States and arcs from wfst2.
+    for q in wfst2.states():
+        wfst.add_state((q, 2))
+    for q in wfst2.finals():
+        wfst.set_final((q, 2), wfst2.final_weight(q))
+    for q in wfst2.states():
+        for t in wfst1.transitions(q):
+            wfst.add_arc( \
+                (q, 2),
+                wfst2.ilabel(t),
+                wfst2.olabel(t),
+                wfst2.weight(t),
+                (wfst2.state_label(t.nextstate), 2))
+
+    # Bridging arcs.
+    q1 = (wfst1.initial(), 1)
+    q2 = (wfst2.initial(), 2)
+    wfst.add_arc(q0, config.epsilon, config.epsilon, one, q1)
+    wfst.add_arc(q0, config.epsilon, config.epsilon, one, q2)
+
+    return wfst
+
+
 def ques(wfst):
-    """ Optionality op. """
+    """ Optionality. """
     wfst = wfst.copy()
     one = Weight.one(wfst.weight_type())
     q0 = wfst.initial()
@@ -1445,7 +1512,7 @@ def ques(wfst):
 
 
 def star(wfst):
-    """ Repetition op. """
+    """ Repetition. """
     wfst = wfst.copy()
     one = Weight.one(wfst.weight_type())
     q0 = wfst.initial()
