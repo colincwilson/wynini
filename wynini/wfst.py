@@ -114,7 +114,7 @@ class Wfst():
     def set_state_label(self, q, label):
         """
         Update label of state with id q.
-        (NB. State labels are assumed biunique.)
+        note: state labels are assumed biunique.
         """
         self._state2label[q] = label
         self._label2state[label] = q
@@ -439,6 +439,7 @@ class Wfst():
                 t_ = (q, t.ilabel, t.olabel, t.nextstate)
                 phi[t_] = phi_t
         self.phi = phi
+        return self
 
     def get_features(self, q, t, default=None):
         """
@@ -459,8 +460,9 @@ class Wfst():
     def paths(self):
         """
         Iterator over paths through this machine (must be acyclic). 
-        Path iterator has methods: ilabels(), istring(), labels(), 
-        ostring(), weights(), funcitems(); istrings(), ostrings().
+        StringPathIterator is not iterable (!) but has methods: 
+        next(); ilabels(), istring(), labels(), ostring(), 
+        weights(); istrings(), ostrings(), weights(), items().
         """
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -862,14 +864,15 @@ class Wfst():
                         portrait=portrait,
                         **kwargs)
 
-    # todo:
-    # read()/write() from/to file
-    # encode()/decode() labels
-    # minimize(), prune(), rmepsilon()
 
+# todo:
+# read()/write() from/to file
+# encode()/decode() labels
+# minimize(), prune(), rmepsilon()
 
 # # # # # # # # # #
 # Machine constructors.
+# todo: string_file, string_map
 
 
 def accep(x, isymbols=None, add_delim=True, **kwargs):
@@ -893,6 +896,7 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
     fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
     # Explicit epsilon transitions on interior states.
+    # todo: epsilon transitions on all states?
     epsilon = config.epsilon
     for q in wfst.states():
         if wfst.is_initial(q) or wfst.is_final(q):
@@ -1041,7 +1045,7 @@ def ngram(context='left',
         #R.project('input')
         LR = compose(L, R)
         return LR
-    print(f'Bad side argument to ngram_acceptor {side}')
+    print(f'Bad side argument {side} to ngram_acceptor.')
     return None
 
 
@@ -1216,10 +1220,9 @@ def _suffix(x, l):
     return x[-l:]
 
 
-# todo: complete transducer (any-to-any except bos/eos)
-
 # # # # # # # # # #
 # Operations.
+# todo: cross(-product), difference, intersect, plus, union
 
 
 def compose(wfst1, wfst2):
