@@ -2,6 +2,8 @@ import sys, pynini
 from pynini import Fst, Arc, Weight, SymbolTableView
 from . import config
 
+verbose = 0
+
 
 class Wfst():
     """
@@ -46,6 +48,7 @@ class Wfst():
         self._osymbols = osymbols  # Arc label output symbols.
         self._state2label = {}  # State id -> state label.
         self._label2state = {}  # State label -> state id.
+        # note: state id <-> state label assumed to be one-to-one.
         self.sigma = {}  # State id -> output string.
         self.phi = {}  # Arc -> loglinear features ({f_k: v_k}).
 
@@ -113,18 +116,26 @@ class Wfst():
 
     def set_state_label(self, q, label):
         """
-        Update label of state with id q.
-        note: state labels are assumed biunique.
+        Update label of state q.
         """
+        # Enforce biunique state labels.
+        if label in self._label2state:
+            print(f'Cannot set label of state {q} to {label} '
+                  f'(label already used).')
+            return None
+        self._label2state[label]
         self._state2label[q] = label
         self._label2state[label] = q
         return None
 
     def add_state(self, label=None, start=False, initial=False, final=False):
         """ Add new state, optionally specifying its label. """
-        # Enforce unique state labels.
+        # Enforce biunique state labels.
         if label is not None:
             if label in self._label2state:
+                if verbose:
+                    print(f'State with label {label} already exists '
+                          f'(returning it).')
                 return self._label2state[label]
         # Add new state.
         q = self.fst.add_state()
@@ -216,15 +227,36 @@ class Wfst():
             state_iter = map(lambda q: self.state_label(q), state_iter)
         return state_iter
 
-    def relabel_states(self):
+    def relabel_states(self, func=None):
         """
-        Simplify state labels (e.g., after composition).
+        Relabel states as integers (default) 
+        or with passed function.
         """
+        if func is not None:
+            return self.relabel_states_func(func)
         state2label = {}  # State id -> state label.
         label2state = {}  # State label -> state id.
         for q in self.states(label=False):
             state2label[q] = q
             label2state[q] = q
+        self._state2label = state2label
+        self._label2state = label2state
+        return self
+
+    def relabel_states_func(self, func):
+        """
+        Relabel states with function.
+        """
+        state2label = {}
+        label2state = {}
+        for q in self.states(label=False):
+            label = func(self, q)
+            if label in label2state:
+                print(f'Relabeling function assigns the same label '
+                      f'to multiple states; ignoring')
+                return self
+            state2label[q] = label
+            label2state[label] = q
         self._state2label = state2label
         self._label2state = label2state
         return self
@@ -1259,7 +1291,6 @@ def compose(wfst1, wfst2):
     (unions) features of composed arcs; note that features 
     appearing in phi1 and phi2 are assumed to be disjoint.
     todo: matcher/filter options for compose
-    todo: flatten state labels created by repeated composition
     """
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     wfst = Wfst( \
