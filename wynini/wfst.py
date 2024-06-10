@@ -130,7 +130,7 @@ class Wfst():
 
     def add_state(self, label=None, start=False, initial=False, final=False):
         """ Add new state, optionally specifying its label. """
-        # Enforce biunique state labels.
+        # Enforce one-to-one state labeling.
         if label is not None:
             if label in self._label2state:
                 if verbose:
@@ -139,9 +139,9 @@ class Wfst():
                 return self._label2state[label]
         # Add new state.
         q = self.fst.add_state()
-        # Self-labeling by int as default.
+        # Self-labeling as default.
         if label is None:
-            label = q
+            label = q  # int
         # State <-> label map.
         self._state2label[q] = label
         self._label2state[label] = q
@@ -312,8 +312,8 @@ class Wfst():
         if olabel is None:
             olabel = config.epsilon
         ilabels = ilabel.split(' ')
-        ilength = len(ilabels)
         olabels = olabel.split(' ')
+        ilength = len(ilabels)
         olength = len(olabels)
         if ilength < olength:
             ilabels += [config.epsilon] * (olength - ilength)
@@ -443,7 +443,7 @@ class Wfst():
         """
         Assign weights to arcs in this machine with an arbitrary 
         function func (<Wfst, q, t> -> Weight) that receives this 
-        machine, a source state id, and a raw arc as inputs and 
+        machine, a source state id, and an arc as inputs and 
         returns an arc weight. The function can examine the src/ 
         input/output/dest and associated labels of the arc.
         See also map_type options "identity", "plus", "power", 
@@ -470,14 +470,14 @@ class Wfst():
         Assign features (as in loglinear/maxent/HG/OT models) 
         to arcs in this machine with an arbitrary function
         func (<Wfst, q, t> -> feature violations) that receives 
-        this machine, a source state id, and a raw arc as inputs 
+        this machine, a source state id, and an arc as inputs 
         and returns a dictionary of feature 'violations'.
         The function can examine the src/input/output/dest and 
         associated labels of the arc.
         """
         phi = {}
         for q in self.fst.states():  # Source state id.
-            for t in self.fst.arcs(q):  # Raw arc.
+            for t in self.fst.arcs(q):  # Arc.
                 phi_t = func(self, q, t)
                 if phi_t is None:  # Handle partial functions.
                     continue
@@ -488,12 +488,26 @@ class Wfst():
 
     def get_features(self, q, t, default=None):
         """
-        Get features for raw arc t from state with id q.
+        Get features for arc t from state with id q.
         """
         if len(self.phi) == 0:
             return default
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         return self.phi.get(t_, default)
+
+    def print_arc(self, q, t):
+        """
+        Pretty-print a single arc from state q.
+        """
+        if isinstance(q, int):
+            src = self.state_label(q)
+        else:
+            src = q
+        ilabel = self.ilabel(t)
+        olabel = self.olabel(t)
+        weight = self.weight(t)
+        dest = self.state_label(t.nextstate)
+        return (src, ilabel, olabel, weight, dest)
 
     def info(self):
         nstate = self.num_states()
@@ -742,7 +756,7 @@ class Wfst():
         """
         Delete arcs for which an arbitracy function 
         func(<Wfst, q, t> -> boolean) is True. The function 
-        receives this machine, a source state id, and a raw arc 
+        receives this machine, a source state id, and an arc 
         as inputs; it can examine the src/input/output/dest and 
         associated labels of the arc.
         """
@@ -1322,20 +1336,11 @@ def compose(wfst1, wfst2):
     for q2 in wfst2.states(label=False):
         wfst2.add_arc(q2, epsilon, epsilon, None, q2)
 
-    # Organize arcs of wfst2 by src, ilabel
+    # Lazy organization of arcs in wfst2 by src & ilabel
     # for fast matching with wfst1 arcs.
     wfst2_arcs = {}
-    for q2 in wfst2.states(label=False):
-        q2_arcs = {}
-        for t2 in wfst2.arcs(q2):
-            t2_ilabel = wfst2.ilabel(t2)
-            if t2_ilabel in q2_arcs:
-                q2_arcs[t2_ilabel].append(t2)
-            else:
-                q2_arcs[t2_ilabel] = [t2]
-        wfst2_arcs[q2] = q2_arcs
 
-    # Lazy state and arc construction.
+    # Lazy state and arc construction of wfst.
     Q = set([q0])
     Q_old, Q_new = set(), set([q0])
     while len(Q_new) != 0:
@@ -1349,9 +1354,25 @@ def compose(wfst1, wfst2):
             src1_id = wfst1.state_id(src1)  # Source ids in wfst1, wfst2.
             src2_id = wfst2.state_id(src2)
 
-            # Skip src2 if it has no outgoing arcs.
-            if not src2_id in wfst2_arcs:
+            # Skip src1 if it has no outgoing arcs.
+            if wfst1.num_arcs(src1) == 0:
                 continue
+
+            # Skip src2 if it has no outgoing arcs.
+            if wfst2.num_arcs(src2) == 0:
+                continue
+
+            # Organize arcs from src2 by ilabel
+            # for fast matching with wfst1 arcs.
+            if src2_id not in wfst2_arcs:
+                src2_arcs = {}
+                for t2 in wfst2.arcs(src2_id):
+                    t2_ilabel = wfst2.ilabel(t2)
+                    if t2_ilabel in src2_arcs:
+                        src2_arcs[t2_ilabel].append(t2)
+                    else:
+                        src2_arcs[t2_ilabel] = [t2]
+                wfst2_arcs[src2_id] = src2_arcs
 
             for t1 in wfst1.arcs(src1):
                 t1_ilabel = wfst1.ilabel(t1)  # Input label.
