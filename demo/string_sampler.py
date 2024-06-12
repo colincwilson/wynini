@@ -2,7 +2,10 @@ import sys
 
 sys.path.append('..')
 from pynini import Weight
+from wynini import config
 from wynini.wfst import *
+
+config.init()
 
 # 'Ngram' machine that represents each segment in its immediately
 # preceding context, placing arc weights in the neg log prob

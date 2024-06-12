@@ -122,7 +122,7 @@ print()
 config = {'sigma': ['a', 'b']}
 wfst_config.init(config)
 
-# Machine that accepts a*b*
+# Machine that accepts [ab]*
 M1 = Wfst(wfst_config.symtable)
 q = 0
 M1.add_state(q)
