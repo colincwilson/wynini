@@ -1285,7 +1285,7 @@ def _suffix(x, l):
 
 # # # # # # # # # #
 # Operations.
-# todo: cross(-product), difference, intersect, plus, union
+# todo: cross(-product), difference, intersect, plus
 
 
 def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):

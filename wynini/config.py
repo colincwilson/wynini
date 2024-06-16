@@ -1,38 +1,37 @@
 from pynini import SymbolTable
 
 epsilon = 'ϵ'  # <eps>
-bos = '⋊'  # '>' | <s>
-eos = '⋉'  # '<' | </s>
-λ = ''  # Empty string (de la Higuera, p. 48)
-unk = '⊥'  # Unknown / empty set (de la Higuera, p. 376)
-sigma = ['a', 'b']  # Ordinary symbols
-special_syms = []  # Special symbols
-syms = []  # All symbols in symtable
-symtable = None  # SymbolTable
+bos = '⋊'  # '>' or <s>
+eos = '⋉'  # '<' or </s>
+λ = ''  # Empty string (de la Higuera, p. 48).
+unk = '⊥'  # Unknown / empty set (de la Higuera, p. 376).
+sigma = ['a', 'b']  # Ordinary symbols.
+special_syms = []  # Special symbols.
+syms = []  # All symbols in symtable.
+symtable = None  # SymbolTable.
 
 verbosity = 0
 
 # todo: input vs. output alphabets
 
 
-def init(config={}):
-    """ Set globals with dictionary or module """
+def init(param={}):
+    """ Set globals with dictionary or module. """
     global epsilon, bos, eos
     global sigma, special_syms
     global syms, symtable
-    #if not isinstance(config, dict):
-    #    print(config)
-    #    config = vars(config)
-    if 'epsilon' in config:
-        epsilon = config['epsilon']
-    if 'bos' in config:
-        bos = config['bos']
-    if 'eos' in config:
-        eos = config['eos']
-    if 'special_syms' in config:
-        special_syms = config['special_syms']
-    if 'sigma' in config:
-        sigma = config['sigma']
+    if not isinstance(param, dict):
+        param = vars(param)
+    if 'epsilon' in param:
+        epsilon = param['epsilon']
+    if 'bos' in param:
+        bos = param['bos']
+    if 'eos' in param:
+        eos = param['eos']
+    if 'special_syms' in param:
+        special_syms = param['special_syms']
+    if 'sigma' in param:
+        sigma = param['sigma']
     symtable, syms = make_symtable(sigma)
 
 
