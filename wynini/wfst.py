@@ -547,9 +547,11 @@ class Wfst():
     def accepted_strings(self, side='input', weights=True, max_len=10):
         """
         Iterator over input (default) or output labels of paths 
-        through this machine up to max_len (excluding bos/eos),  
-        optionally with weights; cf. paths() for acyclic machines.
-        todo: epsilon handling
+        through this machine (possibly acyclic) up to max_len
+        (excluding bos/eos), optionally with weights.
+        For acyclic machines see pynini paths().
+        todo: proper epsilon handling
+        todo: convert to generator, use deque
         """
         fst = self.fst
         q0 = fst.start()
@@ -770,7 +772,7 @@ class Wfst():
 
     def transduce(self, x, add_delim=True, output_strings=True):
         """
-        Transduce space-separated input x with this machine, 
+        Transduce space-separated input with this machine, 
         returning iterator over output strings (default) or 
         resulting machine that preserves input/output labels 
         but not state labels. 
