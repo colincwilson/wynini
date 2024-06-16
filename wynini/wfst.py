@@ -303,7 +303,7 @@ class Wfst():
         olabel (possibly of different lengths, either
         can be null).
         """
-        # Process labels to same-length sequences.
+        # Ensure same-length input/output sequences.
         if ilabel is None and olabel is None:
             # no-op
             return self
@@ -770,7 +770,7 @@ class Wfst():
 
     def transduce(self, x, add_delim=True, output_strings=True):
         """
-        Transduce space-separated sequence x with this machine, 
+        Transduce space-separated input x with this machine, 
         returning iterator over output strings (default) or 
         resulting machine that preserves input/output labels 
         but not state labels. 
@@ -947,7 +947,7 @@ class Wfst():
 
 def accep(x, isymbols=None, add_delim=True, **kwargs):
     """
-    Acceptor for space-delimited sequence (see pynini.accep).
+    Acceptor for space-delimited input (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
     arc_type ("standard", "log", or "log64").
     todo: set isymbols with symbols in x
@@ -966,6 +966,36 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
     fst.set_input_symbols(isymbols)
     fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
+    return wfst
+
+
+def trans(ilabel, olabel, **kwargs):
+    """
+    Transduce space-separated input string to space-separated
+    output string. One-off alternative to pynini string_map().
+    """
+    if ilabel is None:
+        ilabel = config.epsilon
+    if olabel is None:
+        olabel = config.epsilon
+    ilabels = ilabel.split(' ')
+    olabels = olabel.split(' ')
+    ilength = len(ilabels)
+    olength = len(olabels)
+    if ilength < olength:
+        ilabels += [config.epsilon] * (olength - ilength)
+    if ilength > olength:
+        olabels += [config.epsilon] * (ilength - olength)
+
+    wfst = Wfst(**kwargs)
+    n = len(ilabels)  # == len(olabels)
+    src = wfst.add_state(initial=True)
+    for (x, y) in zip(ilabels, olabels):
+        dest = wfst.add_state()
+        wfst.add_arc(src, x, y, None, dest)
+        src = dest
+    wfst.set_final(src)
+
     return wfst
 
 
