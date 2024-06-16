@@ -1557,12 +1557,11 @@ def ques(wfst):
         config.epsilon,
         one,
         qf)
-
     return wfst
 
 
-def star(wfst):
-    """ Repetition. """
+def plus(wfst):
+    """ Plus operator. """
     wfst = wfst.copy()
     one = Weight.one(wfst.weight_type())
     q0 = wfst.initial()
@@ -1573,7 +1572,22 @@ def star(wfst):
             config.epsilon,
             one,
             q0)
+    return wfst
 
+
+def star(wfst):
+    """ Repetition. """
+    wfst = wfst.copy()
+    one = Weight.one(wfst.weight_type())
+    q0 = wfst.initial()
+    wfst.set_final(q0, one)
+    for qf in wfst.finals():
+        wfst.add_arc( \
+            qf,
+            config.epsilon,
+            config.epsilon,
+            one,
+            q0)
     return wfst
 
 
