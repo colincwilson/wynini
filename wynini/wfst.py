@@ -1447,7 +1447,7 @@ def concat(wfst1, wfst2):
     """
     wfst = Wfst( \
         wfst1.input_symbols(),
-        wfst2.output_symbols(),
+        wfst1.output_symbols(),
         wfst1.arc_type())
     one = Weight.one(wfst.weight_type())
 
@@ -1502,7 +1502,7 @@ def union(wfst1, wfst2):
     """
     wfst = Wfst( \
         wfst1.input_symbols(),
-        wfst2.output_symbols(),
+        wfst1.output_symbols(),
         wfst1.arc_type())
     one = Weight.one(wfst.weight_type())
 
