@@ -774,7 +774,7 @@ class Wfst():
         returning iterator over output strings (default) or 
         resulting machine that preserves input/output labels 
         but not state labels. 
-        Alternative: create acceptor for string with accep(), 
+        Alternatively, create acceptor for string with accep(), 
         then compose() with this machine in order to preserve 
         input/output/state labels and arc features.
         """
@@ -950,11 +950,12 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
     Acceptor for space-delimited sequence (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
     arc_type ("standard", "log", or "log64").
+    todo: set isymbols with symbols in x
     """
     if not isinstance(x, str):
         x = ' '.join(x)
     if add_delim:
-        x = config.bos + ' ' + x + ' ' + config.eos
+        x = f'{config.bos} {x} {config.eos}'
 
     if isymbols is None:
         isymbols = config.symtable
@@ -965,14 +966,6 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
     fst.set_input_symbols(isymbols)
     fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
-    # # Explicit epsilon transitions on interior states.
-    # # todo: epsilon transitions on all states?
-    # epsilon = config.epsilon
-    # for q in wfst.states():
-    #     if wfst.is_initial(q) or wfst.is_final(q):
-    #         continue
-    #     wfst.add_arc(q, epsilon, epsilon, None, q)
-
     return wfst
 
 
@@ -1295,16 +1288,18 @@ def _suffix(x, l):
 # todo: cross(-product), difference, intersect, plus, union
 
 
-def compose(wfst1, wfst2):
+def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
     """
-    Composition/intersection, retaining contextual info from 
-    original machines by labeling each state q = (q1, q2) as 
-    (label(q1), label(q2)). Multiplies arc and final weights 
-    if machines have the same arc type. If at least one of 
-    arc feature maps phi1 or phi2 is non-null, combines 
-    (unions) features of composed arcs; note that features 
+    Composition/intersection, retaining contextual info from
+    original machines by labeling each state q = (q1, q2) as
+    (label(q1), label(q2)). Multiplies arc and final weights
+    if machines have the same arc type. If at least one of
+    arc feature maps phi1 or phi2 is non-null, combines
+    (unions) features of composed arcs; note that features
     appearing in phi1 and phi2 are assumed to be disjoint.
-    todo: matcher/filter options for compose
+    Optionally apply functions to determine matching of arc
+    labels by matchfunc1(t1_olabel) == matchfunc2(t2_ilabel).
+    todo: filter options
     """
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     wfst = Wfst( \
@@ -1329,7 +1324,6 @@ def compose(wfst1, wfst2):
 
     # Add explicit epsilon self-transitions
     # to all states in wfst1 and wfst2.
-    # todo: checkme
     epsilon = config.epsilon
     for q1 in wfst1.states(label=False):
         wfst1.add_arc(q1, epsilon, epsilon, None, q1)
@@ -1337,7 +1331,7 @@ def compose(wfst1, wfst2):
         wfst2.add_arc(q2, epsilon, epsilon, None, q2)
 
     # Lazy organization of arcs in wfst2 by src & ilabel
-    # for fast matching with wfst1 arcs.
+    # for fast matching with olabels of arcs in wfst1.
     wfst2_arcs = {}
 
     # Lazy state and arc construction of wfst.
@@ -1368,6 +1362,8 @@ def compose(wfst1, wfst2):
                 src2_arcs = {}
                 for t2 in wfst2.arcs(src2_id):
                     t2_ilabel = wfst2.ilabel(t2)
+                    if matchfunc2 is not None:
+                        t2_ilabel = matchfunc2(t2_ilabel)
                     if t2_ilabel in src2_arcs:
                         src2_arcs[t2_ilabel].append(t2)
                     else:
@@ -1377,6 +1373,8 @@ def compose(wfst1, wfst2):
             for t1 in wfst1.arcs(src1):
                 t1_ilabel = wfst1.ilabel(t1)  # Input label.
                 t1_olabel = wfst1.olabel(t1)  # Output label.
+                if matchfunc1 is not None:
+                    t1_olabel = matchfunc1(t1_olabel)
                 dest1_id = t1.nextstate  # Destination id.
                 dest1 = wfst1.state_label(dest1_id)  # Destination label.
                 wfinal1 = wfst1.final(dest1_id)  # Final weight.
