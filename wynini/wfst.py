@@ -1,5 +1,7 @@
 import sys, pynini
 from pynini import Fst, Arc, Weight, SymbolTableView
+from graphviz import Source
+
 from . import config
 
 verbose = 0
@@ -544,13 +546,16 @@ class Wfst():
         """
         return self.paths().ostrings()
 
-    def accepted_strings(self, side='input', weights=True, max_len=10):
+    def accepted_strings(self,
+                         side='input',
+                         weights=True,
+                         max_len=10,
+                         delete_epsilon=True):
         """
         Iterator over input (default) or output labels of paths 
-        through this machine (possibly acyclic) up to max_len
+        through this machine (possibly cyclic) up to max_len
         (excluding bos/eos), optionally with weights.
         For acyclic machines see pynini paths().
-        todo: proper epsilon handling
         todo: convert to generator, use deque
         """
         fst = self.fst
@@ -576,10 +581,14 @@ class Wfst():
                         tlabel = self.ilabel(t)
                     else:
                         tlabel = self.olabel(t)
-                    if label is None:
-                        label_new = tlabel
+
+                    if delete_epsilon and (tlabel == config.epsilon):
+                        label_new = label
                     else:
-                        label_new = label + ' ' + tlabel
+                        if label is None:
+                            label_new = tlabel
+                        else:
+                            label_new = label + ' ' + tlabel
 
                     # Update path extensions.
                     path_new = (dest, label_new)
@@ -613,7 +622,7 @@ class Wfst():
                 accepted_.append((label, float(weight)))
             return iter(accepted_)
 
-        # Return labels.
+        # Return path labels (discarding end states).
         return map(lambda path: path[1], accepted)
 
     def connect(self):
@@ -759,7 +768,7 @@ class Wfst():
         Delete arcs for which an arbitracy function 
         func(<Wfst, q, t> -> boolean) is True. The function 
         receives this machine, a source state id, and an arc 
-        as inputs; it can examine the src/input/output/dest and 
+        as arguments; it can examine the src/input/output/dest and 
         associated labels of the arc.
         """
         dead_arcs = []
@@ -922,7 +931,6 @@ class Wfst():
 
     def draw(self, source, acceptor=True, portrait=True, **kwargs):
         """ Write FST in dot format to file (source). """
-        # todo: draw to standard out
         fst = self.fst
         # State symbol table.
         state_symbols = pynini.SymbolTable()
@@ -935,6 +943,13 @@ class Wfst():
                         acceptor=acceptor,
                         portrait=portrait,
                         **kwargs)
+
+    def viz(self, **kwargs):
+        """ Draw in ipython / jupyter notebook. """
+        # todo: skip middleman file
+        self.draw('.tmp.dot', **kwargs)
+        ret = Source.from_file('.tmp.dot')
+        return ret
 
 
 # todo:
@@ -975,6 +990,7 @@ def trans(ilabel, olabel, **kwargs):
     """
     Transduce space-separated input string to space-separated
     output string. One-off alternative to pynini string_map().
+    todo: add delimiters
     """
     if ilabel is None:
         ilabel = config.epsilon
@@ -1502,7 +1518,7 @@ def concat(wfst1, wfst2):
     for q in wfst2.finals():
         wfst.set_final((q, 2), wfst2.final_weight(q))
     for q in wfst2.states():
-        for t in wfst1.transitions(q):
+        for t in wfst2.transitions(q):
             wfst.add_arc( \
                 (q, 2),
                 wfst2.ilabel(t),
@@ -1560,7 +1576,7 @@ def union(wfst1, wfst2):
     for q in wfst2.finals():
         wfst.set_final((q, 2), wfst2.final_weight(q))
     for q in wfst2.states():
-        for t in wfst1.transitions(q):
+        for t in wfst2.transitions(q):
             wfst.add_arc( \
                 (q, 2),
                 wfst2.ilabel(t),
