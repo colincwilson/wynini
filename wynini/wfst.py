@@ -1,4 +1,5 @@
-import sys, pynini
+import sys, pickle
+import pynini
 from pynini import Fst, Arc, Weight, SymbolTableView
 from graphviz import Source
 
@@ -916,7 +917,7 @@ class Wfst():
         # note: access fst member if do not need copy
         return self.fst.copy()
 
-    # Printing/drawing
+    # Printing/drawing/saving/loading.
 
     def print(self, **kwargs):
         fst = self.fst
@@ -951,9 +952,20 @@ class Wfst():
         ret = Source.from_file('.tmp.dot')
         return ret
 
+    def save(self, outfile):
+        """ Write to pickle file. """
+        with open(outfile, 'wb') as f:
+            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+
+    @classmethod
+    def load(cls, infile):
+        """ Load from pickle file. """
+        with open(infile, 'rb') as f:
+            wfst = pickle.load(f)
+        return wfst
+
 
 # todo:
-# read()/write() from/to file
 # encode()/decode() labels
 # minimize(), prune(), rmepsilon()
 
@@ -1343,8 +1355,8 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
     (label(q1), label(q2)). Multiplies arc and final weights
     if machines have the same arc type. If at least one of
     arc feature maps phi1 or phi2 is non-null, combines
-    (unions) features of composed arcs; note that features
-    appearing in phi1 and phi2 are assumed to be disjoint.
+    (unions) features of composed arcs; features appearing
+    in phi1 and phi2 are assumed to be disjoint.
     Optionally apply functions to determine matching of arc
     labels by matchfunc1(t1_olabel) == matchfunc2(t2_ilabel).
     todo: filter options
