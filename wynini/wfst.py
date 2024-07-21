@@ -561,7 +561,6 @@ class Wfst():
         while not path_iter.done():
             path = list(zip( \
                 path_iter.ilabels(), path_iter.olabels()))
-            print(path)
             path = [f'{self.ilabel(x)}:{self.olabel(y)}' \
                 for (x, y) in path]
             io_paths.append(' '.join(path))
