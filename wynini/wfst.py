@@ -391,13 +391,17 @@ class Wfst():
             src = self.state_id(src)
         return self.fst.num_output_epsilons(src)
 
-    def ilabel(self, arc):
-        """ Label of arc input. """
-        return self.fst.input_symbols().find(arc.ilabel)
+    def ilabel(self, x):
+        """ Arc input label. """
+        if isinstance(x, Arc):
+            x = x.ilabel
+        return self.fst.input_symbols().find(x)
 
-    def olabel(self, arc):
-        """ Label of arc output. """
-        return self.fst.output_symbols().find(arc.olabel)
+    def olabel(self, x):
+        """ Arc output label. """
+        if isinstance(x, Arc):
+            x = x.olabel
+        return self.fst.output_symbols().find(x)
 
     def weight(self, arc):
         """ Weight on arc. """
@@ -529,9 +533,9 @@ class Wfst():
         fst = self.fst
         isymbols = fst.input_symbols()
         osymbols = fst.output_symbols()
-        strpath_iter = fst.paths(input_token_type=isymbols,
-                                 output_token_type=osymbols)
-        return strpath_iter
+        path_iter = fst.paths(input_token_type=isymbols,
+                              output_token_type=osymbols)
+        return path_iter
 
     def istrings(self):
         """
@@ -547,6 +551,23 @@ class Wfst():
         """
         return self.paths().ostrings()
 
+    def iostrings(self):
+        """
+        List of aligned input:output sequences representing
+        paths through this machine (must be acyclic).
+        """
+        io_paths = []
+        path_iter = self.paths()
+        while not path_iter.done():
+            path = list(zip( \
+                path_iter.ilabels(), path_iter.olabels()))
+            print(path)
+            path = [f'{self.ilabel(x)}:{self.olabel(y)}' \
+                for (x, y) in path]
+            io_paths.append(' '.join(path))
+            path_iter.next()
+        return io_paths
+
     def accepted_strings(self,
                          side='input',
                          weights=True,
@@ -557,7 +578,7 @@ class Wfst():
         through this machine (possibly cyclic) up to max_len
         (excluding bos/eos), optionally with weights.
         For acyclic machines see pynini paths().
-        todo: convert to generator, use deque
+        todo: convert to generator, use deque as in pyfoma
         """
         fst = self.fst
         q0 = fst.start()
@@ -837,8 +858,8 @@ class Wfst():
         fst_out.set_input_symbols(isymbols)
         fst_out.set_output_symbols(osymbols)
         if output_strings:
-            strpath_iter = fst_out.paths(output_token_type=osymbols)
-            return strpath_iter.ostrings()
+            path_iter = fst_out.paths(output_token_type=osymbols)
+            return path_iter.ostrings()
         wfst = Wfst.from_fst(fst_out)
         return wfst
 
@@ -894,8 +915,8 @@ class Wfst():
 
         if output_strings:
             osymbols = fst.output_symbols()
-            strpath_iter = fst_samp.paths(output_token_type=osymbols)
-            return strpath_iter.ostrings()
+            path_iter = fst_samp.paths(output_token_type=osymbols)
+            return path_iter.ostrings()
         wfst_samp = Wfst.from_fst(fst_samp)
         return wfst_samp
 
