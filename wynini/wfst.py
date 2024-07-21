@@ -256,7 +256,7 @@ class Wfst():
             label = func(self, q)
             if label in label2state:
                 print(f'Relabeling function assigns the same label '
-                      f'to multiple states; ignoring')
+                      f'to multiple states; ignoring.')
                 return self
             state2label[q] = label
             label2state[label] = q
@@ -762,6 +762,39 @@ class Wfst():
                 if live:
                     self.add_arc(q, t1.ilabel, t1.olabel, t1.weight,
                                  t1.nextstate)
+        return self
+
+    def prune_arcs(self):
+        """
+        Delete duplicate arcs (which are allowed by Fst).
+        todo: sum weights of arcs with same src/ilabel/olabel/dest?
+        """
+        fst = self.fst
+        q_arc_set = set()
+        q_arcs = []
+        duplicates = False
+        # Process each source state.
+        for q in fst.states():
+            # Identify unique arcs.
+            q_arc_set.clear()
+            q_arcs.clear()
+            duplicates = False
+            for t in fst.arcs(q):
+                t_ = (t.ilabel, t.olabel, t.nextstate, str(t.weight))
+                if t_ in q_arc_set:
+                    duplicates = True
+                else:
+                    q_arc_set.add(t_)
+                    q_arcs.append(t)
+            # Skip if there are no duplicates.
+            if not duplicates:
+                continue
+            # Delete all arcs.
+            fst.delete_arcs(q)
+            # Add back unique arcs.
+            for t in q_arcs:
+                self.add_arc( \
+                    q, t.ilabel, t.olabel, t.weight, t.nextstate)
         return self
 
     def remove_arcs(self, func):
@@ -1668,7 +1701,8 @@ def shortestdistance(wfst, delta=1e-6, reverse=False):
 
 def arc_equal(arc1, arc2):
     """
-    Arc equality (missing from pynini?).
+    Test equality of arcs from the same src
+    (missing from pynini?).
     """
     val = (arc1.ilabel == arc2.ilabel) and \
             (arc1.olabel == arc2.olabel) and \
