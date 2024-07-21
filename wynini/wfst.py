@@ -507,14 +507,12 @@ class Wfst():
         Pretty-print a single arc from state q.
         """
         if isinstance(q, int):
-            src = self.state_label(q)
-        else:
-            src = q
+            q = self.state_label(q)
         ilabel = self.ilabel(t)
         olabel = self.olabel(t)
         weight = self.weight(t)
         dest = self.state_label(t.nextstate)
-        return (src, ilabel, olabel, weight, dest)
+        return (q, ilabel, olabel, weight, dest)
 
     def info(self):
         nstate = self.num_states()
@@ -551,21 +549,20 @@ class Wfst():
         """
         return self.paths().ostrings()
 
-    def iostrings(self):
+    def iostrings(self, sep=':'):
         """
-        List of aligned input:output sequences representing
+        Generate aligned input:output sequences representing
         paths through this machine (must be acyclic).
         """
-        io_paths = []
         path_iter = self.paths()
         while not path_iter.done():
             path = list(zip( \
                 path_iter.ilabels(), path_iter.olabels()))
-            path = [f'{self.ilabel(x)}:{self.olabel(y)}' \
+            path = [f'{self.ilabel(x)}{sep}{self.olabel(y)}' \
                 for (x, y) in path]
-            io_paths.append(' '.join(path))
+            path = ' '.join(path)
             path_iter.next()
-        return io_paths
+            yield path
 
     def accepted_strings(self,
                          side='input',
@@ -573,11 +570,10 @@ class Wfst():
                          max_len=10,
                          delete_epsilon=True):
         """
-        Iterator over input (default) or output labels of paths 
+        Generate input (default) or output labels of paths 
         through this machine (possibly cyclic) up to max_len
         (excluding bos/eos), optionally with weights.
-        For acyclic machines see pynini paths().
-        todo: convert to generator, use deque as in pyfoma
+        For acyclic machines see paths() above.
         """
         fst = self.fst
         q0 = fst.start()
@@ -587,9 +583,9 @@ class Wfst():
 
         paths_old = {(q0, None)}
         paths_new = set()
-        accepted = set()
         if weights:
             path2weight = {(q0, None): One}
+        # note: pynini weights are unhashable.
 
         for _ in range(max_len + 2):
             for path_old in paths_old:
@@ -611,7 +607,7 @@ class Wfst():
                         else:
                             label_new = label + ' ' + tlabel
 
-                    # Update path extensions.
+                    # Update path.
                     path_new = (dest, label_new)
                     paths_new.add(path_new)
 
@@ -626,25 +622,18 @@ class Wfst():
                         else:
                             path2weight[path_new] = weight_new
 
-                    # Update accepted paths.
+                    # Yield accepted path.
                     if fst.final(dest) != Zero:
-                        accepted.add(path_new)
+                        if weights:
+                            weight = pynini.times( \
+                                path2weight[path_new],
+                                fst.final(dest))
+                            yield (label_new, weight)
+                        else:
+                            yield label_new
 
             paths_old, paths_new = paths_new, paths_old
             paths_new.clear()
-
-        # Return (label, weight) pairs.
-        if weights:
-            accepted_ = []
-            for path in accepted:
-                (dest, label) = path
-                weight = pynini.times( \
-                    path2weight[path], fst.final(dest))
-                accepted_.append((label, float(weight)))
-            return iter(accepted_)
-
-        # Return path labels (discarding end states).
-        return map(lambda path: path[1], accepted)
 
     def connect(self):
         """
