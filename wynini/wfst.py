@@ -1009,7 +1009,7 @@ class Wfst():
 
 # todo:
 # encode()/decode() labels
-# minimize(), prune(), rmepsilon()
+# minimize(), rmepsilon()
 
 # # # # # # # # # #
 # Machine constructors.
@@ -1042,9 +1042,11 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
 
 def trans(ilabel, olabel, **kwargs):
     """
-    Transduce space-separated input string to space-separated
-    output string. One-off alternative to pynini string_map().
-    todo: add delimiters
+    Transducer that maps space-separated input string to
+    space-separated output string. One-off alternative
+    to pynini string_map(); use union() to combine multiple
+    transducers as alteratives.
+    todo: optionally add delimiters
     """
     if ilabel is None:
         ilabel = config.epsilon
