@@ -24,6 +24,9 @@ class Wfst():
     - https://www.openfst.org/doxygen/fst/html/arc_8h_source.html
     - https://www.openfst.org/twiki/bin/view/FST/FstQuickTour#FstWeights
     - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#Weights
+    - Weight constructor is Weight(weight_type, weight_value) where
+    weight_type is "tropical" | "log" | "log64"; there are special
+    constructors Weight.zero(weight_type), Weight.one(weight_type).
     General reference for OpenFst advanced usage:
     - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#OpenFst%20Advanced%20Usage
     """
@@ -826,11 +829,12 @@ class Wfst():
         """
         Transduce space-separated input with this machine, 
         returning iterator over output strings (default) or 
-        resulting machine that preserves input/output labels 
-        but not state labels. 
+        machine that preserves input/output labels. 
         Alternatively, create acceptor for string with accep(), 
         then compose() with this machine in order to preserve 
         input/output/state labels and arc features.
+        note: state labels / output strings / loglinear features
+        of self are not retained in output machine.
         """
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -889,6 +893,8 @@ class Wfst():
         accepting the paths. pynini.randgen() arguments: npath, 
         seed, select ("uniform", "log_prob", or "fast_log_prob"),
         max_length, weighted, remove_total_weight.
+        note: state labels / output strings / loglinear features
+        of self are not retained in output machine.
         """
         fst = self.fst
         if select is None:
@@ -1708,6 +1714,30 @@ def shortestdistance(wfst, delta=1e-6, reverse=False):
     """
     return pynini.shortestdistance( \
         wfst.fst, delta=delta, reverse=reverse)
+
+
+def shortestpath(wfst, delta=1e-6, **kwargs):
+    """
+    "Construct an FST containing the shortest path(s) in 
+    the input FST.
+    shortestpath(ifst, delta=1e-6, nshortest=1, nstate=NO_STATE_ID,
+    queue_type="auto", unique=False, weight=None)
+    [Gorman & Sproat, section 5.3.2]"
+    note: state labels / output strings / loglinear features
+    of input wfst are not retained in output machine.
+    """
+    fst = wfst.fst
+    #arc_type = fst.arc_type()
+    isymbols = fst.input_symbols()
+    osymbols = fst.output_symbols()
+
+    fst_out = pynini.shortestpath( \
+        fst, delta=delta, **kwargs)
+
+    fst_out.set_input_symbols(isymbols)
+    fst_out.set_output_symbols(osymbols)
+    wfst_out = Wfst.from_fst(fst_out)
+    return wfst_out
 
 
 def arc_equal(arc1, arc2):
