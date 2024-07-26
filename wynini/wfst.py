@@ -1703,8 +1703,9 @@ def star(wfst):
 
 def shortestdistance(wfst, delta=1e-6, reverse=False):
     """
-    'Shortest distance' from each state to final states, 
-    or from each state to source state; delegates to Pynini.
+    'Shortest distance' from the initial state to each
+    state (reverse=False, the default) or from each 
+    state into the final states (reverse=True).
     Pynini doc:
     "The shortest distance from p to q is the \otimes-sum of 
     the weights of all the paths between p and q."
@@ -1718,6 +1719,7 @@ def shortestdistance(wfst, delta=1e-6, reverse=False):
 
 def shortestpath(wfst, delta=1e-6, **kwargs):
     """
+    Pynini doc:
     "Construct an FST containing the shortest path(s) in 
     the input FST.
     shortestpath(ifst, delta=1e-6, nshortest=1, nstate=NO_STATE_ID,
@@ -1737,6 +1739,28 @@ def shortestpath(wfst, delta=1e-6, **kwargs):
     fst_out.set_input_symbols(isymbols)
     fst_out.set_output_symbols(osymbols)
     wfst_out = Wfst.from_fst(fst_out)
+    return wfst_out
+
+
+def shortestpath_(wfst, delta=1e-6):
+    """
+    Version of shortestpath that retains state labels / 
+    output strings / loglinear features of input wfst.
+    """
+    fst = wfst.fst
+    dist = pynini.shortestdistance( \
+        fst, delta, reverse=True)
+    #print(dist)
+    dead_arcs = []
+    for q in fst.states():
+        for t in fst.arcs(q):
+            w = pynini.times(dist[q], t.weight)
+            if w != dist[t.nextstate]:  # checkme
+                dead_arcs.append((q, t))
+    #print(dead_arcs)
+    wfst_out = wfst.copy()
+    wfst_out = wfst_out.delete_arcs(dead_arcs)
+    wfst_out = wfst_out.connect()
     return wfst_out
 
 
