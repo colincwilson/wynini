@@ -15,6 +15,22 @@ from wynini.wfst import Wfst, shortestdistance
 # todo: stable mapping from Arcs to violation vectors
 
 
+def arc_features(wfst):
+    """
+    Collect all features on arcs of wfst.
+    """
+    ftrs = set()
+    fst = wfst.fst
+    for q in fst.states():
+        for t in fst.arcs(q):
+            # Feature vector.
+            phi_t = wfst.get_features(q, t)
+            if phi_t is None or len(phi_t) == 0:
+                continue
+            ftrs |= phi_t.keys()
+    return ftrs
+
+
 def assign_weights(wfst, w):
     """
     Assign unnormalized -logprob weight to each arc t in wfst M 
@@ -39,15 +55,16 @@ def assign_weights(wfst, w):
     return wfst
 
 
-def expected(wfst, w):
+def expected(wfst, w=None):
     """
-    Expected violation counts of features/constraints
-    given feature weights w.
+    Expected violation counts of features/constraints given 
+    feature weights w -or- with weights already applied.
     All feature values and weights should be non-negative.
     """
     # Set arc weights equal to Harmonies
     # (sum of weighted feature violations).
-    assign_weights(wfst, w)
+    if w is not None:
+        assign_weights(wfst, w)
 
     # Forward potentials
     # (sum over all paths from initial to q).
@@ -84,22 +101,6 @@ def expected(wfst, w):
     return expect
 
 
-def arc_features(wfst):
-    """
-    Collect all features on arcs of wfst.
-    """
-    ftrs = set()
-    fst = wfst.fst
-    for q in fst.states():
-        for t in fst.arcs(q):
-            # Feature vector.
-            phi_t = wfst.get_features(q, t)
-            if phi_t is None or len(phi_t) == 0:
-                continue
-            ftrs |= phi_t.keys()
-    return ftrs
-
-
 def dot_product(phi_t, w):
     """
     Dot product of features and weights represented 
@@ -110,3 +111,27 @@ def dot_product(phi_t, w):
         if ftr in w:
             ret += w[ftr] * violn
     return ret
+
+
+def gradient(O_counts, E_counts):
+    """
+    Neg gradient of feature weights computed from 
+    dictionaries of 'observed' (aka clamped) and 
+    'expected' (aka unclamped) feature counts.
+    """
+    grad = {}
+    for ftr, E in E_counts.items():
+        grad[ftr] = -(O_counts.get(ftr, 0.0) - E)
+    return grad
+
+
+def update(w, grad, alpha=1.0, wmin=1e-3):
+    """
+    Update weights in-place with neg gradient,
+    learning rate alpha, and minimum weight wmin.
+    todo: regularizer(s)
+    """
+    for ftr, g in grad.items():
+        w_ftr = w[ftr] + alpha * g
+        w[ftr] = max(w_ftr, wmin)
+    return w

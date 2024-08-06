@@ -435,11 +435,14 @@ class Wfst():
         """
         Map arc weights (see pynini.arcmap).
         map_type is "identity", "invert", "quantize", "plus", 
-        "power", "rmweight", "times", "to_log", or "to_log64".
+        "power", "rmweight", "times", "to_log", "to_log64",
+        or "to_std" (which maps to the tropical semiring).
         """
         # assumption: pynini.arcmap() does not reindex states.
         if map_type == 'identity':
             return self
+        if map_type in ['to_tropical', 'to_standard']:
+            map_type = 'to_std'
         fst = self.fst
         isymbols = fst.input_symbols()
         osymbols = fst.output_symbols()
@@ -504,18 +507,6 @@ class Wfst():
             return default
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         return self.phi.get(t_, default)
-
-    def print_arc(self, q, t):
-        """
-        Pretty-print a single arc from state q.
-        """
-        if isinstance(q, int):
-            q = self.state_label(q)
-        ilabel = self.ilabel(t)
-        olabel = self.olabel(t)
-        weight = self.weight(t)
-        dest = self.state_label(t.nextstate)
-        return (q, ilabel, olabel, weight, dest)
 
     def info(self):
         nstate = self.num_states()
@@ -709,7 +700,7 @@ class Wfst():
         fst = self.fst
         live_states = set(fst.states()) - states
 
-        # Preserve input/output symbols and weight type.
+        # Preserve input/output symbols and aweight type.
         wfst = Wfst( \
             self.input_symbols(),
             self.output_symbols(),
@@ -866,9 +857,10 @@ class Wfst():
         """
         # note: removes total weight by default
         # assumption: Fst.push() does not reindex states.
-        self.fst = self.fst.push(delta=delta,
-                                 reweight_type=reweight_type,
-                                 remove_total_weight=remove_total_weight)
+        self.fst = self.fst.push( \
+            delta=delta,
+            reweight_type=reweight_type,
+        remove_total_weight=remove_total_weight)
         return self
 
     def push_labels(self, reweight_type='to_initial', **kwargs):
@@ -966,6 +958,18 @@ class Wfst():
         return self.fst.copy()
 
     # Printing/drawing/saving/loading.
+
+    def print_arc(self, q, t):
+        """
+        Pretty-print a single arc from state q.
+        """
+        if isinstance(q, int):
+            q = self.state_label(q)
+        ilabel = self.ilabel(t)
+        olabel = self.olabel(t)
+        weight = self.weight(t)
+        dest = self.state_label(t.nextstate)
+        return (q, ilabel, olabel, weight, dest)
 
     def print(self, **kwargs):
         fst = self.fst
@@ -1725,16 +1729,17 @@ def shortestpath(wfst, delta=1e-6, **kwargs):
     shortestpath(ifst, delta=1e-6, nshortest=1, nstate=NO_STATE_ID,
     queue_type="auto", unique=False, weight=None)
     [Gorman & Sproat, section 5.3.2]"
+    note: ensure weights are in tropical semiring before 
+    calling (e.g., using wfst.map_weights('to_std')).
     note: state labels / output strings / loglinear features
     of input wfst are not retained in output machine.
     """
     fst = wfst.fst
-    #arc_type = fst.arc_type()
     isymbols = fst.input_symbols()
     osymbols = fst.output_symbols()
 
     fst_out = pynini.shortestpath( \
-        fst, delta=delta, **kwargs)
+        fst, delta=delta) #, **kwargs)
 
     fst_out.set_input_symbols(isymbols)
     fst_out.set_output_symbols(osymbols)
@@ -1746,18 +1751,18 @@ def shortestpath_(wfst, delta=1e-6):
     """
     Version of shortestpath that retains state labels / 
     output strings / loglinear features of input wfst.
+    note: ensure weights are in tropical semiring before 
+    calling (e.g., using wfst.map_weights('to_std')).
     """
     fst = wfst.fst
     dist = pynini.shortestdistance( \
         fst, delta, reverse=True)
-    #print(dist)
     dead_arcs = []
     for q in fst.states():
         for t in fst.arcs(q):
             w = pynini.times(dist[q], t.weight)
             if w != dist[t.nextstate]:  # checkme
                 dead_arcs.append((q, t))
-    #print(dead_arcs)
     wfst_out = wfst.copy()
     wfst_out = wfst_out.delete_arcs(dead_arcs)
     wfst_out = wfst_out.connect()
