@@ -113,15 +113,17 @@ def dot_product(phi_t, w):
     return ret
 
 
-def gradient(O_counts, E_counts):
+def gradient(O_counts, E_counts, grad=None):
     """
     Neg gradient of feature weights computed from 
     dictionaries of 'observed' (aka clamped) and 
     'expected' (aka unclamped) feature counts.
     """
-    grad = {}
+    if grad is None:
+        grad = {}
     for ftr, E in E_counts.items():
-        grad[ftr] = -(O_counts.get(ftr, 0.0) - E)
+        grad[ftr] = grad.get(ftr, 0.0) \
+                    - (O_counts.get(ftr, 0.0) - E)
     return grad
 
 
