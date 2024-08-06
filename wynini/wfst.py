@@ -441,7 +441,7 @@ class Wfst():
         # assumption: pynini.arcmap() does not reindex states.
         if map_type == 'identity':
             return self
-        if map_type in ['to_tropical', 'to_standard']:
+        if map_type in ['to_trop', 'to_tropical', 'to_standard']:
             map_type = 'to_std'
         fst = self.fst
         isymbols = fst.input_symbols()
