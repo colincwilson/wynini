@@ -1,4 +1,6 @@
 import sys, pickle
+import numpy as np
+
 import pynini
 from pynini import Fst, Arc, Weight, SymbolTableView
 from graphviz import Source
@@ -1781,7 +1783,7 @@ def shortestpath_(wfst, delta=1e-6):
     for q in fst.states():
         for t in fst.arcs(q):
             w = pynini.times(t.weight, dist[t.nextstate])
-            if w != dist[q]:
+            if np.abs(float(w) - float(dist[q])) > delta:
                 dead_arcs.append((q, t))
 
     wfst_out = wfst.copy()
