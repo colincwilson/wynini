@@ -152,10 +152,11 @@ class Wfst():
         self._state2label[q] = label
         self._label2state[label] = q
 
-        # Start/initial and final props.
+        # Initial and final state properties.
         if start or initial:
             self.set_start(q)
         if final:
+            # todo: final weight arg
             self.set_final(q, final)
 
         return q
@@ -1721,8 +1722,10 @@ def shortestdistance(wfst, delta=1e-6, reverse=False):
         wfst.fst, delta=delta, reverse=reverse)
 
 
-def shortestpath(wfst, delta=1e-6, **kwargs):
+def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     """
+    Return Fst/Wfst containing shortest paths only -or- output 
+    strings / io strings of that machine.
     Pynini doc:
     "Construct an FST containing the shortest path(s) in 
     the input FST.
@@ -1732,7 +1735,8 @@ def shortestpath(wfst, delta=1e-6, **kwargs):
     note: ensure weights are in tropical semiring before 
     calling (e.g., using wfst.map_weights('to_std')).
     note: state labels / output strings / loglinear features
-    of input wfst are not retained in output machine.
+    of input wfst are not retained in output machine; even
+    state ids may not be preserved.
     """
     fst = wfst.fst
     isymbols = fst.input_symbols()
@@ -1740,11 +1744,26 @@ def shortestpath(wfst, delta=1e-6, **kwargs):
 
     fst_out = pynini.shortestpath( \
         fst, delta=delta) #, **kwargs)
-
     fst_out.set_input_symbols(isymbols)
     fst_out.set_output_symbols(osymbols)
-    wfst_out = Wfst.from_fst(fst_out)
-    return wfst_out
+
+    # Return path machine or strings.
+    if ret_type == 'fst':
+        return fst_out
+    elif ret_type == 'wfst':
+        wfst_out = Wfst.from_fst(fst_out)
+        return wfst_out
+    elif ret_type == 'ostrings':
+        path_iter = fst.paths(input_token_type=isymbols,
+                              output_token_type=osymbols)
+        ostrings = list(path_iter.ostrings())
+        return ostrings
+    elif ret_type == 'iostrings':
+        wfst_out = Wfst.from_fst(fst_out)
+        iostrings = wfst_out.iostrings()
+        return iostrings
+
+    return None  # fixme
 
 
 def shortestpath_(wfst, delta=1e-6):
@@ -1757,12 +1776,14 @@ def shortestpath_(wfst, delta=1e-6):
     fst = wfst.fst
     dist = pynini.shortestdistance( \
         fst, delta, reverse=True)
+
     dead_arcs = []
     for q in fst.states():
         for t in fst.arcs(q):
-            w = pynini.times(dist[q], t.weight)
-            if w != dist[t.nextstate]:  # checkme
+            w = pynini.times(t.weight, dist[t.nextstate])
+            if w != dist[q]:
                 dead_arcs.append((q, t))
+
     wfst_out = wfst.copy()
     wfst_out = wfst_out.delete_arcs(dead_arcs)
     wfst_out = wfst_out.connect()
@@ -1772,7 +1793,7 @@ def shortestpath_(wfst, delta=1e-6):
 def arc_equal(arc1, arc2):
     """
     Test equality of arcs from the same src
-    (missing from pynini?).
+    (missing from Pynini?).
     """
     val = (arc1.ilabel == arc2.ilabel) and \
             (arc1.olabel == arc2.olabel) and \

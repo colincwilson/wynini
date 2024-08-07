@@ -161,3 +161,23 @@ O = compose(I, M)
 print(O.print(show_weight_one=True))
 O.draw('O.dot')
 print()
+
+# # # # # # # # # #
+# Shortest distance / shortest paths.
+M = Wfst(wfst_config.symtable, arc_type='log')
+q0 = M.add_state(initial=True)
+q1 = M.add_state()
+qf = M.add_state(final=True)
+M.add_arc(q0, 'a', 'a', Weight('log', 0.1), q1)
+M.add_arc(q0, 'b', 'b', Weight('log', 0.1), qf)
+print(M.print())
+
+dist = shortestdistance(M, reverse=True)
+print('Shortest distances:')
+for q in M.fst.states():
+    print(q, dist[q])
+
+print('\nShortest paths:')
+M.map_weights('to_tropical')
+S = shortestpath_(M)
+print(S.print())
