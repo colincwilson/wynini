@@ -25,8 +25,6 @@ def arc_features(wfst):
         for t in fst.arcs(q):
             # Feature vector.
             phi_t = wfst.get_features(q, t)
-            if len(phi_t) == 0:
-                continue
             ftrs |= phi_t.keys()
     return ftrs
 
@@ -41,11 +39,15 @@ def assign_weights(wfst, w):
     """
     wfst.map_weights('to_log')
     fst = wfst.fst
+    one = Weight('log', 0.0)
     for src in fst.states():
         q_arcs = fst.mutable_arcs(src)
         for t in q_arcs:
             phi_t = wfst.get_features(src, t)
-            t.weight = Weight('log', dot_product(phi_t, w))
+            if phi_t:
+                t.weight = Weight('log', dot_product(phi_t, w))
+            else:
+                t.weight = one
             q_arcs.set_value(t)
     return wfst
 
@@ -61,17 +63,21 @@ def expected(wfst, w=None):
     if w is not None:
         assign_weights(wfst, w)
 
-    # Forward potentials
-    # (sum over all paths from initial to q).
+    # Forward potentials.
+    # (sum over all paths from initial to q)
     alpha = shortestdistance(wfst, reverse=False)
     alpha = [float(w) for w in alpha]
     #print(alpha)
 
-    # Backward potentials
-    # (sum over all paths from q to finals).
+    # Backward potentials.
+    # (sum over all paths from q to finals)
     beta = shortestdistance(wfst, reverse=True)
     beta = [float(w) for w in beta]
     #print(beta)
+
+    # Partition function.
+    # (sum over all paths through machine)
+    Z = np.exp(-beta[0])
 
     # Accumulate expected violations across arcs.
     expect = {}
@@ -80,19 +86,17 @@ def expected(wfst, w=None):
         for t in fst.arcs(q):
             # Feature vector.
             phi_t = wfst.get_features(q, t)
-            if len(phi_t) == 0:
+            if not phi_t:
                 continue
             # Unnormalized -logprob of all paths through t.
             plog = alpha[q] + float(t.weight) + beta[t.nextstate]
-            # Accumulate pstar[t] * violations[t].
-            pstar = np.exp(-plog)
+            # Convert to globally normalized probability of t.
+            prob = np.exp(-plog) / Z
+            # Accumulate prob[t] * violations[t].
             for ftr, violn in phi_t.items():
-                expect[ftr] = expect.get(ftr, 0.0) + (pstar * violn)
+                expect[ftr] = expect.get(ftr, 0.0) \
+                                + (pstar * violn)
 
-    # Divide by partitition function (sum over all paths).
-    Z = np.exp(-beta[0])
-    for ftr in expect:
-        expect[ftr] /= Z
     return expect
 
 

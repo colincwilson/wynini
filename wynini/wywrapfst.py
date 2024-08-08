@@ -494,10 +494,9 @@ class Wfst():
         for q in self.fst.states():  # Source state id.
             for t in self.fst.arcs(q):  # Arc.
                 phi_t = func(self, q, t)
-                if phi_t is None:  # Handle partial functions.
-                    continue
-                t_ = (q, t.ilabel, t.olabel, t.nextstate)
-                phi[t_] = phi_t
+                if phi_t:  # Handle partial functions / empty phi_t.
+                    t_ = (q, t.ilabel, t.olabel, t.nextstate)
+                    phi[t_] = phi_t
         self.phi = phi
         return self
 
@@ -727,7 +726,7 @@ class Wfst():
                 wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest)
                 # Retain arc features.
                 phi_t = self.get_features(q, t)
-                if len(phi_t) != 0:
+                if phi_t:
                     t_ = (src, t.ilabel, t.olabel, dest)
                     wfst.phi[t_] = phi_t
 
@@ -1541,7 +1540,7 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
                     # Arc features: union of features assigned
                     # to source arcs (with None equiv. to {}).
                     phi_t = phi_t1 | phi_t2
-                    if len(phi_t) != 0:
+                    if phi_t:
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
