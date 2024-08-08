@@ -25,7 +25,7 @@ def arc_features(wfst):
         for t in fst.arcs(q):
             # Feature vector.
             phi_t = wfst.get_features(q, t)
-            if phi_t is None or len(phi_t) == 0:
+            if len(phi_t) == 0:
                 continue
             ftrs |= phi_t.keys()
     return ftrs
@@ -41,16 +41,11 @@ def assign_weights(wfst, w):
     """
     wfst.map_weights('to_log')
     fst = wfst.fst
-    one = Weight('log', 0)
     for src in fst.states():
         q_arcs = fst.mutable_arcs(src)
         for t in q_arcs:
             phi_t = wfst.get_features(src, t)
-            if phi_t is None:
-                t.weight = one
-            else:
-                t.weight = Weight('log', dot_product(phi_t, w))
-                #print(phi_t, t.weight)
+            t.weight = Weight('log', dot_product(phi_t, w))
             q_arcs.set_value(t)
     return wfst
 
@@ -85,7 +80,7 @@ def expected(wfst, w=None):
         for t in fst.arcs(q):
             # Feature vector.
             phi_t = wfst.get_features(q, t)
-            if phi_t is None or len(phi_t) == 0:
+            if len(phi_t) == 0:
                 continue
             # Unnormalized -logprob of all paths through t.
             plog = alpha[q] + float(t.weight) + beta[t.nextstate]

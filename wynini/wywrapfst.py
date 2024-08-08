@@ -501,7 +501,7 @@ class Wfst():
         self.phi = phi
         return self
 
-    def get_features(self, q, t, default=None):
+    def get_features(self, q, t, default={}):
         """
         Get features for arc t from state with id q.
         """
@@ -727,7 +727,7 @@ class Wfst():
                 wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest)
                 # Retain arc features.
                 phi_t = self.get_features(q, t)
-                if phi_t is not None:
+                if len(phi_t) != 0:
                     t_ = (src, t.ilabel, t.olabel, dest)
                     wfst.phi[t_] = phi_t
 
@@ -1540,15 +1540,8 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
 
                     # Arc features: union of features assigned
                     # to source arcs (with None equiv. to {}).
-                    phi_t = None
-                    if phi_t1 is not None:
-                        phi_t = phi_t1.copy()  # Shallow copy.
-                    if phi_t2 is not None:
-                        if phi_t is None:
-                            phi_t = phi_t2.copy()  # Shallow copy.
-                        else:
-                            phi_t |= phi_t2
-                    if phi_t is not None:
+                    phi_t = phi_t1 | phi_t2
+                    if len(phi_t) != 0:
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
