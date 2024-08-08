@@ -1,3 +1,4 @@
+from collections import ChainMap
 import numpy as np
 
 from pynini import Weight
@@ -120,9 +121,11 @@ def gradient(O_counts, E_counts, grad=None):
     """
     if grad is None:
         grad = {}
-    for ftr, E in E_counts.items():
-        grad[ftr] = grad.get(ftr, 0.0) \
-                    - (O_counts.get(ftr, 0.0) - E)
+    # checkme: does E_counts always cover O_counts?
+    for ftr in ChainMap(O_counts, E_counts):
+        O = O_counts.get(ftr, 0.0)
+        E = E_counts.get(ftr, 0.0)
+        grad[ftr] = grad.get(ftr, 0.0) - (O - E)
     return grad
 
 
