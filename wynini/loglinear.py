@@ -1,8 +1,9 @@
 import numpy as np
 
 from pynini import Weight
+
 from wynini import config
-from wynini.wfst import Wfst, shortestdistance
+from wynini.wywrapfst import Wfst, shortestdistance
 
 # Reference:
 # * Eisner, J. (2002). Parameter estimation for probabilistic

@@ -1,7 +1,6 @@
 # Create trie from list of (pre-tokenized) words.
-
-from .wfst import Wfst
-from . import config
+from wynini import config
+from wynini.wywrapfst import Wfst
 
 
 def build_trie(vocab):

@@ -5,7 +5,7 @@ import pynini
 from pynini import Fst, Arc, Weight, SymbolTableView
 from graphviz import Source
 
-from . import config
+from wynini import config
 
 verbose = 0
 
@@ -279,8 +279,8 @@ class Wfst():
                 weight=None,
                 dest=None):
         """
-        Add arc (accepts id or label for each of 
-        src / ilabel / olabel / dest).
+        Add arc; accepts id or label for each of 
+        src / ilabel / olabel / dest.
         """
         # todo: add src/dest states if they do not already exist
         # todo: add unweighted arc without specifying weight=None
@@ -289,9 +289,9 @@ class Wfst():
             src = self.state_id(src)
         if olabel is None:
             olabel = ilabel
-        if not isinstance(ilabel, int):
+        if isinstance(ilabel, str):
             ilabel = fst.mutable_input_symbols().add_symbol(ilabel)
-        if not isinstance(olabel, int):
+        if isinstance(olabel, str):
             olabel = fst.mutable_output_symbols().add_symbol(olabel)
         if weight is None:
             weight = Weight.one(self.weight_type())
@@ -310,7 +310,7 @@ class Wfst():
         """
         Add path labeled by space-separated ilabel and 
         olabel (possibly of different lengths, either
-        can be null).
+        of which can be null).
         """
         # Ensure same-length input/output sequences.
         if ilabel is None and olabel is None:
@@ -476,7 +476,7 @@ class Wfst():
                 w = func(self, q, t)
                 if isinstance(w, int) or isinstance(w, float):
                     w = Weight(weight_type, w)
-                # todo: handle non-numerical weights
+                    # todo: handle non-numerical weights
                 t.weight = w
                 q_arcs.set_value(t)
         return self

@@ -2,8 +2,9 @@ __all__ = [ \
     "config",
     "loglinear",
     "simple_fst",
-    "wfst",
-    "trie" \
+    "trie",
+    "wywrapfst",
     ]
 
-from . import *
+#from . import wywrapfst
+#from .wywrapfst import *
