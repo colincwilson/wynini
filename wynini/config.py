@@ -12,7 +12,7 @@ symtable = None  # SymbolTable.
 
 verbosity = 0
 
-# todo: input vs. output alphabets
+# todo: explicit input vs. output alphabets
 
 
 def init(param={}):
@@ -48,4 +48,5 @@ def make_symtable(sigma):
     return symtable, syms
 
 
-# todo: pretty-print symbol table
+# todo: pretty-print symbol table;
+# see pynini.SymbolTableView.write_text

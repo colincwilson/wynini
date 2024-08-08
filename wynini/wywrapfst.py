@@ -2,7 +2,9 @@ import sys, pickle
 import numpy as np
 
 import pynini
-from pynini import Fst, Arc, Weight, SymbolTableView
+from pynini import \
+    Fst, Arc, Weight, \
+    SymbolTable, SymbolTableView
 from graphviz import Source
 
 from wynini import config
@@ -36,15 +38,12 @@ class Wfst():
     def __init__(self, isymbols=None, osymbols=None, arc_type='standard'):
         # Symbol tables.
         if isymbols is None:
-            isymbols = pynini.SymbolTable()
-            isymbols.add_symbol(config.epsilon)
-            isymbols.add_symbol(config.bos)
-            isymbols.add_symbol(config.eos)
-        if not isinstance(isymbols, SymbolTableView):
+            isymbols, _ = config.make_symtable([])
+        if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
             isymbols, _ = config.make_symtable(isymbols)
         if osymbols is None:
             osymbols = isymbols
-        if not isinstance(osymbols, SymbolTableView):
+        if not isinstance(osymbols, (SymbolTable, SymbolTableView)):
             osymbols, _ = config.make_symtable(osymbols)
         # Empty Fst.
         fst = Fst(arc_type)
@@ -1043,7 +1042,7 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
 
     if isymbols is None:
         isymbols = config.symtable
-    if not isinstance(isymbols, SymbolTableView):
+    if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
         isymbols, _ = config.make_symtable(isymbols)
 
     fst = pynini.accep(x, token_type=isymbols, **kwargs)
@@ -1105,7 +1104,7 @@ def trellis(length=1,
     # Input/output alphabet.
     if isymbols is None:
         isymbols = config.symtable
-    if not isinstance(isymbols, SymbolTableView):
+    if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
         isymbols, _ = config.make_symtable(isymbols)
     sigma = set([x for i, x in isymbols]) \
             - set([epsilon, bos, eos]) \
@@ -1182,9 +1181,9 @@ def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
     (delegate to config for epsilon, bos, eos).
     """
     # todo: delegate to config when None
-    if not isinstance(isymbols, SymbolTableView):
+    if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
         isymbols, _ = config.make_symtable(isymbols)
-    if not isinstance(osymbols, SymbolTableView):
+    if not isinstance(osymbols, (SymbolTable, SymbolTableView)):
         osymbols, _ = config.make_symtable(osymbols)
     wfst = Wfst(isymbols, osymbols, arc_type=arc_type)
     for i in range(3):
@@ -1244,7 +1243,7 @@ def ngram_left(length=1, isymbols=None, tier=None, arc_type='standard'):
     # Input/output alphabet.
     if isymbols is None:
         isymbols = config.symtable
-    if not isinstance(isymbols, SymbolTableView):
+    if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
         isymbols, _ = config.make_symtable(isymbols)
     sigma = set([x for i, x in isymbols]) \
             - set([epsilon, bos, eos]) \
@@ -1320,7 +1319,7 @@ def ngram_right(length=1, isymbols=None, tier=None, arc_type='standard'):
     # Input/output alphabet.
     if isymbols is None:
         isymbols = config.symtable
-    if not isinstance(isymbols, SymbolTableView):
+    if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
         isymbols, _ = config.make_symtable(isymbols)
     sigma = set([x for i, x in isymbols]) \
             - set([epsilon, bos, eos]) \
