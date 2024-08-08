@@ -1486,6 +1486,7 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
                         src2_arcs[t2_ilabel] = [t2]
                 wfst2_arcs[src2_id] = src2_arcs
 
+            # Process arc pairs.
             for t1 in wfst1.arcs(src1):
                 t1_ilabel = wfst1.ilabel(t1)  # Input label.
                 t1_olabel = wfst1.olabel(t1)  # Output label.
