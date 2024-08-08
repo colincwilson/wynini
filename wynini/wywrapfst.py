@@ -1403,7 +1403,7 @@ def _suffix(x, l):
 # todo: cross(-product), difference, intersect, plus
 
 
-def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
+def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
     """
     Composition/intersection, retaining contextual info from
     original machines by labeling each state q = (q1, q2) as
@@ -1434,7 +1434,7 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
         if common_weights:
             wfinal = pynini.times(wfinal1, wfinal2)
         else:
-            wfinal = one  # or wfinal2?
+            wfinal = one  # checkme: or wfinal2?
         wfst.set_final(q0, wfinal)
 
     # Add explicit epsilon self-transitions
@@ -1447,7 +1447,8 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
 
     # Lazy organization of arcs in wfst2 by src & ilabel
     # for fast matching with olabels of arcs in wfst1.
-    wfst2_arcs = {}
+    if not wfst2_arcs:
+        wfst2_arcs = {}
 
     # Lazy state and arc construction of wfst.
     Q = set([q0])
@@ -1474,7 +1475,7 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
             # Organize arcs from src2 by ilabel
             # for fast matching with wfst1 arcs.
             if src2_id not in wfst2_arcs:
-                src2_arcs = {}
+                wfst2_arcs[src2_id] = src2_arcs = {}
                 for t2 in wfst2.arcs(src2_id):
                     t2_ilabel = wfst2.ilabel(t2)
                     if matchfunc2 is not None:
@@ -1483,7 +1484,6 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
                         src2_arcs[t2_ilabel].append(t2)
                     else:
                         src2_arcs[t2_ilabel] = [t2]
-                wfst2_arcs[src2_id] = src2_arcs
 
             # Process arc pairs.
             for t1 in wfst1.arcs(src1):
@@ -1547,6 +1547,27 @@ def compose(wfst1, wfst2, matchfunc1=None, matchfunc2=None):
     wfst = wfst.connect()
 
     return wfst
+
+
+def organize_arcs(wfst, side='input'):
+    """
+    Pre-organize arcs by source state and input or output 
+    label for faster composition.
+    """
+    wfst_arcs = {}
+    for q_id in wfst.states(label=False):
+        wfst_arcs[q_id] = q_arcs = {}
+        for t in wfst.arcs(q_id):
+            label = None
+            if side == 'input':
+                label = wfst.ilabel(t)
+            elif side == 'output':
+                label = wfst.olabel(t)
+            if label in q_arcs:
+                q_arcs[label].append(t)
+            else:
+                q_arcs[label] = [t]
+    return wfst_arcs
 
 
 def concat(wfst1, wfst2):
