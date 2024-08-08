@@ -6,5 +6,5 @@ __all__ = [ \
     "wywrapfst",
     ]
 
-#from . import wywrapfst
-#from .wywrapfst import *
+# Package-level access to wywrapfst internals.
+from .wywrapfst import *
