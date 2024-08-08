@@ -94,8 +94,8 @@ def expected(wfst, w=None):
             prob = np.exp(-plog) / Z
             # Accumulate prob[t] * violations[t].
             for ftr, violn in phi_t.items():
-                expect[ftr] = expect.get(ftr, 0.0) \
-                                + (pstar * violn)
+                expect[ftr] = \
+                    expect.get(ftr, 0.0) + (prob * violn)
 
     return expect
 
