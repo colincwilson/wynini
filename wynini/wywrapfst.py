@@ -1748,8 +1748,8 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
         wfst_out = Wfst.from_fst(fst_out)
         return wfst_out
     elif ret_type == 'ostrings':
-        path_iter = fst.paths(input_token_type=isymbols,
-                              output_token_type=osymbols)
+        path_iter = fst_out.paths(input_token_type=isymbols,
+                                  output_token_type=osymbols)
         ostrings = list(path_iter.ostrings())
         return ostrings
     elif ret_type == 'iostrings':

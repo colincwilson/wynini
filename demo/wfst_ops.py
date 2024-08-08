@@ -179,5 +179,8 @@ for q in M.fst.states():
 
 print('\nShortest paths:')
 M.map_weights('to_tropical')
+S = shortestpath(M, ret_type='ostrings')
+#print(S.print())
+print(S)
 S = shortestpath_(M)
 print(S.print())
