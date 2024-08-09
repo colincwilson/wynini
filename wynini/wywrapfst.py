@@ -138,7 +138,7 @@ class Wfst():
     def add_state(self, label=None, start=False, initial=False, final=False):
         """ Add new state, optionally specifying its label. """
         # Enforce one-to-one state labeling.
-        if label is not None:
+        if label:
             if label in self._label2state:
                 if verbose:
                     print(f'State with label {label} already exists '
@@ -240,7 +240,7 @@ class Wfst():
         Relabel states as integers (default) 
         or with passed function.
         """
-        if func is not None:
+        if func:
             return self.relabel_states_func(func)
         state2label = {}  # State id -> state label.
         label2state = {}  # State label -> state id.

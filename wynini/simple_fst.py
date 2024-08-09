@@ -11,12 +11,12 @@ class SimpleFst():
     """
 
     def __init__(self, Q=None, q0=None, F=None, T=None):
-        self.Q = set(Q) if Q is not None else set()  # States.
-        self.q0 = q0 if q0 is not None else -1  # Initial state.
-        self.F = set(F) if F is not None else set()  # Final states.
+        self.Q = set(Q) if Q else set()  # States.
+        self.q0 = q0 if q0 else -1  # Initial state.
+        self.F = set(F) if F else set()  # Final states.
         # Mapping state -> outgoing arcs (outgoing arc collection
         # is Set [default] or List).
-        self.T = T if T is not None else {}
+        self.T = T if T else {}
 
     def add_state(self, q):
         """
