@@ -443,7 +443,7 @@ class Wfst():
         # assumption: pynini.arcmap() does not reindex states.
         if map_type == 'identity':
             return self
-        if map_type in ['to_trop', 'to_tropical', 'to_standard']:
+        if map_type in ('to_trop', 'to_tropical', 'to_standard'):
             map_type = 'to_std'
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -817,7 +817,7 @@ class Wfst():
                     dead_arcs.append(t)
         return delete_arcs(dead_arcs)
 
-    def transduce(self, x, add_delim=True, output_strings=True):
+    def transduce(self, x, add_delim=True, ret_type='outputs'):
         """
         Transduce space-separated input with this machine, 
         returning iterator over output strings (default) or 
@@ -841,27 +841,46 @@ class Wfst():
         fst_out = fst_in @ fst
         fst_out.set_input_symbols(isymbols)
         fst_out.set_output_symbols(osymbols)
-        if output_strings:
-            path_iter = fst_out.paths(output_token_type=osymbols)
-            return path_iter.ostrings()
-        wfst = Wfst.from_fst(fst_out)
-        return wfst
+
+        if ret_type == 'fst':
+            return fst_out
+        if ret_type == 'wfst':
+            wfst_out = Wfst.from_fst(fst_out)
+            return wfst_out
+        # default: return output strings
+        path_iter = fst_out.paths(output_token_type=osymbols)
+        return path_iter.ostrings()
 
     def push_weights(self,
                      delta=1e-6,
                      reweight_type='to_initial',
                      remove_total_weight=True):
         """
-        Push arc weights and remove total weight
-        (see pynini.push, Fst.push).
+        Push arc weights and optionally remove total weight
+        (see pynini.push/Fst.push, pynini.reweight/Fst.reweight).
         [destructive]
+        # note: assume that Fst.push() does not change state ids.
         """
-        # note: removes total weight by default
-        # assumption: Fst.push() does not reindex states.
         self.fst = self.fst.push( \
             delta=delta,
             reweight_type=reweight_type,
-        remove_total_weight=remove_total_weight)
+            remove_total_weight=remove_total_weight)
+        return self
+
+    def normalize(self):
+        """
+        Globally normalize this machine.
+        (see: pynini.push, pynini.reweight, Fst.push).
+        Equivalent to:
+            dist = shortestdistance(wfst, reverse=True)
+            wfst.reweight(potentials=dist, reweight_type='to_initial')
+            // then remove total weight
+        """
+        return self.push_weights()
+
+    def reweight(self, potentials, reweight_type='to_initial'):
+        # See pynini.reweight / Fst.reweight
+        self.fst.reweight(potentials, reweight_type)
         return self
 
     def push_labels(self, reweight_type='to_initial', **kwargs):
@@ -879,7 +898,7 @@ class Wfst():
                                **kwargs)
         return self
 
-    def randgen(self, npath=1, select=None, output_strings=True, **kwargs):
+    def randgen(self, npath=1, select=None, ret_type='outputs', **kwargs):
         """
         Randomly generate paths through this machine, returning
         an iterator over output strings (default) or machine 
@@ -890,22 +909,27 @@ class Wfst():
         of self are not retained in output machine.
         """
         fst = self.fst
+        isymbols = fst.input_symbols()
+        osymbols = fst.output_symbols()
         if select is None:
-            if fst.weight_type() == 'log' \
-                or fst.weight_type() == 'log64':
+            if fst.weight_type() in ('log', 'log64'):
                 select = 'log_prob'
             else:
                 select = 'uniform'
 
-        fst_samp = pynini.randgen( \
+        fst_out = pynini.randgen( \
             fst, npath=npath, select=select, **kwargs)
+        fst_out.set_input_symbols(isymbols)
+        fst_out.set_output_symbols(osymbols)
 
-        if output_strings:
-            osymbols = fst.output_symbols()
-            path_iter = fst_samp.paths(output_token_type=osymbols)
-            return path_iter.ostrings()
-        wfst_samp = Wfst.from_fst(fst_samp)
-        return wfst_samp
+        if ret_type == 'fst':
+            return fst_out
+        elif ret_type == 'wfst':
+            wfst_out = Wfst.from_fst(fst_out)
+            return wfst_out
+        # default: return output strings
+        path_iter = fst_out.paths(output_token_type=osymbols)
+        return path_iter.ostrings()
 
     def invert(self):
         """
@@ -1767,10 +1791,7 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     # Return path machine or strings.
     if ret_type == 'fst':
         return fst_out
-    elif ret_type == 'wfst':
-        wfst_out = Wfst.from_fst(fst_out)
-        return wfst_out
-    elif ret_type == 'ostrings':
+    elif ret_type in ('ostrings', 'outputs'):
         path_iter = fst_out.paths(input_token_type=isymbols,
                                   output_token_type=osymbols)
         ostrings = list(path_iter.ostrings())
@@ -1779,8 +1800,9 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
         wfst_out = Wfst.from_fst(fst_out)
         iostrings = wfst_out.iostrings()
         return iostrings
-
-    return None  # fixme
+    # default: return wfst representing shortest paths
+    wfst_out = Wfst.from_fst(fst_out)
+    return wfst_out
 
 
 def shortestpath_(wfst, delta=1e-6):

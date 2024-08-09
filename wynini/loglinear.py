@@ -53,6 +53,18 @@ def assign_weights(wfst, w):
     return wfst
 
 
+def dot_product(phi_t, w):
+    """
+    Dot product of features and weights represented 
+    with dictionaries of non-negative values.
+    """
+    ret = 0.0
+    for ftr, violn in phi_t.items():
+        if ftr in w:
+            ret += w[ftr] * violn
+    return ret
+
+
 def expected(wfst, w=None):
     """
     Expected violation counts of features/constraints given 
@@ -61,7 +73,7 @@ def expected(wfst, w=None):
     """
     # Set arc weights equal to Harmonies
     # (sum of weighted feature violations).
-    if w is not None:
+    if w:
         assign_weights(wfst, w)
 
     # Forward potentials.
@@ -101,16 +113,13 @@ def expected(wfst, w=None):
     return expect
 
 
-def dot_product(phi_t, w):
+def normalize(wfst):
     """
-    Dot product of features and weights represented 
-    with dictionaries of non-negative values.
+    Globally normalize machine.
     """
-    ret = 0.0
-    for ftr, violn in phi_t.items():
-        if ftr in w:
-            ret += w[ftr] * violn
-    return ret
+    if w:
+        assign_weights(wfst, w)
+    return None
 
 
 def gradient(O_counts, E_counts, grad=None):
@@ -134,6 +143,8 @@ def update(w, grad, alpha=1.0, wmin=1e-3):
     Update weights in-place with neg gradient,
     learning rate alpha, and minimum weight wmin.
     todo: regularizer(s)
+    note: features without entries in grad are 
+    not updated (except for regularization).
     """
     for ftr, g in grad.items():
         w_ftr = w[ftr] + alpha * g

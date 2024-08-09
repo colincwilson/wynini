@@ -9,11 +9,11 @@ from pynini import Weight
 from wynini import config as wyconfig
 from wynini.wywrapfst import *
 
-# Alphabet
+# Alphabet.
 config = {'sigma': ['a', 'b', 'c', 'd', 'e']}
 wyconfig.init(config)
 
-# Weighted acceptor
+# Weighted acceptor.
 M = Wfst(wyconfig.symtable, arc_type='log')
 for q in [0, 1, 2, 3, 4, 5]:
     M.add_state(q)
@@ -31,11 +31,17 @@ M.add_arc(src=4, ilabel=wyconfig.eos, weight=Weight('log', 1.0), dest=5)
 print(M.print(acceptor=True, show_weight_one=True))
 M.draw('M.dot')
 
-# Push weights toward initial state
-M_push = M.push_weights()
+# Push weights toward initial state.
+M_push = M.copy().push_weights()
 print(M_push.print(acceptor=True, show_weight_one=True))
 M_push.draw('M_push.dot')
 
-# Generate random sample of accepted strings
+# Generate random sample of accepted strings.
 samp = M_push.randgen(npath=100, select='log_prob')
 print(list(samp))
+
+# Push weights toward initial state.
+dist = shortestdistance(M, reverse=True)
+print(dist)
+M_push = M.copy().reweight(dist)
+print(M_push.print(acceptor=True, show_weight_one=True))
