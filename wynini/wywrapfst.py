@@ -35,7 +35,7 @@ class Wfst():
     - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#OpenFst%20Advanced%20Usage
     """
 
-    def __init__(self, isymbols=None, osymbols=None, arc_type='standard'):
+    def __init__(self, isymbols=None, osymbols=None, arc_type='log'):
         # Symbol tables.
         if isymbols is None:
             isymbols, _ = config.make_symtable([])
@@ -504,8 +504,6 @@ class Wfst():
         """
         Get features for arc t from state with id q.
         """
-        if len(self.phi) == 0:
-            return default
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         return self.phi.get(t_, default)
 
