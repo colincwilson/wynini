@@ -1,5 +1,6 @@
-from collections import ChainMap
 import numpy as np
+from collections import ChainMap
+from scipy import sparse
 
 from pynini import Weight
 
@@ -30,9 +31,37 @@ def arc_features(wfst):
     return ftrs
 
 
+def violation_matrix(wfst, ftrs):
+    """
+    Construct sparse violation matrix.
+    """
+    fst = wfst.fst
+    ftrs = list(ftrs)
+    ftr2index = {ftr: i for i, ftr in enumerate(ftrs)}
+
+    arc_ids = []
+    ftr_ids = []
+    vals = []
+    arc_id = 0
+    for q in fst.states():
+        for t in fst.arcs(q):
+            phi_t = wfst.get_features(q, t)
+            for (ftr, val) in phi_t.items():
+                arc_ids.append(arc_id)
+                ftr_ids.append(ftr2index[ftr])
+                vals.append(val)
+            arc_id += 1
+
+    V = sparse.csr_array( \
+        (vals, (arc_ids, ftr_ids)),
+        shape=(wfst.num_arcs(), len(ftrs)))
+
+    return V, ftrs, ftr2index
+
+
 def assign_weights(wfst, w):
     """
-    Assign unnormalized -logprob weight to each arc t in wfst M 
+    Assign unnormalized -logprob weight to each arc t in wfst
     according to its Harmony: $-\sum_k (w_k \cdot \phi_k(t))$.
     phi: arc t -> dictionary of feature values ('violations') {\phi_0:v_0, \phi_1:v_1, ...}
     w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
@@ -41,10 +70,10 @@ def assign_weights(wfst, w):
     wfst.map_weights('to_log')
     fst = wfst.fst
     one = Weight('log', 0.0)
-    for src in fst.states():
-        q_arcs = fst.mutable_arcs(src)
+    for q in fst.states():
+        q_arcs = fst.mutable_arcs(q)
         for t in q_arcs:
-            phi_t = wfst.get_features(src, t)
+            phi_t = wfst.get_features(q, t)
             if phi_t:
                 t.weight = Weight('log', dot_product(phi_t, w))
             else:
@@ -63,6 +92,25 @@ def dot_product(phi_t, w):
         if ftr in w:
             ret += w[ftr] * violn
     return ret
+
+
+def assign_weights_vec(wfst, V, w):
+    """
+    Assign unnormalized -logprob weight to each arc t in wfst
+    using (possibly sparse) violation matrix V [narc x nftr]
+    and weight vector w.
+    """
+    wfst.map_weights('to_log')
+    fst = wfst.fst
+    x = V @ w
+    arc_id = 0
+    for q in fst.states():
+        q_arcs = fst.mutable_arcs(q)
+        for t in q_arcs:
+            t.weight = Weight('log', x[arc_id])
+            q_arcs.set_value(t)
+            arc_id += 1
+    return wfst
 
 
 def expected(wfst, w=None):
@@ -113,15 +161,6 @@ def expected(wfst, w=None):
     return expect
 
 
-def normalize(wfst):
-    """
-    Globally normalize machine.
-    """
-    if w:
-        assign_weights(wfst, w)
-    return None
-
-
 def gradient(O_counts, E_counts, grad=None):
     """
     Neg gradient of feature weights computed from 
@@ -138,7 +177,7 @@ def gradient(O_counts, E_counts, grad=None):
     return grad
 
 
-def update(w, grad, alpha=1.0, wmin=1e-3):
+def update(w, grad, alpha=1.0, wmin=1e-4):
     """
     Update weights in-place with neg gradient,
     learning rate alpha, and minimum weight wmin.
@@ -149,4 +188,15 @@ def update(w, grad, alpha=1.0, wmin=1e-3):
     for ftr, g in grad.items():
         w_ftr = w[ftr] + alpha * g
         w[ftr] = max(w_ftr, wmin)
+    return w
+
+
+def update_vec(w, grad, ftr2index, alpha=1.0, wmin=1e-4):
+    """
+    Vector-backed implementation of update().
+    """
+    for ftr, g in grad.items():
+        ftr_id = ftr2index[ftr]
+        w[ftr_id] += alpha * g
+        w[ftr_id] = max(w[ftr_id], wmin)
     return w
