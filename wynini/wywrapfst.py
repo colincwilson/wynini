@@ -885,10 +885,11 @@ class Wfst():
 
     def push_labels(self, reweight_type='to_initial', **kwargs):
         """
-        Push labels (see pynini.push with arguments
+        Push labels; see pynini.push with arguments
         remove_common_affix (False) and 
         reweight_type ("to_initial" or "to_final").
         [destructive]
+        # note: assume that Fst.push() does not change state ids.
         """
         # assumption: pynini.push() does not reindex states.
         # todo: test
@@ -979,7 +980,7 @@ class Wfst():
 
     def to_fst(self):
         """ Copy and return wrapped pynini Fst. """
-        # note: access fst member if do not need copy
+        # todo: access fst member if do not need copy
         return self.fst.copy()
 
     # Printing/drawing/saving/loading.
