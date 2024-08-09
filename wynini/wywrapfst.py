@@ -1478,7 +1478,7 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
                 wfst2_arcs[src2_id] = src2_arcs = {}
                 for t2 in wfst2.arcs(src2_id):
                     t2_ilabel = wfst2.ilabel(t2)
-                    if matchfunc2 is not None:
+                    if matchfunc2:
                         t2_ilabel = matchfunc2(t2_ilabel)
                     if t2_ilabel in src2_arcs:
                         src2_arcs[t2_ilabel].append(t2)
@@ -1489,7 +1489,7 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
             for t1 in wfst1.arcs(src1):
                 t1_ilabel = wfst1.ilabel(t1)  # Input label.
                 t1_olabel = wfst1.olabel(t1)  # Output label.
-                if matchfunc1 is not None:
+                if matchfunc1:
                     t1_olabel = matchfunc1(t1_olabel)
                 dest1_id = t1.nextstate  # Destination id.
                 dest1 = wfst1.state_label(dest1_id)  # Destination label.
@@ -1505,7 +1505,7 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
 
                     # Destination state.
                     dest = (dest1, dest2)
-                    dest_id = wfst.add_state(dest)  # No change if dest exists.
+                    dest_id = wfst.add_state(dest)  # Dest id.
 
                     # Dest is final if both dest1 and dest2 are final.
                     if wfinal1 != zero and wfinal2 != zero:
@@ -1549,10 +1549,10 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
     return wfst
 
 
-def organize_arcs(wfst, side='input'):
+def organize_arcs(wfst, matchfunc=None, side='input'):
     """
     Pre-organize arcs by source state and input or output 
-    label for faster composition.
+    label (passed through matchfunc) for faster composition.
     """
     wfst_arcs = {}
     for q_id in wfst.states(label=False):
@@ -1563,6 +1563,8 @@ def organize_arcs(wfst, side='input'):
                 label = wfst.ilabel(t)
             elif side == 'output':
                 label = wfst.olabel(t)
+            if matchfunc:
+                label = matchfunc(label)
             if label in q_arcs:
                 q_arcs[label].append(t)
             else:
