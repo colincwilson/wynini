@@ -78,7 +78,7 @@ def expected(wfst, w=None):
 
     # Partition function.
     # (sum over all paths through machine)
-    Z = np.exp(-beta[0])
+    logZ = -beta[0]
 
     # Accumulate expected violations across arcs.
     expect = {}
@@ -92,7 +92,7 @@ def expected(wfst, w=None):
             # Unnormalized -logprob of all paths through t.
             plog = alpha[q] + float(t.weight) + beta[t.nextstate]
             # Convert to globally normalized probability of t.
-            prob = np.exp(-plog) / Z
+            prob = np.exp(-plog - logZ)
             # Accumulate prob[t] * violations[t].
             for ftr, violn in phi_t.items():
                 expect[ftr] = \
