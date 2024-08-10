@@ -36,7 +36,7 @@ class Wfst():
     - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#OpenFst%20Advanced%20Usage
     """
 
-    def __init__(self, isymbols=None, osymbols=None, arc_type='log'):
+    def __init__(self, isymbols=None, osymbols=None, arc_type='standard'):
         # Symbol tables.
         if isymbols is None:
             isymbols, _ = config.make_symtable([])
