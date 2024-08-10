@@ -1,4 +1,5 @@
 import sys, pickle
+import itertools
 import numpy as np
 
 import pynini
@@ -111,14 +112,14 @@ class Wfst():
 
     def state_label(self, q):
         """ State label from id. """
-        #if not isinstance(q, int):
-        #    return q
+        if not isinstance(q, int):
+            return q
         return self._state2label[q]
 
     def state_id(self, q):
         """ State id from label. """
-        #if isinstance(q, int):
-        #    return q
+        if isinstance(q, int):
+            return q
         return self._label2state[q]
 
     def set_state_label(self, q, label):
@@ -271,6 +272,30 @@ class Wfst():
 
     # Arcs.
 
+    def make_arc(self,
+                 src=None,
+                 ilabel=None,
+                 olabel=None,
+                 weight=None,
+                 dest=None):
+        """
+        Create (but do not add) arc; accepts id or label
+        for each of src / ilabel / olabel / dest.
+        """
+        fst = self.fst
+        src_id = self.state_id(src)
+        if olabel is None:
+            olabel = ilabel
+        if isinstance(ilabel, str):
+            ilabel = fst.mutable_input_symbols().add_symbol(ilabel)
+        if isinstance(olabel, str):
+            olabel = fst.mutable_output_symbols().add_symbol(olabel)
+        if weight is None:
+            weight = Weight.one(self.weight_type())
+        dest_id = self.state_id(dest)
+        arc = Arc(ilabel, olabel, weight, dest_id)
+        return src_id, arc
+
     def add_arc(self,
                 src=None,
                 ilabel=None,
@@ -284,20 +309,9 @@ class Wfst():
         # todo: add src/dest states if they do not already exist
         # todo: add unweighted arc without specifying weight=None
         fst = self.fst
-        if not isinstance(src, int):
-            src = self.state_id(src)
-        if olabel is None:
-            olabel = ilabel
-        if isinstance(ilabel, str):
-            ilabel = fst.mutable_input_symbols().add_symbol(ilabel)
-        if isinstance(olabel, str):
-            olabel = fst.mutable_output_symbols().add_symbol(olabel)
-        if weight is None:
-            weight = Weight.one(self.weight_type())
-        if not isinstance(dest, int):
-            dest = self.state_id(dest)
-        arc = Arc(ilabel, olabel, weight, dest)
-        fst.add_arc(src, arc)
+        src_id, arc = self.make_arc( \
+            src, ilabel, olabel, weight, dest)
+        fst.add_arc(src_id, arc)
         return self
 
     def add_path(self,
@@ -1446,6 +1460,7 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
         wfst1.arc_type() if common_weights else 'standard')
     one = Weight.one(wfst.weight_type())
     zero = Weight.zero(wfst.weight_type())
+    epsilon = config.epsilon
 
     # Initial state (possibly also final).
     q1, q2 = wfst1.start(), wfst2.start()
@@ -1460,16 +1475,12 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
             wfinal = one  # checkme: or wfinal2?
         wfst.set_final(q0, wfinal)
 
-    # Add explicit epsilon self-transitions
-    # to all states in wfst1 and wfst2.
-    epsilon = config.epsilon
-    for q1 in wfst1.states(label=False):
-        wfst1.add_arc(q1, epsilon, epsilon, None, q1)
-    for q2 in wfst2.states(label=False):
-        wfst2.add_arc(q2, epsilon, epsilon, None, q2)
-
-    # Lazy organization of arcs in wfst2 by src & ilabel
-    # for fast matching with olabels of arcs in wfst1.
+    # Lazy organization of arcs in each machine by src
+    # and label for fast matching and handling of implicit
+    # epsilon:epsilon self-transitions.
+    #if not wfst1_arcs:
+    #    wfst1_arcs = {}
+    wfst1_arcs = {}  # todo: add arg
     if not wfst2_arcs:
         wfst2_arcs = {}
 
@@ -1495,21 +1506,19 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
             if wfst2.num_arcs(src2) == 0:
                 continue
 
-            # Organize arcs from src2 by ilabel
-            # for fast matching with wfst1 arcs.
+            # Organize arcs from src1 by olabel.
+            if src1_id not in wfst1_arcs:
+                wfst1_arcs[src1_id] = organize_arcs( \
+                    wfst1, src1_id, matchfunc1, 'output')
+
+            # Organize arcs from src2 by ilabel.
             if src2_id not in wfst2_arcs:
-                wfst2_arcs[src2_id] = src2_arcs = {}
-                for t2 in wfst2.arcs(src2_id):
-                    t2_ilabel = wfst2.ilabel(t2)
-                    if matchfunc2:
-                        t2_ilabel = matchfunc2(t2_ilabel)
-                    if t2_ilabel in src2_arcs:
-                        src2_arcs[t2_ilabel].append(t2)
-                    else:
-                        src2_arcs[t2_ilabel] = [t2]
+                wfst2_arcs[src2_id] = organize_arcs( \
+                    wfst2, src2_id, matchfunc2, 'input')
 
             # Process arc pairs.
-            for t1 in wfst1.arcs(src1):
+            for t1 in itertools.chain.from_iterable(
+                    wfst1_arcs[src1_id].values()):
                 t1_ilabel = wfst1.ilabel(t1)  # Input label.
                 t1_olabel = wfst1.olabel(t1)  # Output label.
                 if matchfunc1:
@@ -1543,17 +1552,20 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
                         Q.add(dest)
                         Q_new.add(dest)
 
-                    # Do not add epsilon self-arcs.
+                    # Do not add epsilon:epsilon self-transitions.
                     # todo: checkme
                     if src_id == dest_id and t1_ilabel == epsilon \
                         and t2_olabel == epsilon:
                         continue
 
-                    # Arc with product weight.
+                    # Product weight.
                     if common_weights:
                         weight = pynini.times(t1.weight, t2.weight)
                     else:
                         weight = one  # or t2.weight?
+
+                    # Add arc.
+                    #print(src, t1.ilabel, t2.olabel, weight, dest)
                     wfst.add_arc(src=src,
                                  ilabel=t1.ilabel,
                                  olabel=t2.olabel,
@@ -1572,27 +1584,45 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
     return wfst
 
 
-def organize_arcs(wfst, matchfunc=None, side='input'):
+def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
     """
-    Pre-organize arcs by source state and input or output 
-    label (passed through matchfunc) for faster composition.
+    Organize arcs by source state and input or output label 
+    (optionally passed through matchfunc) for faster composition.
     """
-    wfst_arcs = {}
-    for q_id in wfst.states(label=False):
-        wfst_arcs[q_id] = q_arcs = {}
-        for t in wfst.arcs(q_id):
-            label = None
-            if side == 'input':
-                label = wfst.ilabel(t)
-            elif side == 'output':
-                label = wfst.olabel(t)
-            if matchfunc:
-                label = matchfunc(label)
-            if label in q_arcs:
-                q_arcs[label].append(t)
-            else:
-                q_arcs[label] = [t]
-    return wfst_arcs
+    # Organize arcs from all states.
+    if src is None:
+        wfst_arcs = {src:organize_arcs(wfst, src, matchfunc, side) \
+            for src in wfst.states(label=False)}
+        return wfst_arcs
+
+    # Organize arcs from one state.
+    src_id = src if isinstance(src, int) \
+        else wfst.state_id(src)
+    src_arcs = {}
+    # Organize arcs by input or output label.
+    for t in wfst.arcs(src_id):
+        label = None
+        if side == 'input':
+            label = wfst.ilabel(t)
+        elif side == 'output':
+            label = wfst.olabel(t)
+        if matchfunc:
+            label = matchfunc(label)
+        if label in src_arcs:
+            src_arcs[label].append(t)
+        else:
+            src_arcs[label] = [t]
+    # Implicit epsilon self-transition.
+    # (see: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
+    one = Weight.one(wfst.weight_type())
+    _, epsilon_arc = wfst.make_arc( \
+        src_id, config.epsilon, config.epsilon, one, src_id)
+    if config.epsilon in src_arcs:
+        src_arcs[config.epsilon].append(epsilon_arc)
+    else:
+        src_arcs[config.epsilon] = [epsilon_arc]
+
+    return src_arcs
 
 
 def concat(wfst1, wfst2):

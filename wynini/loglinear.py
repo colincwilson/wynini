@@ -44,7 +44,7 @@ def violation_matrix(wfst, ftrs):
     vals = []
     arc_id = 0
     for q in fst.states():
-        for t in fst.arcs(q):
+        for t in fst.mutable_arcs(q):  # fst.arcs(q)
             phi_t = wfst.get_features(q, t)
             for (ftr, val) in phi_t.items():
                 arc_ids.append(arc_id)
