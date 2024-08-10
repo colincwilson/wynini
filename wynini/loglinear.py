@@ -34,6 +34,7 @@ def arc_features(wfst):
 def violation_matrix(wfst, ftrs):
     """
     Construct sparse violation matrix.
+    arg ftrs: list of loglinear features
     """
     fst = wfst.fst
     ftrs = list(ftrs)
@@ -64,7 +65,7 @@ def assign_weights(wfst, w):
     Assign unnormalized -logprob weight to each arc t in wfst
     according to its Harmony: $-\sum_k (w_k \cdot \phi_k(t))$.
     phi: arc t -> dictionary of feature values ('violations') {\phi_0:v_0, \phi_1:v_1, ...}
-    w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
+    arg w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
     All feature values and weights should be non-negative.
     """
     wfst.map_weights('to_log')
@@ -97,8 +98,9 @@ def dot_product(phi_t, w):
 def assign_weights_vec(wfst, V, w):
     """
     Assign unnormalized -logprob weight to each arc t in wfst
-    using (possibly sparse) violation matrix V [narc x nftr]
-    and weight vector w.
+    using violation matrix and weight vector.
+    arg V: (sparse) violation matrix [narc x nftr]
+    arg w: weight vector [nftr]
     """
     wfst.map_weights('to_log')
     fst = wfst.fst

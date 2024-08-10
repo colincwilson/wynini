@@ -879,7 +879,7 @@ class Wfst():
             remove_total_weight=remove_total_weight)
         return self
 
-    def normalize(self):
+    def normalize(self, delta=1e-6):
         """
         Globally normalize this machine.
         (see: pynini.push, pynini.reweight, Fst.push).
@@ -888,7 +888,9 @@ class Wfst():
             wfst.reweight(potentials=dist, reweight_type='to_initial')
             // then remove total weight
         """
-        return self.push_weights()
+        return self.push_weights(delta=delta,
+                                 reweight_type='to_initial',
+                                 remove_total_weight=True)
 
     def reweight(self, potentials, reweight_type='to_initial'):
         # See pynini.reweight / Fst.reweight
@@ -1437,7 +1439,7 @@ def _suffix(x, l):
 
 # # # # # # # # # #
 # Operations.
-# todo: cross(-product), difference, intersect, plus
+# todo: intersect, cross(-product), difference
 
 
 def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
@@ -1453,14 +1455,14 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
     labels by matchfunc1(t1_olabel) == matchfunc2(t2_ilabel).
     todo: filter options
     """
+    epsilon = config.epsilon
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     wfst = Wfst( \
         wfst1.input_symbols(),
         wfst2.output_symbols(),
-        wfst1.arc_type() if common_weights else 'standard')
+        wfst1.arc_type() if common_weights else 'log')
     one = Weight.one(wfst.weight_type())
     zero = Weight.zero(wfst.weight_type())
-    epsilon = config.epsilon
 
     # Initial state (possibly also final).
     q1, q2 = wfst1.start(), wfst2.start()
@@ -1468,11 +1470,10 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
     wfst.add_state(q0, initial=True)
     wfinal1 = wfst1.final(q1)
     wfinal2 = wfst2.final(q2)
+    # q0 is final iff both q1 and q2 are final.
     if wfinal1 != zero and wfinal2 != zero:
-        if common_weights:
-            wfinal = pynini.times(wfinal1, wfinal2)
-        else:
-            wfinal = one  # checkme: or wfinal2?
+        wfinal = pynini.times(wfinal1, wfinal2) \
+            if common_weights else one # checkme: or wfinal2?
         wfst.set_final(q0, wfinal)
 
     # Lazy organization of arcs in each machine by src
