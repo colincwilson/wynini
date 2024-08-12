@@ -1,4 +1,4 @@
-import sys, pickle
+import re, sys, pickle
 import itertools
 import numpy as np
 
@@ -430,16 +430,16 @@ class Wfst():
         Convert transducer to acceptor by combining
         input and output label of each arc.
         """
-        # Symbol table of pairs.
-        isymbols = self.input_symbols()
-        osymbols = self.output_symbols()
+        # Symbol table for input/output label pairs.
         iosymbols = []
-        for _, isym in isymbols:
-            for _, osym in osymbols:
-                iosymbols.append(self.pair_symbol(isym, osym))
+        for _, isym in self.input_symbols():
+            for _, osym in self.output_symbols():
+                iosym = self.pair_symbol(isym, osym, sep)
+                iosymbols.append(iosym)
         iosymbols, _ = config.make_symtable(iosymbols)
         # Machine with encoded labels.
-        wfst = Wfst(isymbols=iosymbols, arc_type=self.arc_type())
+        wfst = Wfst( \
+            isymbols=iosymbols, arc_type=self.arc_type())
         # Copy states.
         for q in self.states():
             wfst.add_state(q)
@@ -449,8 +449,8 @@ class Wfst():
         # Copy arcs.
         for q in self.state_ids():
             for t in self.arcs(q):
-                ilabel = self.ilabel(t)
-                olabel = self.olabel(t)
+                ilabel, olabel = \
+                    self.ilabel(t), self.olabel(t)
                 wfst.add_arc( \
                     q,
                     self.pair_symbol(ilabel, olabel),
@@ -466,22 +466,35 @@ class Wfst():
         input label of each arc.
         arg isymbols: symbol table for input labels
         arg osymbols: symbol table for output labels
+        # todo: fixme
         """
         wfst = Wfst(isymbols=isymbols,
                     osymbols=osymbols,
                     arc_type=self.arc_type())
+        # Copy states.
         for q in self.states():
-            src = wfst.add_state(q)
+            wfst.add_state(q)
+        wfst.set_initial(self.initial())
+        for q in self.finals():
+            wfst.set_final(q, self.final_weight(q))
+        # Copy arcs.
+        for q in self.state_ids():
             for t in self.arcs(q):
-                ilabel = self.ilabel(t.ilabel)
-                ilabel, olabel = self.unpair_symbol(ilabel)
-                wfst.add_arc(q, ilabel, olabel, t.weight, t.nextstate)
-                wfst.set_features(src, t, self.get_features(src, t))
+                iolabel = self.ilabel(t)
+                ilabel, olabel = self.unpair_symbol(iolabel)
+                wfst.add_arc( \
+                    q,
+                    ilabel,
+                    olabel,
+                    t.weight,
+                    t.nextstate)
+                wfst.set_features(q, t, self.get_features(q, t))
         return wfst
 
-    def pair_symbol(isym, osym, sep=':'):
+    def pair_symbol(self, isym, osym, sep=':'):
         """
         Combine input and output symbols for encoding.
+        todo: move to string util
         """
         if isym == osym and isym in \
             [config.epsilon, config.bos, config.eos]:
@@ -489,9 +502,10 @@ class Wfst():
         iosym = f'{isym} {sep} {osym}'
         return iosym
 
-    def unpair_symbol(iosym, sep=':'):
+    def unpair_symbol(self, iosym, sep=':'):
         """
         Split input and output symbols for decoding.
+        todo: move to string util
         """
         if iosym in [config.epsilon, config.bos, config.eos]:
             return (iosym, iosym)
@@ -1091,7 +1105,7 @@ class Wfst():
 
     def print(self, **kwargs):
         fst = self.fst
-        # State symbol table.
+        # Symbol table for state labels.
         state_symbols = pynini.SymbolTable()
         for q, label in self._state2label.items():
             state_symbols.add_symbol(str(label), q)
@@ -1123,7 +1137,7 @@ class Wfst():
         return ret
 
     def save(self, outfile):
-        """ Write to pickle file. """
+        """ Save to pickle file. """
         with open(outfile, 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
@@ -1949,3 +1963,5 @@ def arc_equal(arc1, arc2):
 
 
 # todo: consistent (non-)use of get_ in getter func names.
+# todo: require symbol tables for input and output labels
+# to be initialized outside of Wfst members.
