@@ -1964,4 +1964,7 @@ def arc_equal(arc1, arc2):
 
 # todo: consistent (non-)use of get_ in getter func names.
 # todo: require symbol tables for input and output labels
-# to be initialized outside of Wfst members.
+# to be initialized outside of Wfst members, allowing epsilon /
+# bos / eos / other special symbols to be set on a per-machine
+# basis; route access to epsilon / bos / eos / etc. through
+# machines instead of global config
