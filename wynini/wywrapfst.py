@@ -615,7 +615,7 @@ class Wfst():
 
     def info(self):
         nstate = self.num_states()
-        narc = self.total_arcs()
+        narc = self.num_arcs()
         return f'{nstate} states | {narc} arcs'
 
     # Algorithms.
