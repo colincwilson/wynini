@@ -38,22 +38,18 @@ class Wfst():
 
     def __init__(self, isymbols=None, osymbols=None, arc_type='standard'):
         # Symbol tables.
-        if isymbols is None:
+        # todo: require SymbolTable(View) args
+        if isymbols is None:  # todo: rename input_symbols
             isymbols, _ = config.make_symtable([])
         if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
             isymbols, _ = config.make_symtable(isymbols)
-        if osymbols is None:
+        if osymbols is None:  # todo: rename output_symbols
             osymbols = isymbols
         if not isinstance(osymbols, (SymbolTable, SymbolTableView)):
             osymbols, _ = config.make_symtable(osymbols)
-        # Empty Fst.
-        fst = Fst(arc_type)
-        fst.set_input_symbols(isymbols)
-        fst.set_output_symbols(osymbols)
-        # Empty Wfst.
-        self.fst = fst  # Wrapped Fst.
-        self._isymbols = isymbols  # Arc label input symbols.
-        self._osymbols = osymbols  # Arc label output symbols.
+        self.fst = fst = Fst(arc_type)  # Wrapped Fst.
+        fst.set_input_symbols(isymbols)  # Arc input symbols.
+        fst.set_output_symbols(osymbols)  # Arc output symbols.
         self._state2label = {}  # State id -> state label.
         self._label2state = {}  # State label -> state id.
         # note: state id <-> state label assumed to be one-to-one.
@@ -64,13 +60,11 @@ class Wfst():
 
     def input_symbols(self):
         """ Get input symbol table. """
-        return self._isymbols
-        #return self.fst.input_symbols()
+        return self.fst.input_symbols()
 
     def output_symbols(self):
         """ Get output symbol table. """
-        return self._osymbols
-        #return self.fst.output_symbols()
+        return self.fst.output_symbols()
 
     def mutable_input_symbols(self):
         """ Get mutable input symbol table. """
@@ -82,13 +76,11 @@ class Wfst():
 
     def set_input_symbols(self, isymbols):
         """ Set input symbol table. """
-        self._isymbols = isymbols
         self.fst.set_input_symbols(isymbols)
         return self
 
     def set_output_symbols(self, osymbols):
         """ Set output symbol table. """
-        self._osymbols = osymbols
         self.fst.set_output_symbols(osymbols)
         return self
 
@@ -139,17 +131,16 @@ class Wfst():
     def add_state(self, label=None, start=False, initial=False, final=False):
         """ Add new state, optionally specifying its label. """
         # Enforce one-to-one state labeling.
-        if label:
-            if label in self._label2state:
-                if verbose:
-                    print(f'State with label {label} already exists '
-                          f'(returning it).')
-                return self._label2state[label]
+        if label in self._label2state:
+            if verbose:
+                print(f'State with label {label} already exists '
+                      f'(returning it).')
+            return self._label2state[label]
         # Add new state.
         q = self.fst.add_state()
         # Self-labeling as default.
         if label is None:
-            label = q  # int
+            label = str(q)
         # State <-> label map.
         self._state2label[q] = label
         self._label2state[label] = q
@@ -164,11 +155,15 @@ class Wfst():
         return q
 
     def states(self, label=True):
-        """ Iterator over state labels (or ids). """
+        """ Iterator over state labels or ids. """
         fst = self.fst
         if not label:
             return fst.states()
         return map(lambda q: self.state_label(q), fst.states())
+
+    def state_ids(self):
+        """ Iterator over state ids. """
+        return self.states(label=False)
 
     def num_states(self):
         return self.fst.num_states()
@@ -381,22 +376,18 @@ class Wfst():
 
     def num_arcs(self, src=None):
         """
-        Number of arcs from state or
-        total number of arcs in machine.
+        Number of arcs from state -or-
+        total number of arcs.
         """
+        fst = self.fst
         if src is None:
-            return self.total_arcs()
+            n = 0
+            for q in fst.states():
+                n += fst.num_arcs(q)
+            return n
         if not isinstance(src, int):
             src = self.state_id(src)
-        return self.fst.num_arcs(src)
-
-    def total_arcs(self):
-        """ Total count of arcs. """
-        fst = self.fst
-        n = 0
-        for q in fst.states():
-            n += fst.num_arcs(q)
-        return n
+        return fst.num_arcs(src)
 
     def num_input_epsilons(self, src):
         """ Number of arcs with input epsilon from state. """
@@ -433,6 +424,79 @@ class Wfst():
     def weight_type(self):
         """ Weight type (tropical, log, log64). """
         return self.fst.weight_type()
+
+    def encode_labels(self, sep=':'):
+        """
+        Convert transducer to acceptor by combining
+        input and output label of each arc.
+        """
+        # Symbol table of pairs.
+        isymbols = self.input_symbols()
+        osymbols = self.output_symbols()
+        iosymbols = []
+        for _, isym in isymbols:
+            for _, osym in osymbols:
+                iosymbols.append(self.pair_symbol(isym, osym))
+        iosymbols, _ = config.make_symtable(iosymbols)
+        # Machine with encoded labels.
+        wfst = Wfst(isymbols=iosymbols, arc_type=self.arc_type())
+        # Copy states.
+        for q in self.states():
+            wfst.add_state(q)
+        wfst.set_initial(self.initial())
+        for q in self.finals():
+            wfst.set_final(q, self.final_weight(q))
+        # Copy arcs.
+        for q in self.state_ids():
+            for t in self.arcs(q):
+                ilabel = self.ilabel(t)
+                olabel = self.olabel(t)
+                wfst.add_arc( \
+                    q,
+                    self.pair_symbol(ilabel, olabel),
+                    None,
+                    t.weight,
+                    t.nextstate)
+                wfst.set_features(q, t, self.get_features(q, t))
+        return wfst, iosymbols
+
+    def decode_labels(self, isymbols, osymbols, sep=':'):
+        """
+        Convert acceptor to transducer by splitting
+        input label of each arc.
+        arg isymbols: symbol table for input labels
+        arg osymbols: symbol table for output labels
+        """
+        wfst = Wfst(isymbols=isymbols,
+                    osymbols=osymbols,
+                    arc_type=self.arc_type())
+        for q in self.states():
+            src = wfst.add_state(q)
+            for t in self.arcs(q):
+                ilabel = self.ilabel(t.ilabel)
+                ilabel, olabel = self.unpair_symbol(ilabel)
+                wfst.add_arc(q, ilabel, olabel, t.weight, t.nextstate)
+                wfst.set_features(src, t, self.get_features(src, t))
+        return wfst
+
+    def pair_symbol(isym, osym, sep=':'):
+        """
+        Combine input and output symbols for encoding.
+        """
+        if isym == osym and isym in \
+            [config.epsilon, config.bos, config.eos]:
+            return isym
+        iosym = f'{isym} {sep} {osym}'
+        return iosym
+
+    def unpair_symbol(iosym, sep=':'):
+        """
+        Split input and output symbols for decoding.
+        """
+        if iosym in [config.epsilon, config.bos, config.eos]:
+            return (iosym, iosym)
+        iosym = re.match('^(.+) : (.+)$', iosym)
+        return (iosym[1], iosym[2])
 
     def project(self, project_type):
         """ Project input or output labels. """
@@ -514,10 +578,24 @@ class Wfst():
         self.phi = phi
         return self
 
+    def set_features(self, q, t, phi_t):
+        """
+        Set features of arc t from state q.
+        """
+        if not phi_t:
+            return
+        if not isinstance(q, int):
+            q = self.get_state(q)
+        t_ = (q, t.ilabel, t.olabel, t.nextstate)
+        self.phi[t_] = phi_t
+        return  # todo: return type
+
     def get_features(self, q, t, default={}):
         """
-        Get features for arc t from state with id q.
+        Get features of arc t from state q.
         """
+        if not isinstance(q, int):
+            q = self.get_state(q)
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         return self.phi.get(t_, default)
 
@@ -1058,7 +1136,6 @@ class Wfst():
 
 
 # todo:
-# encode()/decode() labels
 # minimize(), rmepsilon()
 
 # # # # # # # # # #
@@ -1869,3 +1946,6 @@ def arc_equal(arc1, arc2):
             (arc1.nextstate == arc2.nextstate) and \
             (arc1.weight == arc2.weight)
     return val
+
+
+# todo: consistent (non-)use of get_ in getter func names.
