@@ -15,7 +15,7 @@ verbosity = 0
 # todo: explicit input vs. output alphabets
 
 
-def init(param={}):
+def init(param={}):  # todo: change to **kwargs
     """ Set globals with dictionary or module. """
     global epsilon, bos, eos
     global sigma, special_syms
@@ -37,12 +37,12 @@ def init(param={}):
 
 def make_symtable(sigma):
     symtable = SymbolTable()
-    symtable.add_symbol(epsilon)
-    symtable.add_symbol(bos)
-    symtable.add_symbol(eos)
-    for sym in special_syms:
+    symtable.add_symbol(epsilon)  # Symbol id 0 (OpenFst convention).
+    symtable.add_symbol(bos)  # Symbol id 1 (wynini convention).
+    symtable.add_symbol(eos)  # Symbol id 2 (wynini convention).
+    for sym in special_syms:  # Special symbols.
         symtable.add_symbol(sym)
-    for sym in sigma:
+    for sym in sigma:  # Ordinary symbols.
         symtable.add_symbol(sym)
     syms = [sym for (sym_id, sym) in symtable]
     return symtable, syms
