@@ -480,14 +480,14 @@ class Wfst():
         note: get epsilon, bos, eos labels from config.
         """
         epsilon = config.epsilon
-        bos = config.epsilon
-        eos = config.epsilon
+        bos = config.bos
+        eos = config.eos
         for q, t in self.arcs():
             ilabel = self.ilabel(t)
             olabel = self.olabel(t)
             if ilabel in [bos, eos] or olabel in [bos, eos]:
                 continue
-            if ilabel == olabel == epsilon:
+            if ilabel == epsilon and ilabel == olabel:
                 continue
             if sep:
                 yield f'{ilabel} {sep} {olabel}'
