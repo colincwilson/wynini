@@ -140,6 +140,9 @@ class Wfst():
         # Self-labeling as default.
         if label is None:
             label = q
+        if isinstance(label, int) and label != q:
+            print(f'Warning: labeling state {q} with'
+                  'integer other than {q}.')
         # State <-> label map.
         self._state2label[q] = label
         self._label2state[label] = q
@@ -301,12 +304,11 @@ class Wfst():
         src / ilabel / olabel / dest.
         """
         # todo: add src/dest states if they do not already exist
-        # todo: add unweighted arc without specifying weight=None
         fst = self.fst
         src_id, arc = self.make_arc( \
             src, ilabel, olabel, weight, dest)
         fst.add_arc(src_id, arc)
-        return self
+        return src_id, arc
 
     def add_path(self,
                  src=None,
@@ -569,7 +571,7 @@ class Wfst():
         if not phi_t:
             return
         if not isinstance(q, int):
-            q = self.get_state(q)
+            q = self.state_id(q)
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         self.phi[t_] = phi_t
         return  # todo: return type
@@ -579,7 +581,7 @@ class Wfst():
         Get features of arc t from state q.
         """
         if not isinstance(q, int):
-            q = self.get_state(q)
+            q = self.state_id(q)
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         return self.phi.get(t_, default)
 
@@ -616,13 +618,14 @@ class Wfst():
                 ilabel, olabel = \
                     self.ilabel(t), self.olabel(t)
                 iolabel = self.pair_symbol(ilabel, olabel)
-                wfst.add_arc( \
+                phi_t = self.get_features(q, t)
+                q_, t_ = wfst.add_arc( \
                     q,
                     iolabel,
                     None,
                     t.weight,
                     t.nextstate)
-                wfst.set_features(q, t, self.get_features(q, t))
+                wfst.set_features(q_, t_, phi_t)
         return wfst, iosymbols
 
     def decode_labels(self, isymbols, osymbols, sep=':'):
@@ -646,13 +649,14 @@ class Wfst():
             for t in self.arcs(q):
                 iolabel = self.ilabel(t)
                 ilabel, olabel = Wfst.unpair_symbol(iolabel)
-                wfst.add_arc( \
+                phi_t = self.get_features(q, t)
+                q_, t_ = wfst.add_arc( \
                     q,
                     ilabel,
                     olabel,
                     t.weight,
                     t.nextstate)
-                wfst.set_features(q, t, self.get_features(q, t))
+                wfst.set_features(q_, t_, phi_t)
         return wfst
 
     # @classmethod
@@ -1785,7 +1789,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
     # Implicit epsilon self-transition.
     # (see: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
     one = Weight.one(wfst.weight_type())
-    _, epsilon_arc = wfst.make_arc( \
+    src_id, epsilon_arc = wfst.make_arc( \
         src_id, config.epsilon, config.epsilon, one, src_id)
     if config.epsilon in src_arcs:
         src_arcs[config.epsilon].append(epsilon_arc)
