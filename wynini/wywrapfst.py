@@ -610,7 +610,7 @@ class Wfst():
         wfst.set_initial(self.initial())
         for q in self.finals():
             wfst.set_final(q, self.final_weight(q))
-        # Copy arcs.
+        # Copy arcs, encoding labels.
         for q in self.state_ids():
             for t in self.arcs(q):
                 ilabel, olabel = \
@@ -631,7 +631,6 @@ class Wfst():
         input label of each arc.
         arg isymbols: symbol table for input labels
         arg osymbols: symbol table for output labels
-        # todo: fixme
         """
         wfst = Wfst(isymbols=isymbols,
                     osymbols=osymbols,
@@ -642,11 +641,11 @@ class Wfst():
         wfst.set_initial(self.initial())
         for q in self.finals():
             wfst.set_final(q, self.final_weight(q))
-        # Copy arcs.
+        # Copy arcs, decoding labels.
         for q in self.state_ids():
             for t in self.arcs(q):
                 iolabel = self.ilabel(t)
-                ilabel, olabel = self.unpair_symbol(iolabel)
+                ilabel, olabel = Wfst.unpair_symbol(iolabel)
                 wfst.add_arc( \
                     q,
                     ilabel,
@@ -656,18 +655,19 @@ class Wfst():
                 wfst.set_features(q, t, self.get_features(q, t))
         return wfst
 
-    @classmethod
-    def pair_symbols(cls, input_symbols, output_symbols, sep=':'):
-        """
-        Combine input and output symbols for encoding.
-        note: epsilon, bos, eos are retained from config.
-        """
-        iosymbols = set()
-        for _, isym in input_symbols:
-            for _, osym in output_symbols:
-                iosym = Wfst.pair_symbol(isym, osym, sep)
-                iosybols.add(iosym)
-        return config.make_symtable(list(iosymbols))
+    # @classmethod
+    # def pair_symbols(cls, input_symbols, output_symbols, sep=':'):
+    #     """
+    #     Combine all input and output symbols for encoding.
+    #     note: epsilon, bos, eos are retained from config.
+    #     """
+    #     todo: fixme
+    #     iosymbols = set()
+    #     for _, isym in input_symbols:
+    #         for _, osym in output_symbols:
+    #             iosym = Wfst.pair_symbol(isym, osym, sep)
+    #             iosybols.add(iosym)
+    #     return config.make_symtable(list(iosymbols))
 
     @classmethod
     def pair_symbol(cls, isym, osym, sep=':'):
@@ -690,15 +690,13 @@ class Wfst():
     def unpair_symbol(cls, iosym, sep=':'):
         """
         Split input and output symbols for decoding.
-        note: epsilon, bos, eos retained from config.
         todo: move to string util
         """
-        epsilon = config.epsilon
-        bos = config.bos
-        eos = config.eos
-        if iosym in [epsilon, bos, eos]:
+        # Special symbols.
+        # (epsilon, bos, eos, lambda, ...)
+        if sep not in iosym:
             return (iosym, iosym)
-        iosym = re.match('^(.+) : (.+)$', iosym)
+        iosym = re.match(f'^(.+) {sep} (.+)$', iosym)
         return (iosym[1], iosym[2])
 
     def paths(self):
