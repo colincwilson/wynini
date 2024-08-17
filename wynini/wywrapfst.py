@@ -139,7 +139,7 @@ class Wfst():
         q = self.fst.add_state()
         # Self-labeling as default.
         if label is None:
-            label = str(q)
+            label = q
         # State <-> label map.
         self._state2label[q] = label
         self._label2state[label] = q

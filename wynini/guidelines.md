@@ -8,10 +8,10 @@ Symbol tables
 
 State labels
 
-* State labels can be of any hashable type, including strings and tuples. Do not use integers, to avoid confusion with state ids. A state with id q is labeled str(q) by default.
+* State labels can be of any hashable type, including strings and tuples. A state with id q is labeled q by default; be careful when using ints as labels to avoid id/label confusion.
 
 Arcs
 
-* All paths are endpointed with arcs labeled bos:bos and eos:eos.
+* All successful paths are endpointed with arcs labeled bos:bos and eos:eos.
 
 * Epsilon:epsilon self-transitions are implicit on every state and have weight one in the relevant semiring.
