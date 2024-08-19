@@ -304,10 +304,9 @@ class Wfst():
         src / ilabel / olabel / dest.
         """
         # todo: add src/dest states if they do not already exist
-        fst = self.fst
         src_id, arc = self.make_arc( \
             src, ilabel, olabel, weight, dest)
-        fst.add_arc(src_id, arc)
+        self.fst.add_arc(src_id, arc)
         return src_id, arc
 
     def add_path(self,
@@ -339,8 +338,7 @@ class Wfst():
             olabels += [config.epsilon] * (ilength - olength)
         #print(ilabels, olabels)
         # Add path.
-        fst = self.fst
-        n = len(ilabels)  # == len(olabels)
+        n = len(ilabels)  # now equal to len(olabels)
         q = src
         r = None
         for i in range(n - 1):
@@ -370,24 +368,27 @@ class Wfst():
     # Alias for arcs().
     transitions = arcs
 
-    def mutable_arcs(self, src=None):
-        """
-        Mutable iterator over arcs from one state
-        or from all states.
-        """
-        if src is None:
-            for src in self.state_ids():
-                for t in self.fst.mutable_arcs(q):
-                    yield (src, t)
-            return
-        if not isinstance(src, int):
-            src = self.state_id(src)
-        for t in self.fst.mutable_arcs(src):
-            yield t
-        return
+    # todo: remove, because modifications to arcs
+    # returned by this method will not be reflected
+    # in self.
+    # def mutable_arcs(self, src=None):
+    #     """
+    #     Mutable iterator over arcs from one state
+    #     or from all states.
+    #     """
+    #     if src is None:
+    #         for src in self.state_ids():
+    #             for t in self.fst.mutable_arcs(q):
+    #                 yield (src, t)
+    #         return
+    #     if not isinstance(src, int):
+    #         src = self.state_id(src)
+    #     for t in self.fst.mutable_arcs(src):
+    #         yield t
+    #     return
 
     # Alias for mutable_arcs().
-    mutable_transitions = mutable_arcs
+    # mutable_transitions = mutable_arcs
 
     def arcsort(self, sort_type='ilabel'):
         """ Sort arcs from each state. """
@@ -541,7 +542,7 @@ class Wfst():
                     w = Weight(weight_type, w)
                     # todo: handle non-numerical weights
                 t.weight = w
-                q_arcs.set_value(t)
+                q_arcs.set_value(t)  # note: creates new Arc object.
         return self
 
     def assign_features(self, func):
@@ -1762,6 +1763,8 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
     """
     Organize arcs by source state and input or output label 
     (optionally passed through matchfunc) for faster composition.
+    fixme: arc references are invalidated by changes to ilabel/
+    olabel/weight via mutable arc iterator.
     """
     # Organize arcs from all states.
     if src is None:

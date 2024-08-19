@@ -79,7 +79,7 @@ def assign_weights(wfst, w):
                 t.weight = Weight('log', dot_product(phi_t, w))
             else:
                 t.weight = one
-            q_arcs.set_value(t)
+            q_arcs.set_value(t)  # note: creates new Arc object.
     return wfst
 
 
@@ -110,7 +110,7 @@ def assign_weights_vec(wfst, V, w):
         q_arcs = fst.mutable_arcs(q)
         for t in q_arcs:
             t.weight = Weight('log', x[arc_id])
-            q_arcs.set_value(t)
+            q_arcs.set_value(t)  # note: creates new Arc object.
             arc_id += 1
     return wfst
 
