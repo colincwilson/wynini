@@ -114,9 +114,7 @@ class Wfst():
         return self._label2state[q]
 
     def set_state_label(self, q, label):
-        """
-        Update label of state q.
-        """
+        """ Update label of state q. """
         # Enforce biunique state labels.
         if label in self._label2state:
             print(f'Cannot set label of state {q} to {label} '
@@ -142,7 +140,7 @@ class Wfst():
             label = q
         if isinstance(label, int) and label != q:
             print(f'Warning: labeling state {q} with'
-                  'integer other than {q}.')
+                  f'integer other than {q}.')
         # State <-> label map.
         self._state2label[q] = label
         self._label2state[label] = q
@@ -151,7 +149,7 @@ class Wfst():
         if start or initial:
             self.set_start(q)
         if final:
-            # todo: final weight arg
+            # todo: accept final weight argument
             self.set_final(q, final)
 
         return q
@@ -164,16 +162,16 @@ class Wfst():
         return map(lambda q: self.state_label(q), fst.states())
 
     def state_ids(self):
-        """ Iterator over state ids. """
+        """ Iterator over state ids (convenience function). """
         return self.states(label=False)
 
     def num_states(self):
+        """ Number of states in this machine. """
         return self.fst.num_states()
 
     def set_start(self, q):
         """ Set start state by id or label. """
-        if not isinstance(q, int):
-            q = self.state_id(q)
+        q = self.state_id(q)
         return self.fst.set_start(q)
 
     # Alias for set_start().
@@ -181,41 +179,41 @@ class Wfst():
 
     def start(self, label=True):
         """ Start state label (or id). """
+        q0 = self.fst.start()
         if not label:
-            return self.fst.start()
-        return self.state_label(self.fst.start())
+            return q0
+        return self.state_label(q0)
 
     # Alias for start().
     initial = start
 
     def is_start(self, q):
         """ Check start status by id or label. """
-        if not isinstance(q, int):
-            q = self.state_id(q)
+        q = self.state_id(q)
         return q == self.fst.start()
 
     # Alias for is_start().
     is_initial = is_start
 
     def set_final(self, q, weight=None):
-        """ Set final weight of state by id or label. """
-        if not isinstance(q, int):
-            q = self.state_id(q)
+        """
+        Set final weight of state by id or label.
+        note: default weight is one, not zero.
+        """
+        q = self.state_id(q)
         if weight is None or weight is True:
             weight = Weight.one(self.weight_type())
         return self.fst.set_final(q, weight)
 
     def is_final(self, q):
         """ Check final status by id or label. """
-        if not isinstance(q, int):
-            q = self.state_id(state)
+        q = self.state_id(q)
         zero = Weight.zero(self.weight_type())
         return self.final(q) != zero
 
     def final(self, q):
         """ Final weight of state by id or label. """
-        if not isinstance(q, int):
-            q = self.state_id(q)
+        q = self.state_id(q)
         return self.fst.final(q)
 
     # Alias for final.
@@ -226,8 +224,8 @@ class Wfst():
         Iterator over states with non-zero final weights.
         """
         fst = self.fst
-        zero = pynini.Weight.zero(fst.weight_type())
-        state_iter = fst.states()
+        zero = Weight.zero(fst.weight_type())
+        state_iter = fst.states()  # equiv.: self.state_ids()
         state_iter = filter(lambda q: fst.final(q) != zero, state_iter)
         if label:
             state_iter = map(lambda q: self.state_label(q), state_iter)
@@ -235,27 +233,28 @@ class Wfst():
 
     def relabel_states(self, func=None):
         """
-        Relabel states as integers (default) 
+        Relabel states with state ids (default) 
         or with passed function.
         """
         if func:
-            return self.relabel_states_func(func)
+            return self._relabel_states(func)
         state2label = {}  # State id -> state label.
         label2state = {}  # State label -> state id.
-        for q in self.states(label=False):
+        for q in self.state_ids():
             state2label[q] = q
             label2state[q] = q
         self._state2label = state2label
         self._label2state = label2state
         return self
 
-    def relabel_states_func(self, func):
+    def _relabel_states(self, func):
         """
-        Relabel states with function.
+        Relabel states using function, monitoring
+        for collisions.
         """
         state2label = {}
         label2state = {}
-        for q in self.states(label=False):
+        for q in self.state_ids():
             label = func(self, q)
             if label in label2state:
                 print(f'Relabeling function assigns the same label '
@@ -295,7 +294,7 @@ class Wfst():
 
     def make_epsilon_arc(self, src):
         """
-        Create (but do not add) 'virtual' epsilon self-arc on a state.
+        Create (but do not add) 'virtual' epsilon:epsilon self-arc on a state.
         (ref: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
         """
         one = Weight.one(self.weight_type())
@@ -349,7 +348,7 @@ class Wfst():
             olabels += [config.epsilon] * (ilength - olength)
         #print(ilabels, olabels)
         # Add path.
-        n = len(ilabels)  # now equal to len(olabels)
+        n = len(ilabels)  # equiv. len(olabels)
         q = src
         r = None
         for i in range(n - 1):
@@ -361,48 +360,36 @@ class Wfst():
 
     def arcs(self, src=None):
         """
-        Iterator over arcs from one state or from 
-        all states.
+        Iterator over arcs from one state or all states.
         """
         # todo: decorate arcs with input/output labels if requested
         if src is None:
             for src in self.state_ids():
                 for t in self.fst.arcs(src):
-                    yield (src, t)
+                    yield (src, t)  # (src, arc) pair
             return
-        if not isinstance(src, int):
-            src = self.state_id(src)
-        for t in self.fst.arcs(src):
-            yield t
+        src = self.state_id(src)
+        return self.fst.arcs(src)  # _ArcIterator
         return
 
     # Alias for arcs().
     transitions = arcs
 
-    # todo: remove, because modifications to arcs
-    # returned by this method will not be reflected
-    # in self.
-    # def mutable_arcs(self, src=None):
-    #     """
-    #     Mutable iterator over arcs from one state
-    #     or from all states.
-    #     """
-    #     if src is None:
-    #         for src in self.state_ids():
-    #             for t in self.fst.mutable_arcs(q):
-    #                 yield (src, t)
-    #         return
-    #     if not isinstance(src, int):
-    #         src = self.state_id(src)
-    #     for t in self.fst.mutable_arcs(src):
-    #         yield t
-    #     return
+    def mutable_arcs(self, src):
+        """
+        Mutable iterator over arcs from state.
+        """
+        src = self.state_id(src)
+        return self.fst.mutable_arcs(src)  # _MutableArcIterator
 
     # Alias for mutable_arcs().
     # mutable_transitions = mutable_arcs
 
     def arcsort(self, sort_type='ilabel'):
-        """ Sort arcs from each state. """
+        """
+        Sort arcs from each state.
+        arg sort_type = 'ilabel' | 'olabel'.
+        """
         self.fst.arcsort(sort_type)
         return self
 
@@ -417,8 +404,7 @@ class Wfst():
             for q in fst.states():
                 n += fst.num_arcs(q)
             return n
-        if not isinstance(src, int):
-            src = self.state_id(src)
+        src = self.state_id(src)
         return fst.num_arcs(src)
 
     def num_input_epsilons(self, src=None):
@@ -432,8 +418,7 @@ class Wfst():
             for src in self.state_ids():
                 n += fst.num_input_epsilons(src)
             return n
-        if not isinstance(src, int):
-            src = self.state_id(src)
+        src = self.state_id(src)
         return fst.num_input_epsilons(src)
 
     def num_output_epsilons(self, src):
@@ -447,9 +432,16 @@ class Wfst():
             for src in self.state_ids():
                 n += fst.num_output_epsilons(src)
             return n
-        if not isinstance(src, int):
-            src = self.state_id(src)
+        src = self.state_id(src)
         return fst.num_output_epsilons(src)
+
+    def info(self):
+        """
+        Number of states and arcs.
+        """
+        nstate = self.num_states()
+        narc = self.num_arcs()
+        return f'{nstate} states | {narc} arcs'
 
     def ilabel(self, x):
         """ Arc input label. """
@@ -504,9 +496,9 @@ class Wfst():
             if ilabel == epsilon and ilabel == olabel:
                 continue
             if sep:
-                yield f'{ilabel} {sep} {olabel}'
+                yield f'{ilabel} {sep} {olabel}'  # string
             else:
-                yield (ilabel, olabel)
+                yield (ilabel, olabel)  # tuple
         return
 
     def map_weights(self, map_type='identity', **kwargs):
@@ -547,13 +539,13 @@ class Wfst():
         weight_type = self.weight_type()
         for q in fst.states():
             q_arcs = fst.mutable_arcs(q)
-            for t in q_arcs:
+            for t in q_arcs:  # note: unstable arc reference
                 w = func(self, q, t)
                 if isinstance(w, int) or isinstance(w, float):
                     w = Weight(weight_type, w)
                     # todo: handle non-numerical weights
                 t.weight = w
-                q_arcs.set_value(t)  # note: creates new Arc object.
+                q_arcs.set_value(t)
         return self
 
     def assign_features(self, func):
@@ -567,8 +559,8 @@ class Wfst():
         associated labels of the arc.
         """
         phi = {}
-        for q in self.fst.states():  # Source state id.
-            for t in self.fst.arcs(q):  # Arc.
+        for q in self.fst.states():
+            for t in self.fst.arcs(q):
                 phi_t = func(self, q, t)
                 if phi_t:  # Handle partial functions / empty phi_t.
                     t_ = (q, t.ilabel, t.olabel, t.nextstate)
@@ -582,25 +574,18 @@ class Wfst():
         """
         if not phi_t:
             return
-        if not isinstance(q, int):
-            q = self.state_id(q)
+        q = self.state_id(q)
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         self.phi[t_] = phi_t
         return  # todo: return type
 
-    def get_features(self, q, t, default={}):
+    def features(self, q, t, default={}):
         """
         Get features of arc t from state q.
         """
-        if not isinstance(q, int):
-            q = self.state_id(q)
+        q = self.state_id(q)
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         return self.phi.get(t_, default)
-
-    def info(self):
-        nstate = self.num_states()
-        narc = self.num_arcs()
-        return f'{nstate} states | {narc} arcs'
 
     # Algorithms.
     # todo: minimize(), rmepsilon()
@@ -609,6 +594,8 @@ class Wfst():
         """
         Convert transducer to acceptor by combining
         input and output label of each arc.
+        arg iosymbols: symbol table for encoded labels
+        todo: destructive version to avoid copying
         """
         # Symbol table for input/output label pairs.
         if not iosymbols:
@@ -616,8 +603,7 @@ class Wfst():
                                              self.output_symbols(),
                                              sep=sep)
         # Machine with encoded labels.
-        wfst = Wfst( \
-            isymbols=iosymbols, arc_type=self.arc_type())
+        wfst = Wfst(isymbols=iosymbols, arc_type=self.arc_type())
         # Copy states.
         for q in self.states():
             wfst.add_state(q)
@@ -627,10 +613,10 @@ class Wfst():
         # Copy arcs, encoding labels.
         for q in self.state_ids():
             for t in self.arcs(q):
-                ilabel, olabel = \
-                    self.ilabel(t), self.olabel(t)
+                ilabel = self.ilabel(t)
+                olabel = self.olabel(t)
                 iolabel = self.pair_symbol(ilabel, olabel)
-                phi_t = self.get_features(q, t)
+                phi_t = self.features(q, t)
                 q_, t_ = wfst.add_arc( \
                     q,
                     iolabel,
@@ -646,6 +632,7 @@ class Wfst():
         input label of each arc.
         arg isymbols: symbol table for input labels
         arg osymbols: symbol table for output labels
+        todo: destructive version to avoid copying
         """
         wfst = Wfst(isymbols=isymbols,
                     osymbols=osymbols,
@@ -661,7 +648,7 @@ class Wfst():
             for t in self.arcs(q):
                 iolabel = self.ilabel(t)
                 ilabel, olabel = Wfst.unpair_symbol(iolabel)
-                phi_t = self.get_features(q, t)
+                phi_t = self.features(q, t)
                 q_, t_ = wfst.add_arc( \
                     q,
                     ilabel,
@@ -671,19 +658,19 @@ class Wfst():
                 wfst.set_features(q_, t_, phi_t)
         return wfst
 
-    # @classmethod
-    # def pair_symbols(cls, input_symbols, output_symbols, sep=':'):
-    #     """
-    #     Combine all input and output symbols for encoding.
-    #     note: epsilon, bos, eos are retained from config.
-    #     """
-    #     todo: fixme
-    #     iosymbols = set()
-    #     for _, isym in input_symbols:
-    #         for _, osym in output_symbols:
-    #             iosym = Wfst.pair_symbol(isym, osym, sep)
-    #             iosybols.add(iosym)
-    #     return config.make_symtable(list(iosymbols))
+    @classmethod
+    def pair_symbols(cls, input_symbols, output_symbols, sep=':'):
+        """
+        Combine all input and output symbols for encoding.
+        note: epsilon, bos, eos are retained from config.
+        todo: checkme
+        """
+        iosymbols = set()
+        for _, isym in input_symbols:
+            for _, osym in output_symbols:
+                iosym = Wfst.pair_symbol(isym, osym, sep)
+                iosybols.add(iosym)
+        return config.make_symtable(list(iosymbols))
 
     @classmethod
     def pair_symbol(cls, isym, osym, sep=':'):
@@ -894,8 +881,7 @@ class Wfst():
     def delete_states(self, states, connect=True):
         """
         Remove states by id while preserving state labels, 
-        arc weights, and arc features.
-        [nondestructive]
+        arc weights, and arc features. [nondestructive]
         """
         fst = self.fst
         live_states = set(fst.states()) - states
@@ -923,8 +909,7 @@ class Wfst():
             for t in filter(lambda t: t.nextstate in live_states, fst.arcs(q)):
                 dest = state_map[t.nextstate]
                 wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest)
-                # Retain arc features.
-                phi_t = self.get_features(q, t)
+                phi_t = self.features(q, t)
                 if phi_t:
                     t_ = (src, t.ilabel, t.olabel, dest)
                     wfst.phi[t_] = phi_t
@@ -969,8 +954,8 @@ class Wfst():
 
     def prune_arcs(self):
         """
-        Delete duplicate arcs (which are allowed by Fst).
-        todo: sum weights of arcs with same src/ilabel/olabel/dest?
+        Delete duplicate arcs (which are allowed by Fst). [destructive]
+        todo: sum weights of arcs with same src/ilabel/olabel/dest
         """
         fst = self.fst
         q_arc_set = set()
@@ -1006,7 +991,7 @@ class Wfst():
         func(<Wfst, q, t> -> boolean) is True. The function 
         receives this machine, a source state id, and an arc 
         as arguments; it can examine the src/input/output/dest and 
-        associated labels of the arc.
+        associated labels of the arc. [destructive]
         """
         dead_arcs = []
         fst = self.fst
@@ -1020,12 +1005,11 @@ class Wfst():
         """
         Transduce space-separated input with this machine, 
         returning iterator over output strings (default) or 
-        machine that preserves input/output labels. 
-        Alternatively, create acceptor for string with accep(), 
-        then compose() with this machine in order to preserve 
-        input/output/state labels and arc features.
-        note: state labels / output strings / loglinear features
-        of self are not retained in output machine.
+        machine that preserves input/output labels but not 
+        state labels, output strings, or arc features.
+        Alternative that also preserves state labels 
+        and arc features: create an accept for the input string
+        with accep() and then compose with this machine.
         """
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -1058,7 +1042,8 @@ class Wfst():
         Push arc weights and optionally remove total weight
         (see pynini.push/Fst.push, pynini.reweight/Fst.reweight).
         [destructive]
-        # note: assume that Fst.push() does not change state ids.
+        note: assume that Fst.push() does not change state ids
+        or reorder arcs within state.
         """
         self.fst = self.fst.push( \
             delta=delta,
@@ -1090,10 +1075,10 @@ class Wfst():
         remove_common_affix (False) and 
         reweight_type ("to_initial" or "to_final").
         [destructive]
-        # note: assume that Fst.push() does not change state ids.
+        note: assume that Fst.push() does not change state ids
+        or reorder arcs within state.
+        todo: testme
         """
-        # assumption: pynini.push() does not reindex states.
-        # todo: test
         self.fst = pynini.push(self.fst,
                                push_labels=True,
                                reweight_type=reweight_type,
@@ -1107,8 +1092,8 @@ class Wfst():
         accepting the paths. pynini.randgen() arguments: npath, 
         seed, select ("uniform", "log_prob", or "fast_log_prob"),
         max_length, weighted, remove_total_weight.
-        note: state labels / output strings / loglinear features
-        of self are not retained in output machine.
+        note: state labels / output strings / arc features
+        are not retained in output machine.
         """
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -1136,8 +1121,9 @@ class Wfst():
     def invert(self):
         """
         Invert mapping (exchange input and output labels).
+        note: assume Fst.invert() does not change state ids
+        or order of arcs within state.
         """
-        # assumption: Fst.invert() does not reindex states.
         fst = self.fst
         isymbols = fst.input_symbols()
         osymbols = fst.output_symbols()
@@ -1146,11 +1132,11 @@ class Wfst():
         self.set_output_symbols(isymbols)
         return self
 
-    # Copy/create machines
+    # Copy/create machines.
 
     def copy(self):
         """
-        Deep copy preserving input/output/state symbols 
+        Copy preserving input/output/state symbols 
         and string outputs.
         """
         fst = self.fst
@@ -1161,8 +1147,8 @@ class Wfst():
         wfst.fst = fst.copy()
         wfst._state2label = dict(self._state2label)
         wfst._label2state = dict(self._label2state)
-        wfst.sigma = dict(self.sigma)
-        wfst.phi = dict(self.phi)
+        wfst.sigma = dict(self.sigma)  # todo: deep copy
+        wfst.phi = dict(self.phi)  # todo: deep copy
         return wfst
 
     @classmethod
@@ -1179,9 +1165,10 @@ class Wfst():
         wfst._label2state = label2state
         return wfst
 
-    def to_fst(self):
+    def to_fst(self, copy=True):
         """ Copy and return wrapped pynini Fst. """
-        # todo: access fst member if do not need copy
+        if not copy:
+            return self.fst
         return self.fst.copy()
 
     # Printing/drawing/saving/loading.
@@ -1190,8 +1177,7 @@ class Wfst():
         """
         Pretty-print a single arc from state q.
         """
-        if isinstance(q, int):
-            q = self.state_label(q)
+        q = self.state_label(q)
         ilabel = self.ilabel(t)
         olabel = self.olabel(t)
         weight = self.weight(t)
@@ -1396,23 +1382,16 @@ def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
     """
     Starter transducer with three states and two arcs:
         0 -> bos:bos -> 0
-        # 1 -> epsilon:epsilon -> 1
         1 -> eos:eos -> 1
     isymbols and osymbols are lists of ordinary symbols
-    (delegate to config for epsilon, bos, eos).
+    (get epsilon, bos, eos from config).
     """
-    # todo: delegate to config when None
-    if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
-        isymbols, _ = config.make_symtable(isymbols)
-    if not isinstance(osymbols, (SymbolTable, SymbolTableView)):
-        osymbols, _ = config.make_symtable(osymbols)
     wfst = Wfst(isymbols, osymbols, arc_type=arc_type)
     for i in range(3):
         wfst.add_state(i)
     wfst.set_initial(0)
     wfst.set_final(2)
     wfst.add_arc(0, config.bos, config.bos, None, 1)
-    # wfst.add_arc(1, config.epsilon, config.epsilon, None, 1)
     wfst.add_arc(1, config.eos, config.eos, None, 2)
     return wfst
 
@@ -1627,7 +1606,12 @@ def _suffix(x, l):
 # todo: intersect, cross(-product), difference
 
 
-def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
+def compose(wfst1,
+            wfst2,
+            wfst1_arcs=None,
+            wfst2_arcs=None,
+            matchfunc1=None,
+            matchfunc2=None):
     """
     Composition/intersection, retaining contextual info from
     original machines by labeling each state q = (q1, q2) as
@@ -1664,7 +1648,8 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
     # Lazy organization of arcs in each machine by src
     # and label for fast matching and handling of implicit
     # epsilon:epsilon self-transitions.
-    wfst1_arcs = {}  # todo: add argument
+    if not wfst1_arcs:
+        wfst1_arcs = {}
     if not wfst2_arcs:
         wfst2_arcs = {}
 
@@ -1777,8 +1762,8 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
 
                     # Arc features: union of features assigned
                     # to source arcs (with None equiv. to {}).
-                    phi_t = wfst1.get_features(src1_id, t1) | \
-                            wfst2.get_features(src2_id, t2)
+                    phi_t = wfst1.features(src1_id, t1) | \
+                            wfst2.features(src2_id, t2)
                     if phi_t:
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
@@ -1804,11 +1789,10 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
         return wfst_arcs
 
     # Organize arcs from one state.
-    src_id = src if isinstance(src, int) \
-        else wfst.state_id(src)
+    src = wfst.state_id(src)
     src_arcs = {}
     # Organize arcs by input or output label.
-    for idx, t in enumerate(wfst.arcs(src_id)):
+    for idx, t in enumerate(wfst.arcs(src)):
         label = None
         if side == 'input':
             label = wfst.ilabel(t)
@@ -2009,7 +1993,7 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     [Gorman & Sproat, section 5.3.2]"
     note: ensure weights are in tropical semiring before 
     calling (e.g., using wfst.map_weights('to_std')).
-    note: state labels / output strings / loglinear features
+    note: state labels / output strings / arc features
     of input wfst are not retained in output machine; even
     state ids may not be preserved.
     """
@@ -2042,7 +2026,7 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
 def shortestpath_(wfst, delta=1e-6):
     """
     Version of shortestpath that retains state labels / 
-    output strings / loglinear features of input wfst.
+    output strings / arc features of input wfst.
     note: ensure weights are in tropical semiring before 
     calling (e.g., using wfst.map_weights('to_std')).
     """
@@ -2075,7 +2059,6 @@ def arc_equal(arc1, arc2):
     return val
 
 
-# todo: consistent (non-)use of get_ in getter func names.
 # todo: require symbol tables for input and output labels
 # to be initialized outside of Wfst instances, allowing epsilon /
 # bos / eos / other special symbols to be set on a per-machine
