@@ -44,7 +44,12 @@ print()
 
 # Composition of two transducers with features.
 M1 = trellis(length=2, isymbols=['a', 'b'], arc_type='log')
-print('M1:', M1.print(acceptor=True, show_weight_one=True))
+print('M1:')
+print(M1.print(show_weight_one=True))  # acceptor = True
+M1.draw('fig/M1.dot')
+
+organize_arcs(M1, side='output')
+#sys.exit(0)
 
 
 def phi1_func(wfst, q, t):
@@ -72,7 +77,9 @@ for x in ['a', 'b']:
 M2.add_arc(1, config.eos, config.eos, None, 2)
 M2.set_initial(0)
 M2.set_final(2)
-print('M2:\n', M2.print())
+print('M2:')
+print(M2.print())
+M2.draw('fig/M2.dot')
 
 
 def phi2_func(wfst, q, t):
@@ -90,11 +97,11 @@ M2.assign_features(phi2_func)
 print('M2.phi:', M2.phi)
 print()
 
-M = compose(M1, M2)
+M = compose(M1, M2, verbose=True)
 print('M:\n', M.print())
 print(M.phi)
+M.draw('fig/M.dot')
 
-print(M.draw('M.dot'))
 print('M.phi:')
 for t, v in M.phi.items():
     print(t, v)

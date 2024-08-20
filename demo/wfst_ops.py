@@ -26,8 +26,8 @@ M.add_arc(src='q1', ilabel='c', dest='q5')  # dead arc
 M = M.connect()
 
 print(M.print(acceptor=True, show_weight_one=True))
-M.draw('M.dot')
-# dot -Tpdf M.dot > M.pdf
+M.draw('fig/M.dot')
+# dot -Tpdf fig/M.dot > fig/M.pdf
 
 # States
 print('states:', list(M.states()))  # all states
@@ -69,7 +69,7 @@ config = {'sigma': ['a', 'b', 'c', 'd']}
 wyconfig.init(config)
 B = braid(length=2, tier=set(['a', 'b']))
 print(B.print(acceptor=True))
-B.draw('B.dot')
+B.draw('fig/B.dot')
 print()
 
 # # # # # # # # # #
@@ -78,7 +78,7 @@ config = {'sigma': ['a', 'b', 'c', 'd']}
 wyconfig.init(config)
 T = trellis(length=2, tier=set(['a', 'b']))
 print(T.print(acceptor=True))
-T.draw('T.dot')
+T.draw('fig/T.dot')
 print()
 
 # # # # # # # # # #
@@ -99,7 +99,7 @@ print('Trellis with assigned weights')
 T_weight = T.map_weights('to_log')
 T_weight.assign_weights(wfunc)
 print(T_weight.print(acceptor=True))
-T_weight.draw('T_weight.dot')
+T_weight.draw('fig/T_weight.dot')
 print()
 
 # # # # # # # # # #
@@ -107,11 +107,11 @@ print('Ngram machines')
 config = {'sigma': ['a', 'b'], 'special_syms': ['λ']}
 wyconfig.init(config)
 L = ngram(context='left', length=2)
-L.draw('L.dot')
+L.draw('fig/L.dot')
 R = ngram(context='right', length=2)
-R.draw('R.dot')
+R.draw('fig/R.dot')
 LR = ngram(context='both', length=(2, 1))
-LR.draw('LR.dot')
+LR.draw('fig/LR.dot')
 
 print('Accepted strings (up to maximum length)')
 print(list(L.accepted_strings(side='input', weights=True, max_len=4)))
@@ -142,7 +142,7 @@ M2.add_arc(src=1, ilabel='b', dest=1)
 
 # Compose / intersect + trim
 M12 = compose(M1, M2)
-M12.draw('M12.dot')
+M12.draw('fig/M12.dot')
 print()
 
 # # # # # # # # # #
@@ -150,16 +150,16 @@ print('Weighted transduction / composition')
 I = accep('a b', arc_type='log')
 I.assign_weights(lambda wfst, q, t: Weight('log', 2))
 print(I.print(show_weight_one=True))
-I.draw('I.dot')
+I.draw('fig/I.dot')
 
 M = ngram(context='left', length=1, arc_type='log')
 M.assign_weights(lambda wfst, q, t: Weight('log', 3))
 print(M.print(show_weight_one=True))
-M.draw('M.dot')
+M.draw('fig/M.dot')
 
 O = compose(I, M)
 print(O.print(show_weight_one=True))
-O.draw('O.dot')
+O.draw('fig/O.dot')
 print()
 
 # # # # # # # # # #

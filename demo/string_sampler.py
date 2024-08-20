@@ -31,7 +31,7 @@ A = braid(n, arc_type='log')
 #  Compose A o M, normalize, and sample strings of length n
 S = compose(A, M)
 S = S.push_weights()
-S.draw('S.dot')
+S.draw('fig/S.dot')
 
 samp = S.randgen(npath=10)
 print(list(samp))

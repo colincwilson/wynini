@@ -369,8 +369,9 @@ class Wfst():
                     yield (src, t)  # (src, arc) pair
             return
         src = self.state_id(src)
-        return self.fst.arcs(src)  # _ArcIterator
-        return
+        for t in self.fst.arcs(src):
+            yield t  # arc
+        #return self.fst.arcs(src) # fixme: does not work as expected
 
     # Alias for arcs().
     transitions = arcs
@@ -378,6 +379,7 @@ class Wfst():
     def mutable_arcs(self, src):
         """
         Mutable iterator over arcs from state.
+        todo: checkme
         """
         src = self.state_id(src)
         return self.fst.mutable_arcs(src)  # _MutableArcIterator
@@ -1611,7 +1613,8 @@ def compose(wfst1,
             wfst1_arcs=None,
             wfst2_arcs=None,
             matchfunc1=None,
-            matchfunc2=None):
+            matchfunc2=None,
+            verbose=False):
     """
     Composition/intersection, retaining contextual info from
     original machines by labeling each state q = (q1, q2) as
@@ -1666,6 +1669,7 @@ def compose(wfst1,
             src1, src2 = src  # Source labels in wfst1, wfst2.
             src1_id = wfst1.state_id(src1)  # Source ids in wfst1, wfst2.
             src2_id = wfst2.state_id(src2)
+            if verbose: print(src)
 
             # Skip src1 if it has no outgoing arcs.
             if wfst1.num_arcs(src1) == 0:
@@ -1682,6 +1686,7 @@ def compose(wfst1,
                     wfst1, src1_id, matchfunc1, 'output')
             src1_arcs = wfst1_arcs[src1_id]
             src1_arciter = wfst1.fst.arcs(src1_id)
+            if verbose: print(src1_arcs)
 
             # Organize arcs from src2 by matchfunc2(ilabel),
             # or use existing organization.
@@ -1690,9 +1695,11 @@ def compose(wfst1,
                     wfst2, src2_id, matchfunc2, 'input')
             src2_arcs = wfst2_arcs[src2_id]
             src2_arciter = wfst2.fst.arcs(src2_id)
+            if verbose: print(src2_arcs)
 
             # Process arc pairs with matching labels.
             for t1_olabel, src1_arcids in src1_arcs.items():
+                if verbose: print(t1_olabel)
                 src2_arcids = src2_arcs.get(t1_olabel, None)
                 if src2_arcids is None:
                     continue
@@ -1768,12 +1775,12 @@ def compose(wfst1,
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
-    wfst = wfst.connect()
+    wfst = wfst.connect()  # xxx off for debugging only!
 
     return wfst
 
 
-def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
+def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
     """
     Organize arcs by source state and input or output label 
     (optionally passed through matchfunc) for faster composition.
@@ -1785,7 +1792,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
     # Organize arcs from all states.
     if src is None:
         wfst_arcs = {src:organize_arcs(wfst, src, matchfunc, side) \
-            for src in wfst.states(label=False)}
+            for src in wfst.state_ids()}
         return wfst_arcs
 
     # Organize arcs from one state.
@@ -1810,6 +1817,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
         src_arcs[config.epsilon].append(-1)
     else:
         src_arcs[config.epsilon] = [-1]
+    if verbose: print(src, src_arcs)
 
     return src_arcs
 

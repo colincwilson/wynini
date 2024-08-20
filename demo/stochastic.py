@@ -29,12 +29,12 @@ M.add_arc(src=2, ilabel='d', weight=Weight('log', w), dest=4)
 M.add_arc(src=3, ilabel='e', weight=Weight('log', w), dest=4)
 M.add_arc(src=4, ilabel=wyconfig.eos, weight=Weight('log', 1.0), dest=5)
 print(M.print(acceptor=True, show_weight_one=True))
-M.draw('M.dot')
+M.draw('fig/M.dot')
 
 # Push weights toward initial state.
 M_push = M.copy().push_weights()
 print(M_push.print(acceptor=True, show_weight_one=True))
-M_push.draw('M_push.dot')
+M_push.draw('fig/M_push.dot')
 
 # Generate random sample of accepted strings.
 samp = M_push.randgen(npath=100, select='log_prob')

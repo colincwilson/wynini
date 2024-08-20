@@ -26,7 +26,7 @@ def arc_features(wfst):
     for q in fst.states():
         for t in fst.arcs(q):
             # Feature vector.
-            phi_t = wfst.get_features(q, t)
+            phi_t = wfst.features(q, t)
             ftrs |= phi_t.keys()
     return ftrs
 
@@ -46,7 +46,7 @@ def violation_matrix(wfst, ftrs):
     arc_id = 0
     for q in fst.states():
         for t in fst.arcs(q):
-            phi_t = wfst.get_features(q, t)
+            phi_t = wfst.features(q, t)
             for (ftr, val) in phi_t.items():
                 arc_ids.append(arc_id)
                 ftr_ids.append(ftr2index[ftr])
@@ -74,7 +74,7 @@ def assign_weights(wfst, w):
     for q in fst.states():
         q_arcs = fst.mutable_arcs(q)
         for t in q_arcs:  # note: unstable arc reference
-            phi_t = wfst.get_features(q, t)
+            phi_t = wfst.features(q, t)
             if phi_t:
                 t.weight = Weight('log', dot_product(phi_t, w))
             else:
@@ -148,7 +148,7 @@ def expected(wfst, w=None):
     for q in fst.states():
         for t in fst.arcs(q):
             # Feature vector.
-            phi_t = wfst.get_features(q, t)
+            phi_t = wfst.features(q, t)
             if not phi_t:
                 continue
             # Unnormalized -logprob of all paths through t.
