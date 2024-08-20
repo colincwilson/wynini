@@ -293,6 +293,17 @@ class Wfst():
         arc = Arc(ilabel, olabel, weight, dest_id)
         return src_id, arc
 
+    def make_epsilon_arc(self, src):
+        """
+        Create (but do not add) 'virtual' epsilon self-arc on a state.
+        (ref: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
+        """
+        one = Weight.one(self.weight_type())
+        src_id, arc = self.make_arc( \
+            src_id, config.epsilon, config.epsilon,
+            one, src_id)
+        return src_id, arc
+
     def add_arc(self,
                 src=None,
                 ilabel=None,
@@ -1058,7 +1069,7 @@ class Wfst():
     def normalize(self, delta=1e-6):
         """
         Globally normalize this machine.
-        (see: pynini.push, pynini.reweight, Fst.push).
+        (ref: pynini.push, pynini.reweight, Fst.push).
         Equivalent to:
             dist = shortestdistance(wfst, reverse=True)
             wfst.reweight(potentials=dist, reweight_type='to_initial')
@@ -1415,7 +1426,7 @@ def ngram(context='left',
     Acceptor (identity transducer) for segments in immediately 
     preceding (left) / following (right) / both-side contexts of 
     specified length. For both-side context, length can be tuple.
-    See:
+    Ref:
     Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers. In INTERSPEECH (pp. 1258-1262).
     """
     if context == 'left':
@@ -1681,30 +1692,48 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
             if wfst2.num_arcs(src2) == 0:
                 continue
 
-            # Organize arcs from src1 by olabel.
+            # Organize arcs from src1 by matchfunc1(olabel).
             if src1_id not in wfst1_arcs:
                 wfst1_arcs[src1_id] = organize_arcs( \
                     wfst1, src1_id, matchfunc1, 'output')
+            src1_arcs = wfst1_arcs[src1_id]
+            src1_arciter = wfst1.arcs(src1_id)
 
-            # Organize arcs from src2 by ilabel.
+            # Organize arcs from src2 by matchfunc2(ilabel).
             if src2_id not in wfst2_arcs:
                 wfst2_arcs[src2_id] = organize_arcs( \
                     wfst2, src2_id, matchfunc2, 'input')
+            src2_arcs = wfst2_arcs[src2_id]
+            src2_arciter = wfst2.arcs(src2_id)
 
-            # Process arc pairs.
-            for t1 in itertools.chain.from_iterable(
-                    wfst1_arcs[src1_id].values()):
-                t1_ilabel = wfst1.ilabel(t1)  # Input label.
-                t1_olabel = wfst1.olabel(t1)  # Output label.
-                if matchfunc1:
-                    t1_olabel = matchfunc1(t1_olabel)
-                dest1_id = t1.nextstate  # Destination id.
-                dest1 = wfst1.state_label(dest1_id)  # Destination label.
-                wfinal1 = wfst1.final(dest1_id)  # Final weight.
-                phi_t1 = wfst1.get_features(src1_id, t1)  # Arc features.
+            # Process arc pairs with matching labels.
+            for t1_olabel, src1_arcids in src1_arcs.items():
+                src2_arcids = src2_arcs.get(t1_olabel, None)
+                if src2_arcids is None:
+                    continue
+                for (t1_idx, t2_idx) in \
+                    itertools.product(src1_arcids, src2_arcids):
+                    # Get arcs with indices / make epsilon self-arcs.
+                    if t1_idx >= 0:
+                        src1_arciter.seek(t1_idx)
+                        t1 = src1_arciter.value()
+                    else:
+                        _, t1 = wfts1.make_epsilon_arc(src1_id)
 
-                for t2 in wfst2_arcs[src2_id].get(t1_olabel, []):
-                    t2_olabel = wfst2.olabel(t2)
+                    if t2_idx >= 0:
+                        src2_arciter.seek(t2_idx)
+                        t2 = src2_arciter.value()
+                    else:
+                        _, t2 = wfst2.make_epsilon_arc(src2_id)
+
+                    # Compose arcs.
+                    t1_ilabel = wfst1.ilabel(t1)  # Input label.
+                    dest1_id = t1.nextstate  # Destination id.
+                    dest1 = wfst1.state_label(dest1_id)  # Destination label.
+                    wfinal1 = wfst1.final(dest1_id)  # Final weight.
+                    phi_t1 = wfst1.get_features(src1_id, t1)  # Arc features.
+
+                    t2_olabel = wfst2.olabel(t2)  # Output label.
                     dest2_id = t2.nextstate  # Destination id.
                     dest2 = wfst2.state_label(dest2_id)  # Destination label.
                     wfinal2 = wfst2.final(dest2)  # Final weight.
@@ -1763,8 +1792,10 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
     """
     Organize arcs by source state and input or output label 
     (optionally passed through matchfunc) for faster composition.
-    fixme: arc references are invalidated by changes to ilabel/
-    olabel/weight via mutable arc iterator.
+    Creates map: src -> matchfunc(label) -> array of arc indices
+    (using arc indices/positions instead of arc references because
+    references are unstable across different arc iterators).
+    note: changes to machine topology invalidate the organization.
     """
     # Organize arcs from all states.
     if src is None:
@@ -1777,7 +1808,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
         else wfst.state_id(src)
     src_arcs = {}
     # Organize arcs by input or output label.
-    for t in wfst.arcs(src_id):
+    for idx, t in enumerate(wfst.arcs(src_id)):
         label = None
         if side == 'input':
             label = wfst.ilabel(t)
@@ -1786,18 +1817,15 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input'):
         if matchfunc:
             label = matchfunc(label)
         if label in src_arcs:
-            src_arcs[label].append(t)
+            src_arcs[label].append(idx)
         else:
-            src_arcs[label] = [t]
-    # Implicit epsilon self-transition.
-    # (see: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
-    one = Weight.one(wfst.weight_type())
-    src_id, epsilon_arc = wfst.make_arc( \
-        src_id, config.epsilon, config.epsilon, one, src_id)
+            src_arcs[label] = [idx]
+    # Implicit epsilon self-transition, indicated by index -1.
+    # (ref: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
     if config.epsilon in src_arcs:
-        src_arcs[config.epsilon].append(epsilon_arc)
+        src_arcs[config.epsilon].append(-1)
     else:
-        src_arcs[config.epsilon] = [epsilon_arc]
+        src_arcs[config.epsilon] = [-1]
 
     return src_arcs
 
