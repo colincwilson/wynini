@@ -8,7 +8,7 @@ Symbol tables
 
 State labels
 
-* State labels can be of any hashable type, including strings and tuples. A state with id q is labeled q by default; be careful when using ints as labels to avoid id/label confusion.
+* State labels can be of any hashable type, including strings and tuples. By default, a state with id q is labeled q; but be careful when using ints as labels to avoid id/label confusion.
 
 Arcs
 

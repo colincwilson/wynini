@@ -300,8 +300,8 @@ class Wfst():
         """
         one = Weight.one(self.weight_type())
         src_id, arc = self.make_arc( \
-            src_id, config.epsilon, config.epsilon,
-            one, src_id)
+            src, config.epsilon, config.epsilon,
+            one, src)
         return src_id, arc
 
     def add_arc(self,
@@ -1638,7 +1638,7 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
     in phi1 and phi2 are assumed to be disjoint.
     Optionally apply functions to determine matching of arc
     labels by matchfunc1(t1_olabel) == matchfunc2(t2_ilabel).
-    todo: filter options
+    todo: wfst1_arcs (parallel to wfst2_arcs)
     """
     epsilon = config.epsilon
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
@@ -1664,9 +1664,7 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
     # Lazy organization of arcs in each machine by src
     # and label for fast matching and handling of implicit
     # epsilon:epsilon self-transitions.
-    #if not wfst1_arcs:
-    #    wfst1_arcs = {}
-    wfst1_arcs = {}  # todo: add arg
+    wfst1_arcs = {}  # todo: add argument
     if not wfst2_arcs:
         wfst2_arcs = {}
 
@@ -1692,33 +1690,36 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
             if wfst2.num_arcs(src2) == 0:
                 continue
 
-            # Organize arcs from src1 by matchfunc1(olabel).
+            # Organize arcs from src1 by matchfunc1(olabel),
+            # or use existing organization.
             if src1_id not in wfst1_arcs:
                 wfst1_arcs[src1_id] = organize_arcs( \
                     wfst1, src1_id, matchfunc1, 'output')
             src1_arcs = wfst1_arcs[src1_id]
-            src1_arciter = wfst1.arcs(src1_id)
+            src1_arciter = wfst1.fst.arcs(src1_id)
 
-            # Organize arcs from src2 by matchfunc2(ilabel).
+            # Organize arcs from src2 by matchfunc2(ilabel),
+            # or use existing organization.
             if src2_id not in wfst2_arcs:
                 wfst2_arcs[src2_id] = organize_arcs( \
                     wfst2, src2_id, matchfunc2, 'input')
             src2_arcs = wfst2_arcs[src2_id]
-            src2_arciter = wfst2.arcs(src2_id)
+            src2_arciter = wfst2.fst.arcs(src2_id)
 
             # Process arc pairs with matching labels.
             for t1_olabel, src1_arcids in src1_arcs.items():
                 src2_arcids = src2_arcs.get(t1_olabel, None)
                 if src2_arcids is None:
                     continue
+
                 for (t1_idx, t2_idx) in \
                     itertools.product(src1_arcids, src2_arcids):
-                    # Get arcs with indices / make epsilon self-arcs.
+                    # Get arcs by position / make epsilon self-arcs.
                     if t1_idx >= 0:
                         src1_arciter.seek(t1_idx)
                         t1 = src1_arciter.value()
                     else:
-                        _, t1 = wfts1.make_epsilon_arc(src1_id)
+                        _, t1 = wfst1.make_epsilon_arc(src1_id)
 
                     if t2_idx >= 0:
                         src2_arciter.seek(t2_idx)
@@ -1731,17 +1732,15 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
                     dest1_id = t1.nextstate  # Destination id.
                     dest1 = wfst1.state_label(dest1_id)  # Destination label.
                     wfinal1 = wfst1.final(dest1_id)  # Final weight.
-                    phi_t1 = wfst1.get_features(src1_id, t1)  # Arc features.
 
                     t2_olabel = wfst2.olabel(t2)  # Output label.
                     dest2_id = t2.nextstate  # Destination id.
                     dest2 = wfst2.state_label(dest2_id)  # Destination label.
                     wfinal2 = wfst2.final(dest2)  # Final weight.
-                    phi_t2 = wfst2.get_features(src2_id, t2)  # Arc features.
 
                     # Destination state.
-                    dest = (dest1, dest2)
-                    dest_id = wfst.add_state(dest)  # Dest id.
+                    dest = (dest1, dest2)  # Destination label
+                    dest_id = wfst.add_state(dest)  # Destination id.
 
                     # Dest is final if both dest1 and dest2 are final.
                     if wfinal1 != zero and wfinal2 != zero:
@@ -1758,11 +1757,11 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
 
                     # Do not add epsilon:epsilon self-transitions.
                     # todo: checkme
-                    if src_id == dest_id and t1_ilabel == epsilon \
-                        and t2_olabel == epsilon:
+                    if src_id == dest_id and \
+                        t1_ilabel == t2_olabel == epsilon:
                         continue
 
-                    # Product weight.
+                    # Multiply weights.
                     if common_weights:
                         weight = pynini.times(t1.weight, t2.weight)
                     else:
@@ -1778,7 +1777,8 @@ def compose(wfst1, wfst2, wfst2_arcs=None, matchfunc1=None, matchfunc2=None):
 
                     # Arc features: union of features assigned
                     # to source arcs (with None equiv. to {}).
-                    phi_t = phi_t1 | phi_t2
+                    phi_t = wfst1.get_features(src1_id, t1) | \
+                            wfst2.get_features(src2_id, t2)
                     if phi_t:
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t

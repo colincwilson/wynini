@@ -45,7 +45,7 @@ def violation_matrix(wfst, ftrs):
     vals = []
     arc_id = 0
     for q in fst.states():
-        for t in fst.mutable_arcs(q):  # fst.arcs(q)
+        for t in fst.arcs(q):
             phi_t = wfst.get_features(q, t)
             for (ftr, val) in phi_t.items():
                 arc_ids.append(arc_id)
@@ -73,13 +73,13 @@ def assign_weights(wfst, w):
     one = Weight('log', 0.0)
     for q in fst.states():
         q_arcs = fst.mutable_arcs(q)
-        for t in q_arcs:
+        for t in q_arcs:  # note: unstable arc reference
             phi_t = wfst.get_features(q, t)
             if phi_t:
                 t.weight = Weight('log', dot_product(phi_t, w))
             else:
                 t.weight = one
-            q_arcs.set_value(t)  # note: creates new Arc object.
+            q_arcs.set_value(t)
     return wfst
 
 
@@ -108,9 +108,9 @@ def assign_weights_vec(wfst, V, w):
     arc_id = 0
     for q in fst.states():
         q_arcs = fst.mutable_arcs(q)
-        for t in q_arcs:
+        for t in q_arcs:  # note: unstable arc reference
             t.weight = Weight('log', x[arc_id])
-            q_arcs.set_value(t)  # note: creates new Arc object.
+            q_arcs.set_value(t)
             arc_id += 1
     return wfst
 

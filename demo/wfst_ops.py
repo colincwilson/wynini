@@ -122,7 +122,7 @@ print()
 config = {'sigma': ['a', 'b']}
 wyconfig.init(config)
 
-# Machine that accepts [ab]*
+# Machine that accepts (a|b)*
 M1 = Wfst(wyconfig.symtable)
 q = 0
 M1.add_state(q)
@@ -161,6 +161,14 @@ O = compose(I, M)
 print(O.print(show_weight_one=True))
 O.draw('O.dot')
 print()
+
+# # # # # # # # # #
+print('Weighted transduction / composition with pre-organized arcs')
+M_arcs = organize_arcs(M, side='input')
+O = compose(I, M, wfst2_arcs=M_arcs)
+print(O.print(show_weight_one=True))
+print()
+sys.exit(0)
 
 # # # # # # # # # #
 # Shortest distance / shortest paths.
