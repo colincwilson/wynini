@@ -1768,7 +1768,7 @@ def compose(wfst1,
                                  dest=dest)
 
                     # Arc features: union of features assigned
-                    # to source arcs (with None equiv. to {}).
+                    # to source arcs (ignoring {}).
                     if phi_t1 or phi_t2:
                         phi_t = phi_t1 | phi_t2
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
