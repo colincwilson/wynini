@@ -120,7 +120,6 @@ class Wfst():
             print(f'Cannot set label of state {q} to {label} '
                   f'(label already used).')
             return None
-        self._label2state[label]
         self._state2label[q] = label
         self._label2state[label] = q
         return None

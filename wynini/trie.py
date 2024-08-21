@@ -37,3 +37,8 @@ def _build_trie(trie, src, vocab, i):
 
     for (dest, vocab_dest) in dest2vocab.items():
         _build_trie(trie, dest, vocab_dest, i + 1)
+
+
+if __name__ == "__main__":
+    M = build_trie([('this', 't h i s'), ('that', 't h a t')])
+    print(M.print())

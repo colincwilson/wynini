@@ -1,2 +1,0 @@
-
-* Change arc 'organization' (used as a preprocessing step for faster composition) to store arc indices within each state, as accessed by arciter.seek(i); arciter.value(), rather than pointers to arc objects. Modify compose() to use seek() and value(). The indices provide stable access to arcs within a machine with fixed topology, even when the ilabel/olabel/weight/dest properties of the arcs have been modified.
