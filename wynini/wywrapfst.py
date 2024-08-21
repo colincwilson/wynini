@@ -1616,16 +1616,15 @@ def compose(wfst1,
             matchfunc2=None,
             verbose=False):
     """
-    Composition/intersection, retaining contextual info from
-    original machines by labeling each state q = (q1, q2) as
-    (label(q1), label(q2)). Multiplies arc and final weights
-    if machines have the same arc type. If at least one of
-    arc feature maps phi1 or phi2 is non-null, combines
-    (unions) features of composed arcs; features appearing
-    in phi1 and phi2 are assumed to be disjoint.
-    Optionally apply functions to determine matching of arc
-    labels by matchfunc1(t1_olabel) == matchfunc2(t2_ilabel).
-    todo: wfst1_arcs (parallel to wfst2_arcs)
+    Composition/intersection of two machines, retaining contextual 
+    info from the original machines by labeling each state q = (q1, q2) 
+    with (label(q1), label(q2)). Multiplies arc and final weights if
+    machines have the same arc type. Unifies arc features; assumes
+    that features for the two machines are disjoint.
+    Optionally pass in organizations of arcs in either machine,
+    precomputing organizations for faster repeated composition.
+    Optionally apply functions to determine matching arc labels
+    with matchfunc1(t1_olabel) == matchfunc2(t2_ilabel).
     """
     epsilon = config.epsilon
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
@@ -1724,11 +1723,13 @@ def compose(wfst1,
                     dest1_id = t1.nextstate  # Destination id.
                     dest1 = wfst1.state_label(dest1_id)  # Destination label.
                     wfinal1 = wfst1.final(dest1_id)  # Final weight.
+                    phi_t1 = wfst1.features(src1_id, t1)  # Arc features.
 
                     t2_olabel = wfst2.olabel(t2)  # Output label.
                     dest2_id = t2.nextstate  # Destination id.
                     dest2 = wfst2.state_label(dest2_id)  # Destination label.
                     wfinal2 = wfst2.final(dest2)  # Final weight.
+                    phi_t2 = wfst2.features(src2_id, t2)  # Arc features.
 
                     # Destination state.
                     dest = (dest1, dest2)  # Destination label
@@ -1757,10 +1758,9 @@ def compose(wfst1,
                     if common_weights:
                         weight = pynini.times(t1.weight, t2.weight)
                     else:
-                        weight = one  # or t2.weight?
+                        weight = one  # todo: or t2.weight?
 
                     # Add arc.
-                    #print(src, t1.ilabel, t2.olabel, weight, dest)
                     wfst.add_arc(src=src,
                                  ilabel=t1.ilabel,
                                  olabel=t2.olabel,
@@ -1769,13 +1769,12 @@ def compose(wfst1,
 
                     # Arc features: union of features assigned
                     # to source arcs (with None equiv. to {}).
-                    phi_t = wfst1.features(src1_id, t1) | \
-                            wfst2.features(src2_id, t2)
-                    if phi_t:
+                    if phi_t1 or phi_t2:
+                        phi_t = phi_t1 | phi_t2
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
-    wfst = wfst.connect()  # xxx off for debugging only!
+    wfst = wfst.connect()
 
     return wfst
 
@@ -1787,18 +1786,24 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
     Creates map: src -> matchfunc(label) -> array of arc indices
     (using arc indices/positions instead of arc references because
     references are unstable across different arc iterators).
+    Adds implicit epsilon arcs to each state.
+    Useful to call before repeated composition with a machine, passing
+    the result to compose(), otherwise called by compose() itself 
+    as needed during composition.
     note: changes to machine topology invalidate the organization.
     """
     # Organize arcs from all states.
     if src is None:
-        wfst_arcs = {src:organize_arcs(wfst, src, matchfunc, side) \
+        wfst_arcs = { \
+            src:organize_arcs(wfst, src, matchfunc, side)
             for src in wfst.state_ids()}
         return wfst_arcs
 
     # Organize arcs from one state.
     src = wfst.state_id(src)
     src_arcs = {}
-    # Organize arcs by input or output label.
+    # Organize arcs by input or output label,
+    # passed through matchfunc.
     for idx, t in enumerate(wfst.arcs(src)):
         label = None
         if side == 'input':
@@ -1811,7 +1816,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
             src_arcs[label].append(idx)
         else:
             src_arcs[label] = [idx]
-    # Implicit epsilon self-transition, indicated by index -1.
+    # Implicit epsilon self-transition with pseudo-index -1.
     # (ref: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
     if config.epsilon in src_arcs:
         src_arcs[config.epsilon].append(-1)
