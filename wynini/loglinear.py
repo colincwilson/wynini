@@ -40,6 +40,7 @@ def violation_matrix(wfst, ftrs):
     ftrs = list(ftrs)
     ftr2index = {ftr: i for i, ftr in enumerate(ftrs)}
 
+    # CSR format. xxx check
     arc_ids = []
     ftr_ids = []
     vals = []
@@ -126,14 +127,14 @@ def expected(wfst, w=None):
     if w:
         assign_weights(wfst, w)
 
-    # Forward potentials.
-    # (sum over all paths from initial to q)
+    # Forward potentials (for each state q,
+    # sum over all paths from initial to q).
     alpha = shortestdistance(wfst, reverse=False)
     alpha = [float(w) for w in alpha]
     #print(alpha)
 
-    # Backward potentials.
-    # (sum over all paths from q to finals)
+    # Backward potentials (for each state q,
+    # sum over all paths from q to finals).
     beta = shortestdistance(wfst, reverse=True)
     beta = [float(w) for w in beta]
     #print(beta)
@@ -179,26 +180,26 @@ def gradient(O_counts, E_counts, grad=None):
     return grad
 
 
-def update(w, grad, alpha=1.0, wmin=1e-4):
+def update(w, grad, alpha=1.0, w_min=1e-4):
     """
     Update weights in-place with neg gradient,
-    learning rate alpha, and minimum weight wmin.
+    learning rate alpha, and minimum weight w_min.
     todo: regularizer(s)
     note: features without entries in grad are 
     not updated (except for regularization).
     """
     for ftr, g in grad.items():
         w_ftr = w[ftr] + alpha * g
-        w[ftr] = max(w_ftr, wmin)
+        w[ftr] = max(w_ftr, w_min)
     return w
 
 
-def update_vec(w, grad, ftr2index, alpha=1.0, wmin=1e-4):
+def update_vec(w, grad, ftr2index, alpha=1.0, w_min=1e-4):
     """
     Vector-backed implementation of update().
     """
     for ftr, g in grad.items():
         ftr_id = ftr2index[ftr]
         w[ftr_id] += alpha * g
-        w[ftr_id] = max(w[ftr_id], wmin)
+        w[ftr_id] = max(w[ftr_id], w_min)
     return w

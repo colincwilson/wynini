@@ -1998,15 +1998,15 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     Return Fst/Wfst containing shortest paths only -or- output 
     strings / io strings of that machine.
     Pynini doc:
-    "Construct an FST containing the shortest path(s) in 
-    the input FST.
+    "Construct an FST containing the shortest path(s) in the 
+    input FST.
     shortestpath(ifst, delta=1e-6, nshortest=1, nstate=NO_STATE_ID,
     queue_type="auto", unique=False, weight=None)
     [Gorman & Sproat, section 5.3.2]"
     note: ensure weights are in tropical semiring before 
     calling (e.g., using wfst.map_weights('to_std')).
     note: state labels / output strings / arc features
-    of input wfst are not retained in output machine; even
+    of input wfst are not preserved in output machine; even
     state ids may not be preserved.
     """
     fst = wfst.fst
