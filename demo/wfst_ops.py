@@ -25,7 +25,7 @@ M.add_arc(src='q3', ilabel=wyconfig.eos, dest='q4')
 M.add_arc(src='q1', ilabel='c', dest='q5')  # dead arc
 M = M.connect()
 
-print(M.print(acceptor=True, show_weight_one=True))
+M.print(acceptor=True, show_weight_one=True)
 M.draw('fig/M.dot')
 # dot -Tpdf fig/M.dot > fig/M.pdf
 
@@ -55,20 +55,20 @@ print(list(outpt))
 # Transduce (alternative method)
 inpt = '⋊ a ⋉'
 wfst_in = accep(inpt, add_delim=False)
-print(wfst_in.print(acceptor=True))
+wfst_in.print(acceptor=True)
 wfst_out = compose(wfst_in, M)
 print(list(wfst_out.ostrings()))
 
 # Copy
 M2 = M.copy()
-print(M2.print(acceptor=True, show_weight_one=True))
+M2.print(acceptor=True, show_weight_one=True)
 
 # # # # # # # # # #
 print('Braid acceptor')
 config = {'sigma': ['a', 'b', 'c', 'd']}
 wyconfig.init(config)
 B = braid(length=2, tier=set(['a', 'b']))
-print(B.print(acceptor=True))
+B.print(acceptor=True)
 B.draw('fig/B.dot')
 print()
 
@@ -77,7 +77,7 @@ print('Trellis acceptor')
 config = {'sigma': ['a', 'b', 'c', 'd']}
 wyconfig.init(config)
 T = trellis(length=2, tier=set(['a', 'b']))
-print(T.print(acceptor=True))
+T.print(acceptor=True)
 T.draw('fig/T.dot')
 print()
 
@@ -98,7 +98,7 @@ def wfunc(wfst, src, arc):
 print('Trellis with assigned weights')
 T_weight = T.map_weights('to_log')
 T_weight.assign_weights(wfunc)
-print(T_weight.print(acceptor=True))
+T_weight.print(acceptor=True)
 T_weight.draw('fig/T_weight.dot')
 print()
 
@@ -149,16 +149,16 @@ print()
 print('Weighted transduction / composition')
 I = accep('a b', arc_type='log')
 I.assign_weights(lambda wfst, q, t: Weight('log', 2))
-print(I.print(show_weight_one=True))
+I.print(show_weight_one=True)
 I.draw('fig/I.dot')
 
 M = ngram(context='left', length=1, arc_type='log')
 M.assign_weights(lambda wfst, q, t: Weight('log', 3))
-print(M.print(show_weight_one=True))
+M.print(show_weight_one=True)
 M.draw('fig/M.dot')
 
 O = compose(I, M)
-print(O.print(show_weight_one=True))
+O.print(show_weight_one=True)
 O.draw('fig/O.dot')
 print()
 
@@ -166,9 +166,8 @@ print()
 print('Weighted transduction / composition with pre-organized arcs')
 M_arcs = organize_arcs(M, side='input')
 O = compose(I, M, wfst2_arcs=M_arcs)
-print(O.print(show_weight_one=True))
+O.print(show_weight_one=True)
 print()
-sys.exit(0)
 
 # # # # # # # # # #
 # Shortest distance / shortest paths.
@@ -178,7 +177,7 @@ q1 = M.add_state()
 qf = M.add_state(final=True)
 M.add_arc(q0, 'a', 'a', Weight('log', 0.1), q1)
 M.add_arc(q0, 'b', 'b', Weight('log', 0.1), qf)
-print(M.print())
+M.print()
 
 dist = shortestdistance(M, reverse=True)
 print('Shortest distances:')
@@ -191,4 +190,22 @@ S = shortestpath(M, ret_type='ostrings')
 #print(S.print())
 print(S)
 S = shortestpath_(M)
-print(S.print())
+S.print()
+
+M = Wfst(wyconfig.symtable, arc_type='log')
+q0 = M.add_state(initial=True)
+q1 = M.add_state()
+q2 = M.add_state()
+qf = M.add_state(final=True)
+M.add_arc(q0, 'a', 'a', Weight('log', 1.0), q1)  # greedy best
+M.add_arc(q0, 'b', 'b', Weight('log', 2.0), q2)
+M.add_arc(q1, 'a', 'a', Weight('log', 10.0), qf)  # killer
+M.add_arc(q2, 'b', 'b', Weight('log', 1.0), qf)
+print('\nShortest paths:')
+M.map_weights('to_tropical')
+M.print()
+S = shortestpath(M, ret_type='ostrings')
+print(S)
+S = shortestpath_(M)
+S.print()
+print(repr(S))

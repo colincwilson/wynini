@@ -6,7 +6,7 @@ from wynini import config as wyconfig
 wyconfig.init()
 
 M = wynini.ngram()
-print(M.print(show_weight_one=True))
+M.print(show_weight_one=True)
 for (q, t) in M.arcs():
     print(M.print_arc(q, t))
 print()
@@ -20,10 +20,10 @@ osymbols = M.output_symbols()
 M_, iosymtable = M.encode_labels()
 print(list(iosymtable))
 print()
-print(M_.print(acceptor=True, show_weight_one=True))
+M_.print(acceptor=True, show_weight_one=True)
 
 M = M_.decode_labels(isymbols, osymbols)
-print(M.print(show_weight_one=True))
+M.print(show_weight_one=True)
 
 # # # # # # # # # #
 print('=' * 10)
@@ -32,14 +32,14 @@ symtable = wyconfig.symtable
 A = wynini.accep('a', symtable)
 A, iosymtable = A.encode_labels()
 print(list(iosymtable))
-print(A.print())
+A.print()
 
 G = wynini.ngram(context='left', isymbols=iosymtable)
-print(G.print(acceptor=True))
+G.print(acceptor=True)
 print(G.info())
 
 B = wynini.compose(A, G)
-print(B.print(acceptor=True))
+B.print(acceptor=True)
 print(B.info())
 print()
 

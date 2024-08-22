@@ -41,4 +41,4 @@ def _build_trie(trie, src, vocab, i):
 
 if __name__ == "__main__":
     M = build_trie([('this', 't h i s'), ('that', 't h a t')])
-    print(M.print())
+    M.print()

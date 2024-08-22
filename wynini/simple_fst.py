@@ -89,18 +89,23 @@ class SimpleFst():
                 T[q].add(t_new)
         return SimpleFst(Q, q0, F, T)
 
-    def print(self):
+    def print(self, show=True):
         """
         String representations of Q, q0, F, T.
         """
-        val = f'Q {self.Q}\n'
-        val += f'q0 {self.q0}\n'
-        val += f'F {self.F}\n'
+        ret = f'Q {self.Q}\n'
+        ret += f'q0 {self.q0}\n'
+        ret += f'F {self.F}\n'
         _T = []
         for q in self.T:
             _T += list(self.T[q])
-        val += f'T {[str(t) for t in _T]}\n'
-        return val
+        ret += f'T {[str(t) for t in _T]}\n'
+        if show:
+            print(ret)
+        return ret
+
+    def __str__(self):
+        return self.print(show=False)
 
     def to_wfst(self):
         """

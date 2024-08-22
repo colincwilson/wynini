@@ -137,8 +137,8 @@ class Wfst():
         # Self-labeling as default.
         if label is None:
             label = q
-        if isinstance(label, int) and label != q:
-            print(f'Warning: labeling state {q} with'
+        if verbose and isinstance(label, int) and label != q:
+            print(f'Warning: labeling state {q} with '
                   f'integer other than {q}.')
         # State <-> label map.
         self._state2label[q] = label
@@ -1185,16 +1185,22 @@ class Wfst():
         dest = self.state_label(t.nextstate)
         return (q, ilabel, olabel, weight, dest)
 
-    def print(self, **kwargs):
+    def print(self, show=True, **kwargs):
         fst = self.fst
         # Symbol table for state labels.
         state_symbols = pynini.SymbolTable()
         for q, label in self._state2label.items():
             state_symbols.add_symbol(str(label), q)
-        return fst.print(isymbols=fst.input_symbols(),
-                         osymbols=fst.output_symbols(),
-                         ssymbols=state_symbols,
-                         **kwargs)
+        ret = fst.print(isymbols=fst.input_symbols(),
+                        osymbols=fst.output_symbols(),
+                        ssymbols=state_symbols,
+                        **kwargs)
+        if show:
+            print(ret)
+        return ret
+
+    def __str__(self):
+        return self.print(show=False)
 
     def draw(self, source, acceptor=True, portrait=True, **kwargs):
         """ Write FST in dot format to file (source). """

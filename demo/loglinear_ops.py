@@ -9,7 +9,7 @@ config.init()
 
 # Simple acceptor.
 M = trellis(length=2, arc_type='log')
-print(M.print(acceptor=True, show_weight_one=True))
+M.print(acceptor=True, show_weight_one=True)
 
 
 # Map from arc to violation vector.
@@ -33,7 +33,7 @@ print('Constraint weights:', w)
 
 # Loglinear arc weights.
 loglinear.assign_weights(M, w)
-print(M.print(acceptor=True, show_weight_one=True))
+M.print(acceptor=True, show_weight_one=True)
 
 # Expected constraint violations.
 expect = loglinear.expected(M, w)
@@ -45,7 +45,7 @@ print()
 # Composition of two transducers with features.
 M1 = trellis(length=2, isymbols=['a', 'b'], arc_type='log')
 print('M1:')
-print(M1.print(show_weight_one=True))  # acceptor = True
+M1.print(show_weight_one=True)  # acceptor = True
 M1.draw('fig/M1.dot')
 
 organize_arcs(M1, side='output')
@@ -78,7 +78,7 @@ M2.add_arc(1, config.eos, config.eos, None, 2)
 M2.set_initial(0)
 M2.set_final(2)
 print('M2:')
-print(M2.print())
+M2.print()
 M2.draw('fig/M2.dot')
 
 
@@ -98,7 +98,8 @@ print('M2.phi:', M2.phi)
 print()
 
 M = compose(M1, M2, verbose=True)
-print('M:\n', M.print())
+print('M:\n')
+M.print()
 print(M.phi)
 M.draw('fig/M.dot')
 
@@ -109,6 +110,6 @@ print()
 
 w = {'*a': 1.0, '*b': 2.0, '*Ident': 5.0, '*B': 6.0}
 M = loglinear.assign_weights(M, w)
-print(M.print(show_weight_one=True))
+M.print(show_weight_one=True)
 E = loglinear.expected(M, w)
 print(E)
