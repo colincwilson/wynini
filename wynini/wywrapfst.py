@@ -234,6 +234,7 @@ class Wfst():
         """
         Relabel states with state ids (default) 
         or with passed function.
+        see also: pynini.topsort
         """
         if func:
             return self._relabel_states(func)
@@ -1154,20 +1155,18 @@ class Wfst():
 
     @classmethod
     def from_fst(cls, fst):
-        """ Wrap pynini Fst. """
+        """ Wrap pynini FST / VectorFst in Wfst. """
         wfst = Wfst( \
             fst.input_symbols(),
             fst.output_symbols(),
             fst.arc_type())
-        state2label = {q: q for q in fst.states()}
-        label2state = {v: k for k, v in state2label.items()}
         wfst.fst = fst
-        wfst._state2label = state2label
-        wfst._label2state = label2state
+        wfst._state2label = {q: q for q in fst.states()}
+        wfst._label2state = copy(wfst._state2label)
         return wfst
 
     def to_fst(self, copy=True):
-        """ Copy and return wrapped pynini Fst. """
+        """ Copy (optional) and return wrapped pynini Fst. """
         if not copy:
             return self.fst
         return self.fst.copy()
@@ -1796,6 +1795,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
     the result to compose(), otherwise called by compose() itself 
     as needed during composition.
     note: changes to machine topology invalidate the organization.
+    see also: pynini.arcsort
     """
     # Organize arcs from all states.
     if src is None:
@@ -2021,6 +2021,7 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
 
     fst_out = pynini.shortestpath( \
         fst, delta=delta) #, **kwargs)
+    fst_out.topsort()  # checkme
     fst_out.set_input_symbols(isymbols)
     fst_out.set_output_symbols(osymbols)
 
@@ -2038,6 +2039,7 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
         return iostrings
     # default: return wfst representing shortest paths
     wfst_out = Wfst.from_fst(fst_out)
+    wfst_out.relabel_states()
     return wfst_out
 
 
