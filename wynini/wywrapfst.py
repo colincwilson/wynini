@@ -395,6 +395,87 @@ class Wfst():
         self.fst.arcsort(sort_type)
         return self
 
+    def relabel_arcs(self, ifunc=None, ofunc=None):
+        """
+        Relabel arc input and/or output symbols.
+        see pynini: relabel_tables()
+        note: epsilon, bos, eos should be mapped to themselves.
+        todo: checkme
+        """
+        if ifunc is None and ofunc is None:
+            return self
+
+        # Relabel input symbols.
+        isymbols = self.input_symbols()
+        if ifunc is not None:
+            idx = 0
+            isymbols_idx = {}  # Old index -> new index.
+            isymbols_label = {}  # New label -> new index.
+            for (i, x) in isymbols():
+                y = ifunc(x)
+                if y is None:  # Allow partial functions.
+                    y = x
+                if y in isymbols_label:  # Existing symbol.
+                    isymbols_idx[i] = isymbols_label[y]
+                else:  # New symbol.
+                    isymbols_label[y] = idx
+                    isymbols_idx[i] = idx
+                    idx += 1
+            isymbols = SymbolTable()
+            for (y, i) in isymbols_label:
+                isymbols.add_symbol(y)
+
+        # Relabel output symbols.
+        osymbols = self.output_symbols()
+        if ofunc is not None:
+            idx = 0
+            osymbols_idx = {}  # Old index -> new index.
+            osymbols_label = {}  # New label -> new index.
+            for (i, x) in osymbols:
+                y = ofunc(x)
+                if y is None:  # Allow partial functions.
+                    y = x
+                if y in osymbols_label:  # Existing symbol.
+                    osymbols_idx[i] = osymbols_label[y]
+                else:  # New symbol.
+                    osymbols_label[y] = idx
+                    osymbols_idx[i] = idx
+                    idx += 1
+            osymbols = SymbolTable()
+            for (y, i) in osymbols_label:
+                osymbols.add_symbol(y)
+
+        # Relabel arc inputs/outputs in underlying fst.
+        fst = self.fst
+        fst.set_input_symbols(isymbols)
+        fst.set_output_symbols(osymbols)
+        for q in self.states:
+            arcs = fst.arcs(q)
+            fst.delete_arcs(q)
+            for t in arcs:
+                ilabel = t.ilabel
+                if ifunc is not None:
+                    ilabel = isymbols_idx[ilabel]
+                olabel = t.olabel
+                if ofunc is not None:
+                    olabel = osymbols_idx[olabel]
+                self.add_arc(q, ilabel, olabel, t.weight, t.nextstate)
+
+        # Relabel arcs (keys) in feature mapping phi.
+        # note: features may be invalidated by relabeling.
+        phi = self.phi
+        if phi is not None:
+            phi_ = {}
+            for (t, ftrs) in phi.items():
+                (q, ilabel, olabel, nextstate) = t
+                if ifunc is not None:
+                    ilabel = isymbols_idx[ilabel]
+                if ofunc is not None:
+                    olabel = osymbols_idx[olabel]
+                phi_[(q, ilabel, olabel, nextstate)] = ftrs
+        self.phi = phi_
+        return self
+
     def num_arcs(self, src=None):
         """
         Number of arcs from designated state (out-degree)
@@ -590,7 +671,7 @@ class Wfst():
         return self
 
     # Algorithms.
-    # todo: arcsort(), determinize(), difference(), epsnormalize(),
+    # todo: determinize(), difference(), epsnormalize(),
     # minimize(), rmepsilon()
 
     def encode_labels(self, iosymbols=None, sep=':'):
@@ -708,7 +789,7 @@ class Wfst():
     def paths(self):
         """
         Iterator over paths through this machine (must be acyclic). 
-        Pynini StringPathIterator is not iterable (!) but has methods: 
+        pynini.StringPathIterator is not iterable (!) but has methods: 
         next(); ilabels(), istring(), labels(), ostring(), 
         weights(); istrings(), ostrings(), weights(), items().
         """
@@ -1832,6 +1913,18 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
     if verbose: print(src, src_arcs)
 
     return src_arcs
+
+
+def compose_sorted(wfst1, wfst2):
+    """
+    Composition/intersection of two machines, as for compose()
+    but assuming that the arcs in wfst1 from each state are sorted
+    on the output side and the arcs in wfst2 from each state are
+    sorted on the input side.
+    see: pynini.arcsort(), OpenFst compose()
+    """
+    print("compose_sorted() not implemented")
+    return None
 
 
 def concat(wfst1, wfst2):
