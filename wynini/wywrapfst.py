@@ -161,7 +161,7 @@ class Wfst():
         return map(lambda q: self.state_label(q), fst.states())
 
     def state_ids(self):
-        """ Iterator over state ids (convenience function). """
+        """ Iterator over state ids. """
         return self.states(label=False)
 
     def num_states(self):
@@ -232,8 +232,8 @@ class Wfst():
 
     def relabel_states(self, func=None):
         """
-        Relabel states with state ids (default) 
-        or with passed function.
+        Relabel states with their state ids (default) 
+        or using function argument.
         see also: pynini.topsort
         """
         if func:
@@ -250,7 +250,7 @@ class Wfst():
     def _relabel_states(self, func):
         """
         Relabel states using function, monitoring
-        for collisions.
+        for label collisions.
         """
         state2label = {}
         label2state = {}
@@ -275,7 +275,7 @@ class Wfst():
                  weight=None,
                  dest=None):
         """
-        Create (but do not add) arc; accepts id or label
+        Create (but do not add) arc. Accepts id or label
         for each of src / ilabel / olabel / dest.
         """
         fst = self.fst
@@ -310,7 +310,7 @@ class Wfst():
                 weight=None,
                 dest=None):
         """
-        Add arc; accepts id or label for each of 
+        Add arc. Accepts id or label for each of 
         src / ilabel / olabel / dest.
         """
         # todo: add src/dest states if they do not already exist
@@ -360,7 +360,7 @@ class Wfst():
 
     def arcs(self, src=None):
         """
-        Iterator over arcs from one state or all states.
+        Iterator over arcs from designated state or all states.
         """
         # todo: decorate arcs with input/output labels if requested
         if src is None:
@@ -397,7 +397,7 @@ class Wfst():
 
     def num_arcs(self, src=None):
         """
-        Number of arcs from one state (out-degree)
+        Number of arcs from designated state (out-degree)
         or total number of arcs.
         """
         fst = self.fst
@@ -550,6 +550,25 @@ class Wfst():
                 q_arcs.set_value(t)
         return self
 
+    def features(self, q, t, default={}):
+        """
+        Get features of arc t from state q.
+        """
+        q = self.state_id(q)
+        t_ = (q, t.ilabel, t.olabel, t.nextstate)
+        return self.phi.get(t_, default)
+
+    def set_features(self, q, t, phi_t):
+        """
+        Set features of arc t from state q.
+        """
+        if not phi_t:
+            return
+        q = self.state_id(q)
+        t_ = (q, t.ilabel, t.olabel, t.nextstate)
+        self.phi[t_] = phi_t
+        return  # todo: return type
+
     def assign_features(self, func):
         """
         Assign features (as in loglinear/maxent/HG/OT models) 
@@ -570,34 +589,16 @@ class Wfst():
         self.phi = phi
         return self
 
-    def set_features(self, q, t, phi_t):
-        """
-        Set features of arc t from state q.
-        """
-        if not phi_t:
-            return
-        q = self.state_id(q)
-        t_ = (q, t.ilabel, t.olabel, t.nextstate)
-        self.phi[t_] = phi_t
-        return  # todo: return type
-
-    def features(self, q, t, default={}):
-        """
-        Get features of arc t from state q.
-        """
-        q = self.state_id(q)
-        t_ = (q, t.ilabel, t.olabel, t.nextstate)
-        return self.phi.get(t_, default)
-
     # Algorithms.
-    # todo: minimize(), rmepsilon()
+    # todo: arcsort(), determinize(), difference(), epsnormalize(),
+    # minimize(), rmepsilon()
 
     def encode_labels(self, iosymbols=None, sep=':'):
         """
         Convert transducer to acceptor by combining
         input and output label of each arc.
         arg iosymbols: symbol table for encoded labels
-        todo: destructive version to avoid copying
+        todo: destructive version, to avoid copying.
         """
         # Symbol table for input/output label pairs.
         if not iosymbols:
@@ -634,7 +635,7 @@ class Wfst():
         input label of each arc.
         arg isymbols: symbol table for input labels
         arg osymbols: symbol table for output labels
-        todo: destructive version to avoid copying
+        todo: destructive version, to avoid copying.
         """
         wfst = Wfst(isymbols=isymbols,
                     osymbols=osymbols,
@@ -707,7 +708,7 @@ class Wfst():
     def paths(self):
         """
         Iterator over paths through this machine (must be acyclic). 
-        StringPathIterator is not iterable (!) but has methods: 
+        Pynini StringPathIterator is not iterable (!) but has methods: 
         next(); ilabels(), istring(), labels(), ostring(), 
         weights(); istrings(), ostrings(), weights(), items().
         """
@@ -756,7 +757,7 @@ class Wfst():
         Generate input (default) or output labels of paths 
         through this machine (possibly cyclic) up to max_len
         (excluding bos/eos), optionally with weights.
-        For acyclic machines see paths() above.
+        For acyclic machines, see paths() above.
         """
         fst = self.fst
         q0 = fst.start()
@@ -1608,8 +1609,8 @@ def _suffix(x, l):
 
 
 # # # # # # # # # #
-# Operations.
-# todo: intersect, cross(-product), difference
+# Operations on pairs of machines.
+# todo: cross(-product), difference
 
 
 def compose(wfst1,
@@ -1625,7 +1626,7 @@ def compose(wfst1,
     with (label(q1), label(q2)). Multiplies arc and final weights if
     machines have the same arc type. Unifies arc features; assumes
     that features for the two machines are disjoint.
-    Optionally pass in organizations of arcs in either machine,
+    Optionally pass in organized arcs in either machine,
     precomputing organizations for faster repeated composition.
     Optionally apply functions to determine matching arc labels
     with matchfunc1(t1_olabel) == matchfunc2(t2_ilabel).
@@ -1752,17 +1753,18 @@ def compose(wfst1,
                         Q.add(dest)
                         Q_new.add(dest)
 
-                    # Do not add epsilon:epsilon self-transitions.
-                    # todo: checkme
-                    if src_id == dest_id and \
-                        t1_ilabel == t2_olabel == epsilon:
-                        continue
-
                     # Multiply weights.
                     if common_weights:
                         weight = pynini.times(t1.weight, t2.weight)
                     else:
                         weight = one  # todo: or t2.weight?
+
+                    # Do not add epsilon:epsilon self-transitions
+                    # with weight one (as these are always implict).
+                    if (src_id == dest_id) and \
+                        (t1_ilabel == t2_olabel == epsilon) and \
+                        (weight == one):
+                        continue
 
                     # Add arc.
                     wfst.add_arc(src=src,
@@ -1983,6 +1985,10 @@ def star(wfst):
     return wfst
 
 
+# # # # # # # # # #
+# Shortest distance / shortest paths.
+
+
 def shortestdistance(wfst, delta=1e-6, reverse=False):
     """
     'Shortest distance' from the initial state to each
@@ -2065,6 +2071,10 @@ def shortestpath_(wfst, delta=1e-6):
     wfst_out = wfst_out.delete_arcs(dead_arcs)
     wfst_out = wfst_out.connect()
     return wfst_out
+
+
+# # # # # # # # # #
+# Utility.
 
 
 def arc_equal(arc1, arc2):
