@@ -398,7 +398,7 @@ class Wfst():
     def relabel_arcs(self, ifunc=None, ofunc=None):
         """
         Relabel arc input and/or output symbols.
-        see pynini: relabel_tables()
+        see: pynini.relabel_tables()
         note: epsilon, bos, eos should be mapped to themselves.
         todo: checkme
         """
@@ -422,7 +422,7 @@ class Wfst():
                     isymbols_idx[i] = idx
                     idx += 1
             isymbols = SymbolTable()
-            for (y, i) in isymbols_label:
+            for (y, idx) in isymbols_label:
                 isymbols.add_symbol(y)
 
         # Relabel output symbols.
@@ -442,7 +442,7 @@ class Wfst():
                     osymbols_idx[i] = idx
                     idx += 1
             osymbols = SymbolTable()
-            for (y, i) in osymbols_label:
+            for (y, idx) in osymbols_label:
                 osymbols.add_symbol(y)
 
         # Relabel arc inputs/outputs in underlying fst.
