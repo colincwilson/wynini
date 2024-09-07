@@ -33,6 +33,7 @@ def init(param={}):  # todo: change to **kwargs
     if 'sigma' in param:
         sigma = param['sigma']
     symtable, syms = make_symtable(sigma)
+    return symtable, syms
 
 
 def make_symtable(sigma):

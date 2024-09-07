@@ -393,6 +393,10 @@ class Wfst():
         Sort arcs from each state.
         arg sort_type = 'ilabel' | 'olabel'.
         """
+        if sort_type == 'input':
+            sort_type = 'ilabel'
+        if sort_type == 'output':
+            sort_type = 'olabel'
         self.fst.arcsort(sort_type)
         return self
 
@@ -1986,12 +1990,12 @@ def compose_sorted(wfst1, wfst2):
             t2_max = len(src2_arcs)
             for t1 in src1_arcs:
                 t1_olabel = t1.olabel  # Output label.
-                if t1_olabel != t1_olabel_old:
-                    t2_lo = bisect.bisect_left(src2_arcs,
-                                               t1_olabel,
-                                               lo=t2_lo,
-                                               key=match_func)
-                    t1_olabel_old = t1_olabel
+                # if t1_olabel != t1_olabel_old:
+                t2_lo = bisect.bisect_left(src2_arcs,
+                                           t1_olabel,
+                                           lo=t2_lo,
+                                           key=match_func)
+                # t1_olabel_old = t1_olabel
                 if t2_lo >= t2_max:
                     break
 
@@ -2058,7 +2062,7 @@ def compose_sorted(wfst1, wfst2):
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
-    wfst = wfst.connect()
+    #wfst = wfst.connect()
 
     return wfst
 
