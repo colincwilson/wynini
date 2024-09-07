@@ -5,7 +5,7 @@ import sys
 import numpy as np
 from pynini import Weight
 
-#sys.path.append('..')
+sys.path.append('..')
 from wynini import config as wyconfig
 from wynini.wywrapfst import *
 

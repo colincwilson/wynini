@@ -1,5 +1,7 @@
 # Encode / decode arc labels.
 import sys
+
+sys.path.append('..')
 import wynini
 from wynini import config as wyconfig
 

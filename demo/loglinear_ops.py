@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 
-#sys.path.append('..')
+sys.path.append('..')
 from wynini import config, loglinear
 from wynini.wywrapfst import *
 

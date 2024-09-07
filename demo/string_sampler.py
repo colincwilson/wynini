@@ -1,6 +1,6 @@
 import sys
 
-#sys.path.append('..')
+sys.path.append('..')
 from pynini import Weight
 from wynini import config
 from wynini.wywrapfst import *
