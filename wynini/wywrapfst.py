@@ -1,4 +1,5 @@
 import re, sys, pickle
+import bisect
 import itertools
 import numpy as np
 
@@ -1712,6 +1713,7 @@ def compose(wfst1,
     Optionally apply functions to determine matching arc labels
     with matchfunc1(t1_olabel) == matchfunc2(t2_ilabel).
     """
+    # Initialize result of composition.
     epsilon = config.epsilon
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     wfst = Wfst( \
@@ -1918,13 +1920,141 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
 def compose_sorted(wfst1, wfst2):
     """
     Composition/intersection of two machines, as for compose()
-    but assuming that the arcs in wfst1 from each state are sorted
-    on the output side and the arcs in wfst2 from each state are
-    sorted on the input side.
+    but assuming that:
+    (i) output symbol table of wfst1 is identical to input 
+    symbol table of wfst2,
+        wfst1.output_symbols() == wfst2.input_symbols();
+    (ii) arcs from each state in wfst1 are sorted on the output
+    side and arcs from each state in wfst2 are sorted on the
+    input side.
     see: pynini.arcsort(), OpenFst compose()
+    todo: check conditions (i) and (ii)
     """
-    print("compose_sorted() not implemented")
-    return None
+    # Initialize result of composition.
+    epsilon = config.epsilon
+    common_weights = (wfst1.arc_type() == wfst2.arc_type())
+    wfst = Wfst( \
+        wfst1.input_symbols(),
+        wfst2.output_symbols(),
+        wfst1.arc_type() if common_weights else 'log')
+    one = Weight.one(wfst.weight_type())
+    zero = Weight.zero(wfst.weight_type())
+
+    # Initial state (possibly also final).
+    q1, q2 = wfst1.start(), wfst2.start()
+    q0 = (q1, q2)
+    wfst.add_state(q0, initial=True)
+    wfinal1 = wfst1.final(q1)
+    wfinal2 = wfst2.final(q2)
+    # q0 is final iff both q1 and q2 are final.
+    if wfinal1 != zero and wfinal2 != zero:
+        wfinal = pynini.times(wfinal1, wfinal2) \
+            if common_weights else one # checkme: or wfinal2?
+        wfst.set_final(q0, wfinal)
+
+    # Lazy state and arc construction of wfst.
+    Q = set([q0])
+    Q_old, Q_new = set(), set([q0])
+    match_func = lambda t2: t2.ilabel  # Arc matching.
+    while len(Q_new) != 0:
+        Q_old, Q_new = Q_new, Q_old
+        Q_new.clear()
+
+        # Source states.
+        for src in Q_old:
+            src_id = wfst.state_id(src)  # Source id.
+            src1, src2 = src  # Source labels in wfst1, wfst2.
+            src1_id = wfst1.state_id(src1)  # Source ids in wfst1, wfst2.
+            src2_id = wfst2.state_id(src2)
+            if verbose: print(src)
+
+            # Skip src1 if it has no outgoing arcs.
+            if wfst1.num_arcs(src1) == 0:
+                continue
+
+            # Skip src2 if it has no outgoing arcs.
+            if wfst2.num_arcs(src2) == 0:
+                continue
+
+            # Process arc pairs with matching labels.
+            src1_arcs = [wfst1.make_epsilon_arc(src1_id)] + \
+                list(wfst1.arcs(src1_id))
+            src2_arcs = [wfst2.make_epsilon_arc(src2_id)] + \
+                list(wfst2.arcs(src2_id))
+            t2_lo = 0
+            t2_max = len(src2_arcs)
+            for t1 in src1_arcs:
+                t1_olabel = t1.olabel  # Output label.
+                t2_lo = bisect.bisect_left(src2_arcs,
+                                           t1_olabel,
+                                           lo=t2_lo,
+                                           key=match_func)
+                if t2_lo >= t2_max:
+                    break
+
+                t1_ilabel = t1.ilabel  # Input label.
+                dest1_id = t1.nextstate  # Destination id.
+                dest1 = wfst1.state_label(dest1_id)  # Destination label.
+                wfinal1 = wfst1.final(dest1_id)  # Final weight.
+                phi_t1 = wfst1.features(src1_id, t1)  # Arc features.
+
+                for t2_idx in range(t2_lo, t2_max):
+                    t2 = src2_arcs[t2_idx]
+                    if t2.ilabel != t1_olabel:
+                        break
+                    t2_olabel = t2.olabel  # Output label.
+                    dest2_id = t2.nextstate  # Destination id.
+                    dest2 = wfst2.state_label(dest2_id)  # Destination label.
+                    wfinal2 = wfst2.final(dest2_id)  # Final weight.
+                    phi_t2 = wfst2.features(src2_id, t2)  # Arc features.
+
+                    # Destination state.
+                    dest = (dest1, dest2)  # Destination label.
+                    dest_id = wfst.add_state(dest)  # Destination id.
+
+                    # Dest is final if both dest1 and dest2 are final.
+                    if wfinal1 != zero and wfinal2 != zero:
+                        if common_weights:
+                            wfinal = pynini.times(wfinal1, wfinal2)
+                        else:
+                            wfinal = one  # or wfinal2?
+                        wfst.set_final(dest, wfinal)
+
+                    # Enqueue new state.
+                    if dest not in Q:
+                        Q.add(dest)
+                        Q_new.add(dest)
+
+                    # Multiply weights.
+                    if common_weights:
+                        weight = pynini.times(t1.weight, t2.weight)
+                    else:
+                        weight = one  # or t2.weight?
+
+                    # Do not add epsilon:epsilon self-transitions
+                    # with weight one (as these are always implicit).
+                    if (src_id == dest_id) and \
+                        (t1_ilabel == t2_olabel == epsilon) and \
+                        (weight == one):
+                        continue
+
+                    # Add arc.
+                    wfst.add_arc(src=src,
+                                 ilabel=t1.ilabel,
+                                 olabel=t2.olabel,
+                                 weight=weight,
+                                 dest=dest)
+
+                    # Arc features: union of features assigned
+                    # to source arcs (ignoring {}).
+                    if phi_t1 or phi_t2:
+                        phi_t = phi_t1 | phi_t2
+                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
+                        wfst.phi[t_] = phi_t
+
+    wfst = wfst.connect()
+
+    return wfst
 
 
 def concat(wfst1, wfst2):
