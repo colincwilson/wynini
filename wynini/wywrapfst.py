@@ -1992,6 +1992,7 @@ def compose_sorted(wfst1, wfst2):
                 if t2_lo >= t2_max:
                     break
 
+                # Arc attributes.
                 t1_ilabel = t1.ilabel  # Input label.
                 dest1_id = t1.nextstate  # Destination id.
                 dest1 = wfst1.state_label(dest1_id)  # Destination label.
@@ -2002,6 +2003,8 @@ def compose_sorted(wfst1, wfst2):
                     t2 = src2_arcs[t2_idx]
                     if t2.ilabel != t1_olabel:
                         break
+
+                    # Arc attributes.
                     t2_olabel = t2.olabel  # Output label.
                     dest2_id = t2.nextstate  # Destination id.
                     dest2 = wfst2.state_label(dest2_id)  # Destination label.
