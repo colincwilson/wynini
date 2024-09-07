@@ -1931,7 +1931,7 @@ def compose_sorted(wfst1, wfst2):
     todo: check conditions (i) and (ii)
     """
     # Initialize result of composition.
-    epsilon = 0  # by convention config.epsilon
+    epsilon = 0  # by convention, config.epsilon id
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     wfst = Wfst( \
         wfst1.input_symbols(),
@@ -1981,14 +1981,17 @@ def compose_sorted(wfst1, wfst2):
                 list(wfst1.arcs(src1_id))
             src2_arcs = [wfst2.make_epsilon_arc(src2_id)[1]] + \
                 list(wfst2.arcs(src2_id))
+            t1_olabel_old = None
             t2_lo = 0
             t2_max = len(src2_arcs)
             for t1 in src1_arcs:
                 t1_olabel = t1.olabel  # Output label.
-                t2_lo = bisect.bisect_left(src2_arcs,
-                                           t1_olabel,
-                                           lo=t2_lo,
-                                           key=match_func)
+                if t1_olabel != t1_olabel_old:
+                    t2_lo = bisect.bisect_left(src2_arcs,
+                                               t1_olabel,
+                                               lo=t2_lo,
+                                               key=match_func)
+                    t1_olabel_old = t1_olabel
                 if t2_lo >= t2_max:
                     break
 
