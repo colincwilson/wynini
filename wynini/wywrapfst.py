@@ -1245,7 +1245,7 @@ class Wfst():
             fst.arc_type())
         wfst.fst = fst
         wfst._state2label = {q: q for q in fst.states()}
-        wfst._label2state = copy(wfst._state2label)
+        wfst._label2state = wfst._state2label.copy()
         return wfst
 
     def to_fst(self, copy=True):
@@ -1931,7 +1931,7 @@ def compose_sorted(wfst1, wfst2):
     todo: check conditions (i) and (ii)
     """
     # Initialize result of composition.
-    epsilon = config.epsilon
+    epsilon = 0  # by convention config.epsilon
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     wfst = Wfst( \
         wfst1.input_symbols(),
@@ -1977,9 +1977,9 @@ def compose_sorted(wfst1, wfst2):
                 continue
 
             # Process arc pairs with matching labels.
-            src1_arcs = [wfst1.make_epsilon_arc(src1_id)] + \
+            src1_arcs = [wfst1.make_epsilon_arc(src1_id)[1]] + \
                 list(wfst1.arcs(src1_id))
-            src2_arcs = [wfst2.make_epsilon_arc(src2_id)] + \
+            src2_arcs = [wfst2.make_epsilon_arc(src2_id)[1]] + \
                 list(wfst2.arcs(src2_id))
             t2_lo = 0
             t2_max = len(src2_arcs)

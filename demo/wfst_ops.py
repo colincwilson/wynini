@@ -170,6 +170,15 @@ O.print(show_weight_one=True)
 print()
 
 # # # # # # # # # #
+print('Weighted transduction / composition with sorted arcs')
+I.arcsort('olabel')
+M.arcsort('ilabel')
+O = compose_sorted(I, M)
+O.print(show_weight_one=True)
+
+sys.exit(0)
+
+# # # # # # # # # #
 # Shortest distance / shortest paths.
 M = Wfst(wyconfig.symtable, arc_type='log')
 q0 = M.add_state(initial=True)
