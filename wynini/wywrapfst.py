@@ -1827,7 +1827,7 @@ def compose(wfst1,
 
                     # Do not add epsilon:epsilon self-transitions
                     # with weight one (as these are always implict);
-                    # no need to enqueue dest as it is identical to src.
+                    # no need to process dest (identical to src).
                     if (src_id == dest_id) and \
                         (t1_ilabel == t2_olabel == epsilon) and \
                         (weight == one):
@@ -1861,7 +1861,6 @@ def compose(wfst1,
                         wfst.phi[t_] = phi_t
 
     wfst = wfst.connect()
-
     return wfst
 
 
@@ -2020,7 +2019,7 @@ def compose_sorted(wfst1, wfst2):
 
                     # Do not add epsilon:epsilon self-transitions
                     # with weight one (as these are always implicit);
-                    # no need to queue dest as it is identical to src.
+                    # no need to process dest (identical to src).
                     if (src_id == dest_id) and \
                         (t1_ilabel == t2_olabel == epsilon) and \
                         (weight == one):
