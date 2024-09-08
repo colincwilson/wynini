@@ -1990,28 +1990,33 @@ def compose_sorted(wfst1, wfst2):
             t2_max = len(src2_arcs)
             for t1 in src1_arcs:
                 t1_olabel = t1.olabel  # Output label.
-                # if t1_olabel != t1_olabel_old:
-                t2_lo = bisect.bisect_left(src2_arcs,
-                                           t1_olabel,
-                                           lo=t2_lo,
-                                           key=match_func)
-                # t1_olabel_old = t1_olabel
+
+                # Search for matching arcs in wfst2.
+                if t1_olabel != t1_olabel_old:
+                    t2_lo = bisect.bisect_left(src2_arcs,
+                                               t1_olabel,
+                                               lo=t2_lo,
+                                               key=match_func)
+                    t1_olabel_old = t1_olabel
+
+                # No matching arcs found.
                 if t2_lo >= t2_max:
                     break
 
-                # Arc attributes.
+                # Arc attributes in wfst1.
                 t1_ilabel = t1.ilabel  # Input label.
                 dest1_id = t1.nextstate  # Destination id.
                 dest1 = wfst1.state_label(dest1_id)  # Destination label.
                 wfinal1 = wfst1.final(dest1_id)  # Final weight.
                 phi_t1 = wfst1.features(src1_id, t1)  # Arc features.
 
+                # Process each matching arc.
                 for t2_idx in range(t2_lo, t2_max):
                     t2 = src2_arcs[t2_idx]
                     if t2.ilabel != t1_olabel:
                         break
 
-                    # Arc attributes.
+                    # Arc attributes in wfst2.
                     t2_olabel = t2.olabel  # Output label.
                     dest2_id = t2.nextstate  # Destination id.
                     dest2 = wfst2.state_label(dest2_id)  # Destination label.
@@ -2062,8 +2067,7 @@ def compose_sorted(wfst1, wfst2):
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
-    #wfst = wfst.connect()
-
+    wfst = wfst.connect()
     return wfst
 
 
