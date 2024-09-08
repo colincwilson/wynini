@@ -1762,14 +1762,6 @@ def compose(wfst1,
             src2_id = wfst2.state_id(src2)
             if verbose: print(src)
 
-            # Skip src1 if it has no outgoing arcs.
-            if wfst1.num_arcs(src1) == 0:
-                continue
-
-            # Skip src2 if it has no outgoing arcs.
-            if wfst2.num_arcs(src2) == 0:
-                continue
-
             # Organize arcs from src1 by matchfunc1(olabel),
             # or use existing organization.
             if src1_id not in wfst1_arcs:
@@ -1827,6 +1819,20 @@ def compose(wfst1,
                     dest = (dest1, dest2)  # Destination label
                     dest_id = wfst.add_state(dest)  # Destination id.
 
+                    # Multiply weights.
+                    if common_weights:
+                        weight = pynini.times(t1.weight, t2.weight)
+                    else:
+                        weight = one  # todo: or t2.weight?
+
+                    # Do not add epsilon:epsilon self-transitions
+                    # with weight one (as these are always implict);
+                    # no need to enqueue dest as it is identical to src.
+                    if (src_id == dest_id) and \
+                        (t1_ilabel == t2_olabel == epsilon) and \
+                        (weight == one):
+                        continue
+
                     # Dest is final if both dest1 and dest2 are final.
                     if wfinal1 != zero and wfinal2 != zero:
                         if common_weights:
@@ -1839,19 +1845,6 @@ def compose(wfst1,
                     if dest not in Q:
                         Q.add(dest)
                         Q_new.add(dest)
-
-                    # Multiply weights.
-                    if common_weights:
-                        weight = pynini.times(t1.weight, t2.weight)
-                    else:
-                        weight = one  # todo: or t2.weight?
-
-                    # Do not add epsilon:epsilon self-transitions
-                    # with weight one (as these are always implict).
-                    if (src_id == dest_id) and \
-                        (t1_ilabel == t2_olabel == epsilon) and \
-                        (weight == one):
-                        continue
 
                     # Add arc.
                     wfst.add_arc(src=src,
@@ -1972,22 +1965,14 @@ def compose_sorted(wfst1, wfst2):
             src2_id = wfst2.state_id(src2)
             if verbose: print(src)
 
-            # Skip src1 if it has no outgoing arcs.
-            if wfst1.num_arcs(src1) == 0:
-                continue
-
-            # Skip src2 if it has no outgoing arcs.
-            if wfst2.num_arcs(src2) == 0:
-                continue
-
             # Process arc pairs with matching labels.
             src1_arcs = [wfst1.make_epsilon_arc(src1_id)[1]] + \
                 list(wfst1.arcs(src1_id))
             src2_arcs = [wfst2.make_epsilon_arc(src2_id)[1]] + \
                 list(wfst2.arcs(src2_id))
-            t1_olabel_old = None
             t2_lo = 0
             t2_max = len(src2_arcs)
+            t1_olabel_old = None
             for t1 in src1_arcs:
                 t1_olabel = t1.olabel  # Output label.
 
@@ -2027,6 +2012,20 @@ def compose_sorted(wfst1, wfst2):
                     dest = (dest1, dest2)  # Destination label.
                     dest_id = wfst.add_state(dest)  # Destination id.
 
+                    # Multiply weights.
+                    if common_weights:
+                        weight = pynini.times(t1.weight, t2.weight)
+                    else:
+                        weight = one  # or t2.weight?
+
+                    # Do not add epsilon:epsilon self-transitions
+                    # with weight one (as these are always implicit);
+                    # no need to queue dest as it is identical to src.
+                    if (src_id == dest_id) and \
+                        (t1_ilabel == t2_olabel == epsilon) and \
+                        (weight == one):
+                        continue
+
                     # Dest is final if both dest1 and dest2 are final.
                     if wfinal1 != zero and wfinal2 != zero:
                         if common_weights:
@@ -2039,19 +2038,6 @@ def compose_sorted(wfst1, wfst2):
                     if dest not in Q:
                         Q.add(dest)
                         Q_new.add(dest)
-
-                    # Multiply weights.
-                    if common_weights:
-                        weight = pynini.times(t1.weight, t2.weight)
-                    else:
-                        weight = one  # or t2.weight?
-
-                    # Do not add epsilon:epsilon self-transitions
-                    # with weight one (as these are always implicit).
-                    if (src_id == dest_id) and \
-                        (t1_ilabel == t2_olabel == epsilon) and \
-                        (weight == one):
-                        continue
 
                     # Add arc.
                     wfst.add_arc(src=src,
