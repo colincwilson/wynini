@@ -1757,9 +1757,9 @@ def compose(wfst1,
         # Source states.
         for src in Q_old:
             src_id = wfst.state_id(src)  # Source id.
-            src1, src2 = src  # Source labels in wfst1, wfst2.
-            src1_id = wfst1.state_id(src1)  # Source ids in wfst1, wfst2.
-            src2_id = wfst2.state_id(src2)
+            src1, src2 = src  # Source label in wfst1, wfst2.
+            src1_id = wfst1.state_id(src1)  # Source id in wfst1.
+            src2_id = wfst2.state_id(src2)  # Source id in wfst2.
             if verbose: print(src)
 
             # Organize arcs from src1 by matchfunc1(olabel),
@@ -1920,9 +1920,8 @@ def compose_sorted(wfst1, wfst2):
     (i) output symbol table of wfst1 is identical to input 
     symbol table of wfst2,
         wfst1.output_symbols() == wfst2.input_symbols();
-    (ii) arcs from each state in wfst1 are sorted on the output
-    side and arcs from each state in wfst2 are sorted on the
-    input side.
+    (ii) arcs from each state in wfst1 and wfst2 are sorted
+    on the matching side (output for wfst1, input for wfst2).
     see: pynini.arcsort(), OpenFst compose()
     todo: check conditions (i) and (ii)
     """
@@ -1959,9 +1958,9 @@ def compose_sorted(wfst1, wfst2):
         # Source states.
         for src in Q_old:
             src_id = wfst.state_id(src)  # Source id.
-            src1, src2 = src  # Source labels in wfst1, wfst2.
-            src1_id = wfst1.state_id(src1)  # Source ids in wfst1, wfst2.
-            src2_id = wfst2.state_id(src2)
+            src1, src2 = src  # Source label in wfst1, wfst2.
+            src1_id = wfst1.state_id(src1)  # Source id in wfst1.
+            src2_id = wfst2.state_id(src2)  # Source id in wfst2.
             if verbose: print(src)
 
             # Process arc pairs with matching labels.
