@@ -15,23 +15,25 @@ verbose = 0
 
 class Wfst():
     """
-    Wrapper for Pynini Fst with automatic handling of labels for 
+    Wrapper for pynini.Fst with automatic handling of labels for 
     inputs / outputs / states and output strings. State labels must 
     be hashable (strings, tuples, etc.). Pynini constructive and 
     destructive operations generally lose track of state ids and 
     symbol labels, therefore many operations are reimplemented here 
-    (e.g., connect, compose) to preserve those labels.
+    (e.g., connect, compose) in a way that preserves those labels.
     
-    Reference for OpenFst / Fst(_pywrapfst.VectorFst) arc types and weights:
-    - Fst() argument arc_type: "standard" | "log" | "log64".
+    Reference for OpenFst / Fst(_pywrapfst.VectorFst) arc types 
+    and weights:
+    - Fst argument arc_type: "standard" | "log" | "log64".
     - "The OpenFst library predefines TropicalWeight and LogWeight 
     as well as the corresponding StdArc and LogArc."
     - https://www.openfst.org/doxygen/fst/html/arc_8h_source.html
     - https://www.openfst.org/twiki/bin/view/FST/FstQuickTour#FstWeights
     - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#Weights
-    - Weight constructor is Weight(weight_type, weight_value) where
-    weight_type is "tropical" | "log" | "log64"; there are special
-    constructors Weight.zero(weight_type), Weight.one(weight_type).
+    - Weight constructor is Weight(weight_type, weight_value) 
+    where weight_type is "tropical" | "log" | "log64";
+    there are special constructors Weight.zero(weight_type), 
+    Weight.one(weight_type).
     General reference for OpenFst advanced usage:
     - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#OpenFst%20Advanced%20Usage
     """
@@ -144,7 +146,6 @@ class Wfst():
         # State <-> label maps.
         self._state2label[q] = label
         self._label2state[label] = q
-
         # Initial and final state properties.
         if start or initial:
             self.set_start(q)
@@ -403,7 +404,7 @@ class Wfst():
     def relabel_arcs(self, ifunc=None, ofunc=None):
         """
         Relabel arc input and/or output symbols.
-        see: pynini.relabel_tables()
+        ref: pynini.relabel_tables()
         note: epsilon, bos, eos should be mapped to themselves.
         todo: checkme
         """
@@ -1498,7 +1499,7 @@ def ngram(context='left',
     Acceptor (identity transducer) for segments in immediately 
     preceding (left) / following (right) / both-side contexts of 
     specified length. For both-side context, length can be tuple.
-    Ref:
+    ref:
     Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers. In INTERSPEECH (pp. 1258-1262).
     """
     if context == 'left':
@@ -1922,7 +1923,7 @@ def compose_sorted(wfst1, wfst2):
         wfst1.output_symbols() == wfst2.input_symbols();
     (ii) arcs from each state in wfst1 and wfst2 are sorted
     on the matching side (output for wfst1, input for wfst2).
-    see: pynini.arcsort(), OpenFst compose()
+    ref: pynini.arcsort(), OpenFst compose()
     todo: check conditions (i) and (ii)
     """
     # Initialize result of composition.
