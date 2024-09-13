@@ -22,8 +22,7 @@ class Wfst():
     symbol labels, therefore many operations are reimplemented here 
     (e.g., connect, compose) in a way that preserves those labels.
     
-    Reference for OpenFst / Fst(_pywrapfst.VectorFst) arc types 
-    and weights:
+    OpenFst / Fst(_pywrapfst.VectorFst) arc types and weights:
     - Fst argument arc_type: "standard" | "log" | "log64".
     - "The OpenFst library predefines TropicalWeight and LogWeight 
     as well as the corresponding StdArc and LogArc."
@@ -34,7 +33,8 @@ class Wfst():
     where weight_type is "tropical" | "log" | "log64";
     there are special constructors Weight.zero(weight_type), 
     Weight.one(weight_type).
-    General reference for OpenFst advanced usage:
+
+    OpenFst advanced usage:
     - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#OpenFst%20Advanced%20Usage
     """
 
@@ -297,7 +297,7 @@ class Wfst():
     def make_epsilon_arc(self, src):
         """
         Create (but do not add) 'virtual' epsilon:epsilon self-arc on a state.
-        (ref: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
+        (see https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
         """
         one = Weight.one(self.weight_type())
         src_id, arc = self.make_arc( \
@@ -403,8 +403,8 @@ class Wfst():
 
     def relabel_arcs(self, ifunc=None, ofunc=None):
         """
-        Relabel arc input and/or output symbols.
-        ref: pynini.relabel_tables()
+        Relabel arc input and/or output symbols
+        (see: pynini.relabel_tables).
         note: epsilon, bos, eos should be mapped to themselves.
         todo: checkme
         """
@@ -1144,7 +1144,7 @@ class Wfst():
     def normalize(self, delta=1e-6):
         """
         Globally normalize this machine.
-        (ref: pynini.push, pynini.reweight, Fst.push).
+        (see pynini.push, pynini.reweight, Fst.push).
         Equivalent to:
             dist = shortestdistance(wfst, reverse=True)
             wfst.reweight(potentials=dist, reweight_type='to_initial')
@@ -1499,8 +1499,7 @@ def ngram(context='left',
     Acceptor (identity transducer) for segments in immediately 
     preceding (left) / following (right) / both-side contexts of 
     specified length. For both-side context, length can be tuple.
-    ref:
-    Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers. In INTERSPEECH (pp. 1258-1262).
+    ref. Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers. In INTERSPEECH (pp. 1258-1262).
     """
     if context == 'left':
         return ngram_left(length, isymbols, tier, arc_type)
@@ -1904,7 +1903,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
         else:
             src_arcs[label] = [idx]
     # Implicit epsilon self-transition with pseudo-index -1.
-    # (ref: https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
+    # (see https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
     if config.epsilon in src_arcs:
         src_arcs[config.epsilon].append(-1)
     else:
@@ -1923,7 +1922,7 @@ def compose_sorted(wfst1, wfst2):
         wfst1.output_symbols() == wfst2.input_symbols();
     (ii) arcs from each state in wfst1 and wfst2 are sorted
     on the matching side (output for wfst1, input for wfst2).
-    ref: pynini.arcsort(), OpenFst compose()
+    (see pynini.arcsort, OpenFst compose)
     todo: check conditions (i) and (ii)
     """
     # Initialize result of composition.
@@ -2216,10 +2215,10 @@ def shortestdistance(wfst, delta=1e-6, reverse=False):
     'Shortest distance' from the initial state to each
     state (reverse=False, the default) or from each 
     state into the final states (reverse=True).
-    Pynini ref:
+    Pynini doc:
     "The shortest distance from p to q is the \otimes-sum of 
     the weights of all the paths between p and q."
-    ref: Mohri, M. (2002). Semiring frameworks and algorithms for 
+    ref. Mohri, M. (2002). Semiring frameworks and algorithms for 
     shortest-distance problems. Journal of Automata, Languages 
     and Combinatorics, 7(3), 321-350.
     """
@@ -2231,7 +2230,7 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     """
     Return Fst/Wfst containing shortest paths only -or- output 
     strings / io strings of that machine.
-    Pynini ref:
+    Pynini doc:
     "Construct an FST containing the shortest path(s) in the 
     input FST.
     shortestpath(ifst, delta=1e-6, nshortest=1, nstate=NO_STATE_ID,
