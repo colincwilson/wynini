@@ -236,7 +236,7 @@ class Wfst():
         """
         Relabel states with their state ids (default) 
         or using function argument.
-        see also: pynini.topsort
+        (see pynini.topsort)
         """
         if func:
             return self._relabel_states(func)
@@ -618,8 +618,8 @@ class Wfst():
         machine, a source state id, and an arc as inputs and 
         returns an arc weight. The function can examine the src/ 
         input/output/dest and associated labels of the arc.
-        See also map_type options "identity", "plus", "power", 
-        "times" in map_weights().
+        (see map_type options in map_weights(): "identity", 
+        "plus", "power", "times")
         """
         if func is None:
             # Identity function by default.
@@ -1155,7 +1155,7 @@ class Wfst():
                                  remove_total_weight=True)
 
     def reweight(self, potentials, reweight_type='to_initial'):
-        # See pynini.reweight / Fst.reweight
+        # see pynini.reweight / Fst.reweight
         self.fst.reweight(potentials, reweight_type)
         return self
 
@@ -1466,8 +1466,8 @@ def trellis(length=1,
 
 def braid(length=1, isymbols=None, tier=None, arc_type='standard'):
     """
-    Acceptor for strings of given length (+2 for delimiters); 
-    see trellis().
+    Acceptor for strings of given length (+2 for delimiters).
+    (see trellis())
     """
     return trellis(length, isymbols, tier, False, arc_type)
 
@@ -1604,7 +1604,7 @@ def ngram_right(length=1, isymbols=None, tier=None, arc_type='standard'):
     """
     Acceptor (identity transducer) for segments in immediately 
     following contexts (futures) of specified length.
-    See ngram_left() on handling of tier.
+    (see ngram_left() on tier handling)
     """
     epsilon = config.epsilon
     bos = config.bos
@@ -1877,7 +1877,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
     the result to compose(), otherwise called by compose() itself 
     as needed during composition.
     note: changes to machine topology invalidate the organization.
-    see also: pynini.arcsort
+    (see pynini.arcsort)
     """
     # Organize arcs from all states.
     if src is None:
@@ -2216,7 +2216,7 @@ def shortestdistance(wfst, delta=1e-6, reverse=False):
     'Shortest distance' from the initial state to each
     state (reverse=False, the default) or from each 
     state into the final states (reverse=True).
-    Pynini doc:
+    Pynini ref:
     "The shortest distance from p to q is the \otimes-sum of 
     the weights of all the paths between p and q."
     ref: Mohri, M. (2002). Semiring frameworks and algorithms for 
@@ -2231,7 +2231,7 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     """
     Return Fst/Wfst containing shortest paths only -or- output 
     strings / io strings of that machine.
-    Pynini doc:
+    Pynini ref:
     "Construct an FST containing the shortest path(s) in the 
     input FST.
     shortestpath(ifst, delta=1e-6, nshortest=1, nstate=NO_STATE_ID,
