@@ -19,8 +19,8 @@ class Wfst():
     inputs / outputs / states and output strings. State labels must 
     be hashable (strings, tuples, etc.). Pynini constructive and 
     destructive operations generally lose track of state ids and 
-    symbol labels, so some operations are reimplemented here 
-    (e.g., connect, compose).
+    symbol labels, therefore many operations are reimplemented here 
+    (e.g., connect, compose) to preserve those labels.
     
     Reference for OpenFst / Fst(_pywrapfst.VectorFst) arc types and weights:
     - Fst() argument arc_type: "standard" | "log" | "log64".
@@ -56,7 +56,7 @@ class Wfst():
         self.sigma = {}  # State id -> output string.
         self.phi = {}  # Arc -> loglinear features ({f_k: v_k}).
 
-    # Input/output labels (most delegate to Fst).
+    # Input/output labels (most delegate to pynini.Fst).
 
     def input_symbols(self):
         """ Get input symbol table. """
@@ -116,7 +116,7 @@ class Wfst():
 
     def set_state_label(self, q, label):
         """ Update label of state q. """
-        # Enforce biunique state labels.
+        # Enforce one-to-one state labeling.
         if label in self._label2state:
             print(f'Cannot set label of state {q} to {label} '
                   f'(label already used).')
@@ -135,13 +135,13 @@ class Wfst():
             return self._label2state[label]
         # Add new state.
         q = self.fst.add_state()
-        # Self-labeling as default.
+        # State id self-labeling by default.
         if label is None:
             label = q
         if verbose and isinstance(label, int) and label != q:
             print(f'Warning: labeling state {q} with '
                   f'integer other than {q}.')
-        # State <-> label map.
+        # State <-> label maps.
         self._state2label[q] = label
         self._label2state[label] = q
 
@@ -2218,7 +2218,7 @@ def shortestdistance(wfst, delta=1e-6, reverse=False):
     Pynini doc:
     "The shortest distance from p to q is the \otimes-sum of 
     the weights of all the paths between p and q."
-    Mohri, M. (2002). Semiring frameworks and algorithms for 
+    ref: Mohri, M. (2002). Semiring frameworks and algorithms for 
     shortest-distance problems. Journal of Automata, Languages 
     and Combinatorics, 7(3), 321-350.
     """
@@ -2276,6 +2276,7 @@ def shortestpath_(wfst, delta=1e-6):
     output strings / arc features of input wfst.
     note: ensure weights are in tropical semiring before 
     calling (e.g., using wfst.map_weights('to_std')).
+    todo: ret_type argument
     """
     fst = wfst.fst
     dist = pynini.shortestdistance( \
