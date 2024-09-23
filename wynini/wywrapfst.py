@@ -1922,6 +1922,8 @@ def compose_sorted(wfst1, wfst2):
         wfst1.output_symbols() == wfst2.input_symbols();
     (ii) arcs from each state in wfst1 and wfst2 are sorted
     on the matching side (output for wfst1, input for wfst2).
+    Implements the epsilon-matching composition filter of
+    Allauzen, Riley, & Schalkwyk (2009, INTERSPEECH).
     (see pynini.arcsort, OpenFst compose)
     todo: check conditions (i) and (ii)
     """
@@ -1948,17 +1950,17 @@ def compose_sorted(wfst1, wfst2):
         wfst.set_final(q0, wfinal)
 
     # Lazy state and arc construction of wfst.
-    Q = set([q0])
-    Q_old, Q_new = set(), set([q0])
+    Q = set([(q1, q2, 0)])
+    Q_old, Q_new = set(), Q.copy()
     match_func = lambda t2: t2.ilabel  # Arc matching.
     while len(Q_new) != 0:
         Q_old, Q_new = Q_new, Q_old
         Q_new.clear()
 
         # Source states.
-        for src in Q_old:
+        for (src1, src2, q3) in Q_old:
+            src = (src1, src2)  # Source label.
             src_id = wfst.state_id(src)  # Source id.
-            src1, src2 = src  # Source label in wfst1, wfst2.
             src1_id = wfst1.state_id(src1)  # Source id in wfst1.
             src2_id = wfst2.state_id(src2)  # Source id in wfst2.
             if verbose: print(src)
@@ -2006,6 +2008,11 @@ def compose_sorted(wfst1, wfst2):
                     wfinal2 = wfst2.final(dest2_id)  # Final weight.
                     phi_t2 = wfst2.features(src2_id, t2)  # Arc features.
 
+                    # Apply composition filter.
+                    q3_ = epsilon_filter(src1_id, t1, src2_id, t2, q3)
+                    if q3_ == '⊥':
+                        continue
+
                     # Destination state.
                     dest = (dest1, dest2)  # Destination label.
                     dest_id = wfst.add_state(dest)  # Destination id.
@@ -2019,10 +2026,10 @@ def compose_sorted(wfst1, wfst2):
                     # Do not add epsilon:epsilon self-transitions
                     # with weight one (as these are always implicit);
                     # no need to process dest (identical to src).
-                    if (src_id == dest_id) and \
-                        (t1_ilabel == t2_olabel == epsilon) and \
-                        (weight == one):
-                        continue
+                    # if (src_id == dest_id) and \
+                    #     (t1_ilabel == t2_olabel == epsilon) and \
+                    #     (weight == one):
+                    #     continue
 
                     # Dest is final if both dest1 and dest2 are final.
                     if wfinal1 != zero and wfinal2 != zero:
@@ -2032,10 +2039,11 @@ def compose_sorted(wfst1, wfst2):
                             wfinal = one  # or wfinal2?
                         wfst.set_final(dest, wfinal)
 
-                    # Enqueue new state.
-                    if dest not in Q:
-                        Q.add(dest)
-                        Q_new.add(dest)
+                    # Enqueue new state triple.
+                    q = (dest1, dest2, q3_)
+                    if q not in Q:
+                        Q.add(q)
+                        Q_new.add(q)
 
                     # Add arc.
                     wfst.add_arc(src=src,
@@ -2053,6 +2061,34 @@ def compose_sorted(wfst1, wfst2):
 
     wfst = wfst.connect()
     return wfst
+
+
+def epsilon_filter(q1, t1, q2, t2, q3):
+    """
+    Compute next state of epsilon-matching filter,
+    assuming that t1.olabel and t2.ilabel match.
+    todo: ensure that weights on epsilon:epsilon 
+    self-transitions are always one (or None).
+    """
+    epsilon = 0
+    # Non-epsilon labels.
+    if t1.olabel != epsilon and t2.ilabel != epsilon:
+        return 0
+    # Epsilon labels on non-self-transitions.
+    if (t1.olabel == epsilon and q1 != t1.nextstate) and \
+        (t2.ilabel == epsilon and q2 != t2.nextstate) and q3 == 0:
+        return 0
+    # Epsilon self-transition in wfst1 but not wfst2.
+    if (t1.olabel == epsilon and q1 == t1.nextstate) and \
+        (t2.ilabel == epsilon and q2 != t2.nextstate) and q3 != 2:
+        return 1
+    # Epsilon self-transition in wfst2 but not wfst12.
+    if (t1.olabel == epsilon and q1 != t1.nextstate) and \
+        (t2.ilabel == epsilon and q2 == t2.nextstate) and q3 != 1:
+        return 2
+    # Note: epsilon self-transitions in both wfst1 and wfst2
+    # result in bottom.
+    return '⊥'
 
 
 def concat(wfst1, wfst2):
