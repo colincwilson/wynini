@@ -314,8 +314,10 @@ class Wfst():
         """
         Add arc. Accepts id or label for each of 
         src / ilabel / olabel / dest.
+        todo: add src/dest states if they do not already exist
+        todo: ensure that weights on epsilon:epsilon 
+        self-transitions are always one (or None).
         """
-        # todo: add src/dest states if they do not already exist
         src_id, arc = self.make_arc( \
             src, ilabel, olabel, weight, dest)
         self.fst.add_arc(src_id, arc)
@@ -1499,7 +1501,8 @@ def ngram(context='left',
     Acceptor (identity transducer) for segments in immediately 
     preceding (left) / following (right) / both-side contexts of 
     specified length. For both-side context, length can be tuple.
-    ref. Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers. In INTERSPEECH (pp. 1258-1262).
+    ref. Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers.
+    In INTERSPEECH (pp. 1258-1262).
     """
     if context == 'left':
         return ngram_left(length, isymbols, tier, arc_type)
@@ -1830,14 +1833,6 @@ def compose(wfst1,
                     else:
                         weight = one  # todo: or t2.weight?
 
-                    # Do not add epsilon:epsilon self-transitions
-                    # with weight one (as these are always implict);
-                    # no need to process dest (identical to src).
-                    # if (src_id == dest_id) and \
-                    #     (t1_ilabel == t2_olabel == epsilon) and \
-                    #     (weight == one):
-                    #     continue
-
                     # Dest is final if both dest1 and dest2 are final.
                     if wfinal1 != zero and wfinal2 != zero:
                         if common_weights:
@@ -1928,8 +1923,6 @@ def compose_sorted(wfst1, wfst2):
         wfst1.output_symbols() == wfst2.input_symbols();
     (ii) arcs from each state in wfst1 and wfst2 are sorted
     on the matching side (output for wfst1, input for wfst2).
-    Implements the epsilon-matching composition filter of
-    Allauzen, Riley, & Schalkwyk (2009, INTERSPEECH).
     (see pynini.arcsort, OpenFst compose)
     todo: check conditions (i) and (ii)
     """
@@ -2029,14 +2022,6 @@ def compose_sorted(wfst1, wfst2):
                     else:
                         weight = one  # or t2.weight?
 
-                    # Do not add epsilon:epsilon self-transitions
-                    # with weight one (as these are always implicit);
-                    # no need to process dest (identical to src).
-                    # if (src_id == dest_id) and \
-                    #     (t1_ilabel == t2_olabel == epsilon) and \
-                    #     (weight == one):
-                    #     continue
-
                     # Dest is final if both dest1 and dest2 are final.
                     if wfinal1 != zero and wfinal2 != zero:
                         if common_weights:
@@ -2071,10 +2056,10 @@ def compose_sorted(wfst1, wfst2):
 
 def epsilon_filter(q1, t1, q2, t2, q3):
     """
-    Compute next state of epsilon-matching filter,
-    assuming that t1.olabel and t2.ilabel match.
-    todo: ensure that weights on epsilon:epsilon 
-    self-transitions are always one (or None).
+    Compute next state of epsilon-matching composition filter.
+    Assumes that t1.olabel and t2.ilabel have been determined
+    to match.
+    ref. Allauzen, Riley, & Schalkwyk (2009). In INTERSPEECH.
     """
     epsilon = 0
     # Non-epsilon labels.

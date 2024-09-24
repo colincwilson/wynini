@@ -72,6 +72,10 @@ M2.add_arc(q0, 'a', 'd', None, q1)
 M2.add_arc(q1, epsilon, 'e', None, q2)
 M2.add_arc(q2, 'd', 'a', None, q3)
 
+M = compose(M1, M2)
+print(M.info())
+print(M)
+
 M1 = M1.arcsort(sort_type='olabel')
 M2 = M2.arcsort(sort_type='ilabel')
 M = compose_sorted(M1, M2)
