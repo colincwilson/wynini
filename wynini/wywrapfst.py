@@ -1748,16 +1748,16 @@ def compose(wfst1,
         wfst2_arcs = {}
 
     # Lazy state and arc construction of wfst.
-    Q = set([q0])
-    Q_old, Q_new = set(), set([q0])
+    Q = set([(q1, q2, 0)])
+    Q_old, Q_new = set(), Q.copy()
     while len(Q_new) != 0:
         Q_old, Q_new = Q_new, Q_old
         Q_new.clear()
 
         # Source states.
-        for src in Q_old:
+        for (src1, src2, q3) in Q_old:
+            src = (src1, src2)  # Source label.
             src_id = wfst.state_id(src)  # Source id.
-            src1, src2 = src  # Source label in wfst1, wfst2.
             src1_id = wfst1.state_id(src1)  # Source id in wfst1.
             src2_id = wfst2.state_id(src2)  # Source id in wfst2.
             if verbose: print(src)
@@ -1802,6 +1802,11 @@ def compose(wfst1,
                     else:
                         _, t2 = wfst2.make_epsilon_arc(src2_id)
 
+                    # Apply composition filter.
+                    q3_ = epsilon_filter(src1_id, t1, src2_id, t2, q3)
+                    if q3_ == '⊥':
+                        continue
+
                     # Compose arcs.
                     t1_ilabel = wfst1.ilabel(t1)  # Input label.
                     dest1_id = t1.nextstate  # Destination id.
@@ -1828,10 +1833,10 @@ def compose(wfst1,
                     # Do not add epsilon:epsilon self-transitions
                     # with weight one (as these are always implict);
                     # no need to process dest (identical to src).
-                    if (src_id == dest_id) and \
-                        (t1_ilabel == t2_olabel == epsilon) and \
-                        (weight == one):
-                        continue
+                    # if (src_id == dest_id) and \
+                    #     (t1_ilabel == t2_olabel == epsilon) and \
+                    #     (weight == one):
+                    #     continue
 
                     # Dest is final if both dest1 and dest2 are final.
                     if wfinal1 != zero and wfinal2 != zero:
@@ -1842,9 +1847,10 @@ def compose(wfst1,
                         wfst.set_final(dest, wfinal)
 
                     # Enqueue new state.
-                    if dest not in Q:
-                        Q.add(dest)
-                        Q_new.add(dest)
+                    q = (dest1, dest2, q3_)
+                    if q not in Q:
+                        Q.add(q)
+                        Q_new.add(q)
 
                     # Add arc.
                     wfst.add_arc(src=src,
