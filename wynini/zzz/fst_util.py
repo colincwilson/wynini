@@ -151,7 +151,7 @@ def linear_acceptor(x):
 def trellis(max_len):
     """
     Trellis for strings of length 0 to max_len
-    (not counting begin/end delimiters)
+    (not counting bos/eos).
     """
     bos = config.bos
     eos = config.eos
@@ -196,7 +196,7 @@ def map_states(M, f):
 def accepted_strings(M, max_len):
     """
     Output strings accepted by machine up to 
-    maximum length (not counting begin/end delimiters)
+    maximum length (not counting bos/eos)
     """
     transition_map = {q: [] for q in M.Q}
     for t in M.T:

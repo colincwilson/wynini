@@ -1099,7 +1099,7 @@ class Wfst():
         returning iterator over output strings (default) or 
         machine that preserves input/output labels but not 
         state labels, output strings, or arc features.
-        Alternative that also preserves state labels 
+        Alternative method that also preserves state labels 
         and arc features: create an accept for the input string
         with accep() and then compose with this machine.
         """
@@ -1331,6 +1331,24 @@ class Wfst():
 # todo: string_file, string_map
 
 
+def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
+    """
+    Starter transducer with three states and two arcs:
+        0 -> bos:bos -> 0
+        1 -> eos:eos -> 1
+    isymbols and osymbols are lists of ordinary symbols
+    (get epsilon, bos, eos from config).
+    """
+    wfst = Wfst(isymbols, osymbols, arc_type=arc_type)
+    for i in range(3):
+        wfst.add_state(i)
+    wfst.set_initial(0)
+    wfst.set_final(2)
+    wfst.add_arc(0, config.bos, config.bos, None, 1)
+    wfst.add_arc(1, config.eos, config.eos, None, 2)
+    return wfst
+
+
 def accep(x, isymbols=None, add_delim=True, **kwargs):
     """
     Acceptor for space-delimited input (see pynini.accep).
@@ -1361,7 +1379,7 @@ def trans(ilabel, olabel, **kwargs):
     space-separated output string. One-off alternative
     to pynini string_map(); use union() to combine multiple
     transducers as alteratives.
-    todo: optionally add delimiters
+    todo: optionally add bos/eos
     """
     if ilabel is None:
         ilabel = config.epsilon
@@ -1388,6 +1406,13 @@ def trans(ilabel, olabel, **kwargs):
     return wfst
 
 
+# def str_map(inputs, outputs, **kwargs):
+#     """
+#     Transducer that maps input strings to output strings.
+#     todo: make bos/eos optional.
+#     """
+
+
 def trellis(length=1,
             isymbols=None,
             tier=None,
@@ -1395,7 +1420,7 @@ def trellis(length=1,
             arc_type='standard'):
     """
     Acceptor for all strings up to specified length (trellis = True), 
-    or of specified length (trellis = False), +2 for delimiters. 
+    or of specified length (trellis = False), +2 for bos/eos. 
     If tier is specified as a subset of the alphabet, makes 
     tier/projection acceptor for that subset with other symbols 
     labeling self-loops on interior states.
@@ -1468,28 +1493,10 @@ def trellis(length=1,
 
 def braid(length=1, isymbols=None, tier=None, arc_type='standard'):
     """
-    Acceptor for strings of given length (+2 for delimiters).
+    Acceptor for strings of given length (+2 for bos/eos).
     (see trellis())
     """
     return trellis(length, isymbols, tier, False, arc_type)
-
-
-def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
-    """
-    Starter transducer with three states and two arcs:
-        0 -> bos:bos -> 0
-        1 -> eos:eos -> 1
-    isymbols and osymbols are lists of ordinary symbols
-    (get epsilon, bos, eos from config).
-    """
-    wfst = Wfst(isymbols, osymbols, arc_type=arc_type)
-    for i in range(3):
-        wfst.add_state(i)
-    wfst.set_initial(0)
-    wfst.set_final(2)
-    wfst.add_arc(0, config.bos, config.bos, None, 1)
-    wfst.add_arc(1, config.eos, config.eos, None, 2)
-    return wfst
 
 
 def ngram(context='left',
@@ -2341,5 +2348,5 @@ def arc_equal(arc1, arc2):
 # todo: require symbol tables for input and output labels
 # to be initialized outside of Wfst instances, allowing epsilon /
 # bos / eos / other special symbols to be set on a per-machine
-# basis; route access to epsilon / bos / eos / etc. through
+# basis; reroute access to epsilon / bos / eos / etc. through
 # machines instead of global config
