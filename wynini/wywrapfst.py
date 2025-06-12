@@ -143,7 +143,7 @@ class Wfst():
         if verbose and isinstance(label, int) and label != q:
             print(f'Warning: labeling state {q} with '
                   f'integer other than {q}.')
-        # State <-> label maps.
+        # State <-> label dicts.
         self._state2label[q] = label
         self._label2state[label] = q
         # Initial and final state properties.
@@ -808,21 +808,27 @@ class Wfst():
                               output_token_type=osymbols)
         return path_iter
 
-    def istrings(self):
+    def istrings(self, delete_epsilon=False):
         """
         Iterator over input strings of paths through this 
         machine (must be acyclic).
         """
-        return self.paths().istrings()
+        ret = list(self.paths().istrings())
+        if delete_epsilon:
+            ret = [re.sub(f'[ ]*{config.epsilon}', '', x) for x in ret]
+        return ret
 
-    def ostrings(self):
+    def ostrings(self, delete_epsilon=False):
         """
         Iterator over output strings of paths through this 
         machine (must be acyclic).
         """
-        return self.paths().ostrings()
+        ret = list(self.paths().ostrings())
+        if delete_epsilon:
+            ret = [re.sub(f'[ ]*{config.epsilon}', '', x) for x in ret]
+        return ret
 
-    def iostrings(self, sep=':'):
+    def iostrings(self, sep=':', delete_epsilon=False):
         """
         Generate aligned input:output sequences representing
         paths through this machine (must be acyclic).
@@ -831,21 +837,27 @@ class Wfst():
         while not path_iter.done():
             path = list(zip( \
                 path_iter.ilabels(), path_iter.olabels()))
-            path = [f'{self.ilabel(x)}{sep}{self.olabel(y)}' \
-                for (x, y) in path]
-            path = ' '.join(path)
+            if delete_epsilon:
+                path = [f'{self.ilabel(x)}{sep}{self.olabel(y)}' \
+                    for (x, y) in path if (x!=0 or y!=0)]
+            else:
+                path = [f'{self.ilabel(x)}{sep}{self.olabel(y)}' \
+                    for (x,y) in path]
+            path = ' '.join(path)  # Space-separated alignments.
             path_iter.next()
             yield path
 
     def accepted_strings(self,
                          side='input',
+                         has_delim=True,
                          weights=True,
                          max_len=10,
                          delete_epsilon=True):
         """
-        Generate input (default) or output labels of paths 
-        through this machine (possibly cyclic) up to max_len
-        (excluding bos/eos), optionally with weights.
+        Generate input (default) / output / aligned io labels
+        of paths through this machine (possibly cyclic) up
+        to max_len (optionally excluding bos/eos), and
+        optionally with summary path weights.
         For acyclic machines, see paths() above.
         """
         fst = self.fst
@@ -853,6 +865,7 @@ class Wfst():
         weight_type = fst.weight_type()
         One = Weight.one(weight_type)
         Zero = Weight.zero(weight_type)
+        epsilon2 = f'{config.epsilon}:{config.epsilon}'
 
         paths_old = {(q0, None)}
         paths_new = set()
@@ -860,7 +873,9 @@ class Wfst():
             path2weight = {(q0, None): One}
         # note: pynini weights are unhashable.
 
-        for _ in range(max_len + 2):
+        if has_delim:
+            max_len += 2
+        for _ in range(max_len):
             for path_old in paths_old:
                 (src, label) = path_old
                 for t in fst.arcs(src):
@@ -869,10 +884,16 @@ class Wfst():
                     # Extend label.
                     if side == 'input':
                         tlabel = self.ilabel(t)
-                    else:
+                    elif side == 'output':
                         tlabel = self.olabel(t)
+                    elif side == 'both':
+                        tlabel = f'{self.ilabel(t)}:{self.olabel(t)}'
+                    else:
+                        print(f'Unrecognized side: {side}')
+                        raise Exception
 
-                    if delete_epsilon and (tlabel == config.epsilon):
+                    if delete_epsilon and (tlabel == config.epsilon
+                                           or tlabel == epsilon2):
                         label_new = label
                     else:
                         if label is None:
@@ -907,6 +928,8 @@ class Wfst():
 
             paths_old, paths_new = paths_new, paths_old
             paths_new.clear()
+
+    strings = accepted_strings
 
     def connect(self):
         """
@@ -1117,11 +1140,11 @@ class Wfst():
         fst_out.set_input_symbols(isymbols)
         fst_out.set_output_symbols(osymbols)
 
-        if ret_type == 'fst':
-            return fst_out
         if ret_type == 'wfst':
             wfst_out = Wfst.from_fst(fst_out)
             return wfst_out
+        if ret_type == 'fst':
+            return fst_out
         # default: return output strings
         path_iter = fst_out.paths(output_token_type=osymbols)
         return path_iter.ostrings()
