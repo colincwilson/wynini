@@ -2228,6 +2228,11 @@ def union(wfst1, wfst2):
     return wfst
 
 
+# # # # # # # # # #
+# Operations on one machine.
+# todo: closure
+
+
 def ques(wfst):
     """ Optionality. """
     wfst = wfst.copy()
