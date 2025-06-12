@@ -12,6 +12,6 @@ State labels
 
 Arcs
 
-* All successful paths are endpointed with arcs labeled bos:bos and eos:eos.
+* All successful paths begin / end with arcs labeled bos:bos / eos:eos.
 
 * Epsilon:epsilon self-transitions are implicit on every state and have weight one in the relevant semiring.

@@ -1307,8 +1307,10 @@ class Wfst():
                         **kwargs)
 
     def viz(self, **kwargs):
-        """ Draw in ipython / jupyter notebook. """
+        """
+        Draw in ipython / jupyter notebook.
         # todo: skip middleman file
+        """
         self.draw('.tmp.dot', **kwargs)
         ret = Source.from_file('.tmp.dot')
         return ret
@@ -1328,18 +1330,18 @@ class Wfst():
 
 # # # # # # # # # #
 # Machine constructors.
-# todo: string_file, string_map
+# todo: string_file
 
 
-def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
+#def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
+def empty_transducer(**kwargs):
     """
     Starter transducer with three states and two arcs:
         0 -> bos:bos -> 0
         1 -> eos:eos -> 1
-    isymbols and osymbols are lists of ordinary symbols
-    (get epsilon, bos, eos from config).
     """
-    wfst = Wfst(isymbols, osymbols, arc_type=arc_type)
+    #wfst = Wfst(isymbols, osymbols, arc_type=arc_type)
+    wfst = Wfst(**kwargs)
     for i in range(3):
         wfst.add_state(i)
     wfst.set_initial(0)
@@ -1351,10 +1353,10 @@ def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
 
 def accep(x, isymbols=None, add_delim=True, **kwargs):
     """
-    Acceptor for space-delimited input (see pynini.accep).
+    Acceptor for space-separated input (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
     arc_type ("standard", "log", or "log64").
-    todo: set isymbols with symbols in x
+    todo: optionally set isymbols with symbols in x
     """
     if not isinstance(x, str):
         x = ' '.join(x)
@@ -1406,11 +1408,44 @@ def trans(ilabel, olabel, **kwargs):
     return wfst
 
 
-# def str_map(inputs, outputs, **kwargs):
-#     """
-#     Transducer that maps input strings to output strings.
-#     todo: make bos/eos optional.
-#     """
+def string_map(inputs, outputs, **kwargs):
+    """
+    Transducer that maps input strings to output strings
+    (all space-separated).
+    todo: make bos/eos optional.
+    """
+    wfst = Wfst(**kwargs)
+    for i in range(2):
+        wfst.add_state(i)
+    wfst.set_initial(0)
+    #wfst.set_final(2)
+    wfst.add_arc(0, config.bos, config.bos, None, 1)
+    #wfst.add_arc(1, config.eos, config.eos, None, 2)
+
+    for ilabel, olabel in zip(inputs, outputs):
+        if ilabel is not None:
+            ilabels = ilabel.split(' ')
+        else:
+            ilabels = [config.epsilon]
+        if olabel is not None:
+            olabels = olabel.split(' ')
+        else:
+            olabels = [config.epsilon]
+        if len(ilabels) < len(olabels):
+            ilabels = str_pad(ilabels, len(olabels))
+        elif len(olabels) < len(ilabels):
+            olabels = str_pad(olabels, len(ilabels))
+        dest = 1
+        for i, (x, y) in enumerate(zip(ilabels, olabels)):
+            src = dest
+            dest = wfst.add_state()
+            wfst.add_arc(src, x, y, None, dest)
+        src = dest
+        dest = wfst.add_state()
+        wfst.set_final(dest)
+        wfst.add_arc(src, config.eos, config.eos, None, dest)
+
+    return wfst
 
 
 def trellis(length=1,
@@ -1931,7 +1966,7 @@ def compose_sorted(wfst1, wfst2):
     (ii) arcs from each state in wfst1 and wfst2 are sorted
     on the matching side (output for wfst1, input for wfst2).
     (see pynini.arcsort, OpenFst compose)
-    todo: check conditions (i) and (ii)
+    todo: verify conditions (i) and (ii)
     """
     # Initialize result of composition.
     epsilon = 0  # by convention, config.epsilon id
@@ -2064,8 +2099,7 @@ def compose_sorted(wfst1, wfst2):
 def epsilon_filter(q1, t1, q2, t2, q3):
     """
     Compute next state of epsilon-matching composition filter.
-    Assumes that t1.olabel and t2.ilabel have been determined
-    to match.
+    Assumes that t1.olabel and t2.ilabel are known to match.
     ref. Allauzen, Riley, & Schalkwyk (2009). In INTERSPEECH.
     """
     epsilon = 0
@@ -2343,6 +2377,24 @@ def arc_equal(arc1, arc2):
             (arc1.nextstate == arc2.nextstate) and \
             (arc1.weight == arc2.weight)
     return val
+
+
+# todo: move to string util
+def str_pad(word, n, sep=' ', pad=config.epsilon):
+    """
+    Pad end of string or list up to length n.
+    """
+    if word is None:
+        ret = [pad]
+    elif isinstance(word, str) and sep != '':
+        ret = word.split(' ')
+    else:
+        ret = word
+    if len(ret) < n:
+        ret += [pad] * (n - len(ret))
+    if isinstance(word, str):
+        sep.join(ret)
+    return ret
 
 
 # todo: require symbol tables for input and output labels

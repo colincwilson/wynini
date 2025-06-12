@@ -1,8 +1,8 @@
 from pynini import SymbolTable
 
-epsilon = 'ϵ'  # <eps>
-bos = '⋊'  # Beginning-of-string / start endpoint (alternatives '>' or <s>).
-eos = '⋉'  # End-of-string / stop endpoint (alternatives '<' or </s>).
+epsilon = eps = 'ϵ'  # <eps>
+bos = '⋊'  # Beginning-of-string / start symbol (alternatives '>' or <s>).
+eos = '⋉'  # End-of-string / stop symbol (alternatives '<' or </s>).
 λ = ''  # Empty string (de la Higuera, p. 48).
 unk = '⊥'  # Unknown / empty set (de la Higuera, p. 376).
 sigma = ['a', 'b']  # Ordinary symbols.
