@@ -797,8 +797,8 @@ class Wfst():
     def paths(self):
         """
         Iterator over paths through this machine (must be acyclic). 
-        pynini.StringPathIterator is not iterable (!) but has methods: 
-        next(); ilabels(), istring(), labels(), ostring(), 
+        Returns pynini.StringPathIterator, which is not iterable (!)
+        but has methods: next(); ilabels(), istring(), labels(), ostring(),
         weights(); istrings(), ostrings(), weights(), items().
         """
         fst = self.fst
@@ -926,10 +926,12 @@ class Wfst():
                         else:
                             yield label_new
 
+            if len(paths_new) == 0:
+                break
             paths_old, paths_new = paths_new, paths_old
             paths_new.clear()
 
-    strings = accepted_strings
+    strings = accepted_strings  # Alias.
 
     def connect(self):
         """
@@ -2346,8 +2348,8 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     note: ensure weights are in tropical semiring before 
     calling (e.g., using wfst.map_weights('to_std')).
     note: state labels / output strings / arc features
-    of input wfst are not preserved in output machine; even
-    state ids may not be preserved.
+    of input wfst are not preserved in output machine;
+    even state ids may not be preserved.
     """
     fst = wfst.fst
     isymbols = fst.input_symbols()
