@@ -1379,7 +1379,7 @@ def trans(ilabel, olabel, **kwargs):
     """
     Transducer that maps space-separated input string to
     space-separated output string. One-off alternative
-    to pynini string_map(); use union() to combine multiple
+    to string_map(); use union() to combine multiple
     transducers as alteratives.
     todo: optionally add bos/eos
     """
@@ -1408,21 +1408,30 @@ def trans(ilabel, olabel, **kwargs):
     return wfst
 
 
-def string_map(inputs, outputs, **kwargs):
+def string_map(inputs, outputs=None, add_delim=True, **kwargs):
     """
     Transducer that maps input strings to output strings
-    (all space-separated).
-    todo: make bos/eos optional.
+    (all space-separated). If outputs arg is None,
+    treat inputs as a pre-zipped list of pairs.
     """
     wfst = Wfst(**kwargs)
-    for i in range(2):
-        wfst.add_state(i)
-    wfst.set_initial(0)
-    #wfst.set_final(2)
-    wfst.add_arc(0, config.bos, config.bos, None, 1)
-    #wfst.add_arc(1, config.eos, config.eos, None, 2)
+    q0 = wfst.add_state()
+    wfst.set_initial(q0)
+    if add_delim:
+        q_start = wfst.add_state()  # Unique post-initial state.
+        wfst.add_arc(q0, config.bos, config.bos, None, q_start)
+        q_stop = wfst.add_state()  # Unique pre-final state.
+        qf = wfst.add_state()
+        wfst.set_final(qf)
+        wfst.add_arc(q_stop, config.eos, config.eos, None, qf)
+    else:
+        q_start = q0  # Unique initial state.
+        q_stop = wfst.add_state()  # Unique final state.
+        wfst.set_final(q_stop)
 
-    for ilabel, olabel in zip(inputs, outputs):
+    pairs = zip(inputs, outputs) if outputs is not None \
+        else inputs
+    for ilabel, olabel in pairs:
         if ilabel is not None:
             ilabels = ilabel.split(' ')
         else:
@@ -1435,15 +1444,15 @@ def string_map(inputs, outputs, **kwargs):
             ilabels = str_pad(ilabels, len(olabels))
         elif len(olabels) < len(ilabels):
             olabels = str_pad(olabels, len(ilabels))
-        dest = 1
+        n = len(ilabels)  # == len(olabels)
+        dest = q_start
         for i, (x, y) in enumerate(zip(ilabels, olabels)):
             src = dest
-            dest = wfst.add_state()
+            if i < (n - 1):
+                dest = wfst.add_state()
+            else:
+                dest = q_stop
             wfst.add_arc(src, x, y, None, dest)
-        src = dest
-        dest = wfst.add_state()
-        wfst.set_final(dest)
-        wfst.add_arc(src, config.eos, config.eos, None, dest)
 
     return wfst
 
@@ -2270,6 +2279,8 @@ def star(wfst):
     q0 = wfst.initial()
     wfst.set_final(q0, one)
     for qf in wfst.finals():
+        if qf == q0:  # use implicit epsilon self-transition
+            continue
         wfst.add_arc( \
             qf,
             config.epsilon,
