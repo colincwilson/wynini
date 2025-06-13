@@ -1960,7 +1960,7 @@ def compose(wfst1,
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
-    #wfst = wfst.connect()
+    wfst = wfst.connect()
     return wfst
 
 
