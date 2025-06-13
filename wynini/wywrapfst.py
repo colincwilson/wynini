@@ -1249,6 +1249,7 @@ class Wfst():
         fst = self.fst
         isymbols = fst.input_symbols().copy()
         osymbols = fst.output_symbols().copy()
+        # Swap input and output labels in backing fst.
         fst.invert()
         # Alternative with explicit label swap.
         # for q in fst.states():
@@ -1271,9 +1272,9 @@ class Wfst():
         """
         fst = self.fst
         wfst = Wfst( \
-            fst.input_symbols(),
-            fst.output_symbols(),
-            fst.arc_type())
+            isymbols = fst.input_symbols().copy(),
+            osymbols = fst.output_symbols().copy(),
+            arc_type = fst.arc_type())
         wfst.fst = fst.copy()
         wfst._state2label = dict(self._state2label)
         wfst._label2state = dict(self._label2state)
