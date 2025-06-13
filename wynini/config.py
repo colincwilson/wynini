@@ -37,6 +37,7 @@ def init(param={}):  # todo: change to **kwargs
 
 
 def make_symtable(sigma):
+    """ Create symbol table from symbol list. """
     symtable = SymbolTable()
     symtable.add_symbol(epsilon)  # Symbol id 0 (OpenFst convention).
     symtable.add_symbol(bos)  # Symbol id 1 (wynini convention).

@@ -40,8 +40,8 @@ class Wfst():
 
     def __init__(self, isymbols=None, osymbols=None, arc_type='standard'):
         # Symbol tables.
-        # todo: require SymbolTable(View) args
-        if isymbols is None:  # todo: rename input_symbols
+        # todo: require list or SymbolTable(View) args
+        if isymbols is None:
             isymbols, _ = config.make_symtable([])
         if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
             isymbols, _ = config.make_symtable(isymbols)
@@ -364,9 +364,9 @@ class Wfst():
 
     def arcs(self, src=None):
         """
-        Iterator over arcs from designated state or all states.
-        """
+        Iterator over arcs from designated state or from all states.
         # todo: decorate arcs with input/output labels if requested
+        """
         if src is None:
             for src in self.state_ids():
                 for t in self.fst.arcs(src):
@@ -374,7 +374,7 @@ class Wfst():
             return
         src = self.state_id(src)
         for t in self.fst.arcs(src):
-            yield t  # arc
+            yield t  # Arc object.
         #return self.fst.arcs(src) # fixme: does not work as expected
 
     # Alias for arcs().
@@ -563,10 +563,10 @@ class Wfst():
         # assumption: Fst.project() does not reindex states.
         fst = self.fst
         if project_type == 'input':
-            isymbols = fst.input_symbols()
+            isymbols = fst.input_symbols().copy()
             self.set_output_symbols(isymbols)
         if project_type == 'output':
-            osymbols = fst.output_symbols()
+            osymbols = fst.output_symbols().copy()
             self.set_input_symbols(osymbols)
         fst.project(project_type)
         return self
@@ -598,15 +598,15 @@ class Wfst():
         map_type is "identity", "invert", "quantize", "plus", 
         "power", "rmweight", "times", "to_log", "to_log64",
         or "to_std" (which maps to the tropical semiring).
+        # note: assume that pynini.arcmap() does not reindex states.
         """
-        # assumption: pynini.arcmap() does not reindex states.
         if map_type == 'identity':
             return self
         if map_type in ('to_trop', 'to_tropical', 'to_standard'):
             map_type = 'to_std'
         fst = self.fst
-        isymbols = fst.input_symbols()
-        osymbols = fst.output_symbols()
+        isymbols = fst.input_symbols().copy()
+        osymbols = fst.output_symbols().copy()
         fst_out = pynini.arcmap(fst, map_type=map_type, **kwargs)
         fst_out.set_input_symbols(isymbols)
         fst_out.set_output_symbols(osymbols)
@@ -1129,8 +1129,8 @@ class Wfst():
         with accep() and then compose with this machine.
         """
         fst = self.fst
-        isymbols = fst.input_symbols()
-        osymbols = fst.output_symbols()
+        isymbols = fst.input_symbols().copy()
+        osymbols = fst.output_symbols().copy()
 
         if not isinstance(x, str):
             x = ' '.join(x)
@@ -1217,8 +1217,8 @@ class Wfst():
         are not retained in output machine.
         """
         fst = self.fst
-        isymbols = fst.input_symbols()
-        osymbols = fst.output_symbols()
+        isymbols = fst.input_symbols().copy()
+        osymbols = fst.output_symbols().copy()
         if select is None:
             if fst.weight_type() in ('log', 'log64'):
                 select = 'log_prob'
@@ -1247,9 +1247,17 @@ class Wfst():
         [destructive]
         """
         fst = self.fst
-        isymbols = fst.input_symbols()
-        osymbols = fst.output_symbols()
+        isymbols = fst.input_symbols().copy()
+        osymbols = fst.output_symbols().copy()
         fst.invert()
+        # Alternative with explicit label swap.
+        # for q in fst.states():
+        #     q_arcs = fst.mutable_arcs(q)
+        #     for t in q_arcs:  # note: unstable arc reference
+        #         t.ilabel, t.olabel = t.olabel, t.ilabel
+        #         q_arcs.set_value(t)
+        # self.set_input_symbols(osymbols)
+        # self.set_output_symbols(isymbols)
         self.set_input_symbols(osymbols)
         self.set_output_symbols(isymbols)
         return self
@@ -1390,7 +1398,7 @@ def empty_transducer(**kwargs):
     return wfst
 
 
-def accep(x, isymbols=None, add_delim=True, **kwargs):
+def accep(x, isymbols, add_delim=True, **kwargs):
     """
     Acceptor for space-separated input (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
@@ -1414,7 +1422,7 @@ def accep(x, isymbols=None, add_delim=True, **kwargs):
     return wfst
 
 
-def trans(ilabel, olabel, **kwargs):
+def trans(ilabel, olabel, isymbols, osymbols, **kwargs):
     """
     Transducer that maps space-separated input string to
     space-separated output string. One-off alternative
@@ -1435,7 +1443,7 @@ def trans(ilabel, olabel, **kwargs):
     if ilength > olength:
         olabels += [config.epsilon] * (ilength - olength)
 
-    wfst = Wfst(**kwargs)
+    wfst = Wfst(isymbols=isymbols, osymbols=osymbols, **kwargs)
     n = len(ilabels)  # == len(olabels)
     src = wfst.add_state(initial=True)
     for (x, y) in zip(ilabels, olabels):
@@ -1447,13 +1455,14 @@ def trans(ilabel, olabel, **kwargs):
     return wfst
 
 
-def string_map(inputs, outputs=None, add_delim=True, **kwargs):
+def string_map(inputs, outputs, isymbols, osymbols, add_delim=True, **kwargs):
     """
     Transducer that maps input strings to output strings
     (all space-separated). If outputs arg is None,
     treat inputs as a pre-zipped list of pairs.
+    todo: optional weight for each (input, output) pair.
     """
-    wfst = Wfst(**kwargs)
+    wfst = Wfst(isymbols=isymbols, osymbols=osymbols, **kwargs)
     q0 = wfst.add_state()
     wfst.set_initial(q0)
     if add_delim:
@@ -1468,8 +1477,11 @@ def string_map(inputs, outputs=None, add_delim=True, **kwargs):
         q_stop = wfst.add_state()  # Unique final state.
         wfst.set_final(q_stop)
 
+    # Unweighted input string -> output string pairs.
     pairs = zip(inputs, outputs) if outputs is not None \
         else inputs
+    # Eliminate spurious amiguity, preserving original order.
+    pairs = list(dict.fromkeys(pairs))
     for ilabel, olabel in pairs:
         if ilabel is not None:
             ilabels = ilabel.split(' ')
@@ -1496,11 +1508,7 @@ def string_map(inputs, outputs=None, add_delim=True, **kwargs):
     return wfst
 
 
-def trellis(length=1,
-            isymbols=None,
-            tier=None,
-            trellis=True,
-            arc_type='standard'):
+def trellis(length, isymbols, tier=None, trellis=True, arc_type='standard'):
     """
     Acceptor for all strings up to specified length (trellis = True), 
     or of specified length (trellis = False), +2 for bos/eos. 
@@ -1613,7 +1621,7 @@ def ngram(context='left',
     return None
 
 
-def ngram_left(length=1, isymbols=None, tier=None, arc_type='standard'):
+def ngram_left(length, isymbols, tier=None, arc_type='standard'):
     """
     Acceptor (identity transducer) for segments in immediately 
     preceding contexts (histories) of specified length. If 
@@ -1692,7 +1700,7 @@ def ngram_left(length=1, isymbols=None, tier=None, arc_type='standard'):
     return wfst
 
 
-def ngram_right(length=1, isymbols=None, tier=None, arc_type='standard'):
+def ngram_right(length, isymbols, tier=None, arc_type='standard'):
     """
     Acceptor (identity transducer) for segments in immediately 
     following contexts (futures) of specified length.
@@ -1895,7 +1903,7 @@ def compose(wfst1,
                     else:
                         _, t2 = wfst2.make_epsilon_arc(src2_id)
 
-                    # Apply composition filter.
+                    # Apply composition filter. xxx testing
                     q3_ = epsilon_filter(src1_id, t1, src2_id, t2, q3)
                     if q3_ == '⊥':
                         continue
@@ -1951,7 +1959,7 @@ def compose(wfst1,
                         t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
                         wfst.phi[t_] = phi_t
 
-    wfst = wfst.connect()
+    #wfst = wfst.connect()
     return wfst
 
 
@@ -1972,7 +1980,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
     # Organize arcs from all states.
     if src is None:
         wfst_arcs = { \
-            src:organize_arcs(wfst, src, matchfunc, side)
+            src: organize_arcs(wfst, src, matchfunc, side)
             for src in wfst.state_ids()}
         return wfst_arcs
 
@@ -1993,6 +2001,7 @@ def organize_arcs(wfst, src=None, matchfunc=None, side='input', verbose=False):
             src_arcs[label].append(idx)
         else:
             src_arcs[label] = [idx]
+
     # Implicit epsilon self-transition with pseudo-index -1.
     # (see https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
     if config.epsilon in src_arcs:
@@ -2366,8 +2375,8 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     even state ids may not be preserved.
     """
     fst = wfst.fst
-    isymbols = fst.input_symbols()
-    osymbols = fst.output_symbols()
+    isymbols = fst.input_symbols().copy()
+    osymbols = fst.output_symbols().copy()
 
     fst_out = pynini.shortestpath( \
         fst, delta=delta) #, **kwargs)
