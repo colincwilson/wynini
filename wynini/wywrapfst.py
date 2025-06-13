@@ -237,7 +237,7 @@ class Wfst():
         Relabel states with their state ids (default) 
         or using function argument.
         (see pynini.topsort)
-        [desctructive]
+        [destructive]
         """
         state2label = {}  # State id -> state label.
         label2state = {}  # State label -> state id.
