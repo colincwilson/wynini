@@ -237,31 +237,20 @@ class Wfst():
         Relabel states with their state ids (default) 
         or using function argument.
         (see pynini.topsort)
+        [desctructive]
         """
-        if func:
-            return self._relabel_states(func)
         state2label = {}  # State id -> state label.
         label2state = {}  # State label -> state id.
+        use_func = (func is not None)
         for q in self.state_ids():
-            state2label[q] = q
-            label2state[q] = q
-        self._state2label = state2label
-        self._label2state = label2state
-        return self
-
-    def _relabel_states(self, func):
-        """
-        Relabel states using function, monitoring
-        for label collisions.
-        """
-        state2label = {}
-        label2state = {}
-        for q in self.state_ids():
-            label = func(self, q)
-            if label in label2state:
-                print(f'Relabeling function assigns the same label '
-                      f'to multiple states; ignoring.')
-                return self
+            if not use_func:
+                label = q
+            else:
+                label = func(self, q)
+                if label in label2state:
+                    print(f'Relabeling function assigns the same label '
+                          f'to multiple states ({label}); ignoring.')
+                    return self
             state2label[q] = label
             label2state[label] = q
         self._state2label = state2label
@@ -317,6 +306,7 @@ class Wfst():
         todo: add src/dest states if they do not already exist
         todo: ensure that weights on epsilon:epsilon 
         self-transitions are always one (or None).
+        [destructive]
         """
         src_id, arc = self.make_arc( \
             src, ilabel, olabel, weight, dest)
@@ -333,6 +323,7 @@ class Wfst():
         Add path labeled by space-separated ilabel and 
         olabel (possibly of different lengths, either
         of which can be null).
+        [destructive]
         """
         # Ensure same-length input/output sequences.
         if ilabel is None and olabel is None:
@@ -395,6 +386,7 @@ class Wfst():
         """
         Sort arcs from each state.
         arg sort_type = 'ilabel' | 'olabel'.
+        [destructive]
         """
         if sort_type == 'input':
             sort_type = 'ilabel'
@@ -409,6 +401,7 @@ class Wfst():
         (see: pynini.relabel_tables).
         note: epsilon, bos, eos should be mapped to themselves.
         todo: checkme
+        [destructive]
         """
         if ifunc is None and ofunc is None:
             return self
@@ -559,7 +552,10 @@ class Wfst():
         return self.fst.weight_type()
 
     def project(self, project_type):
-        """ Project input or output labels. """
+        """
+        Project input or output labels.
+        [destructive]
+        """
         # assumption: Fst.project() does not reindex states.
         fst = self.fst
         if project_type == 'input':
@@ -599,6 +595,7 @@ class Wfst():
         "power", "rmweight", "times", "to_log", "to_log64",
         or "to_std" (which maps to the tropical semiring).
         # note: assume that pynini.arcmap() does not reindex states.
+        [destructive]
         """
         if map_type == 'identity':
             return self
@@ -622,6 +619,7 @@ class Wfst():
         input/output/dest and associated labels of the arc.
         (see map_type options in map_weights(): "identity", 
         "plus", "power", "times")
+        [destructive]
         """
         if func is None:
             # Identity function by default.
@@ -667,6 +665,7 @@ class Wfst():
         and returns a dictionary of feature 'violations'.
         The function can examine the src/input/output/dest and 
         associated labels of the arc.
+        [destructive]
         """
         phi = {}
         for q in self.fst.states():
@@ -688,6 +687,7 @@ class Wfst():
         input and output label of each arc.
         arg iosymbols: symbol table for encoded labels
         todo: destructive version, to avoid copying.
+        [nondestructive]
         """
         # Symbol table for input/output label pairs.
         if not iosymbols:
@@ -725,6 +725,7 @@ class Wfst():
         arg isymbols: symbol table for input labels
         arg osymbols: symbol table for output labels
         todo: destructive version, to avoid copying.
+        [nondestructive]
         """
         wfst = Wfst(isymbols=isymbols,
                     osymbols=osymbols,
@@ -998,7 +999,8 @@ class Wfst():
     def delete_states(self, states, connect=True):
         """
         Remove states by id while preserving state labels, 
-        arc weights, and arc features. [nondestructive]
+        arc weights, and arc features.
+        [nondestructive]
         """
         fst = self.fst
         live_states = set(fst.states()) - states
@@ -1037,11 +1039,12 @@ class Wfst():
 
     def delete_arcs(self, dead_arcs):
         """
-        Remove arcs. [destructive]
+        Remove arcs.
         Implemented by deleting all arcs from relevant states 
         then adding back all non-dead arcs, as suggested in the 
         OpenFst forum: 
         https://www.openfst.org/twiki/bin/view/Forum/FstForumArchive2014
+        [destructive]
         """
         fst = self.fst
 
@@ -1071,8 +1074,9 @@ class Wfst():
 
     def prune_arcs(self):
         """
-        Delete duplicate arcs (which are allowed by Fst). [destructive]
+        Delete duplicate arcs (which are allowed by Fst).
         todo: sum weights of arcs with same src/ilabel/olabel/dest
+        [destructive]
         """
         fst = self.fst
         q_arc_set = set()
@@ -1108,7 +1112,8 @@ class Wfst():
         func(<Wfst, q, t> -> boolean) is True. The function 
         receives this machine, a source state id, and an arc 
         as arguments; it can examine the src/input/output/dest and 
-        associated labels of the arc. [destructive]
+        associated labels of the arc.
+        [destructive]
         """
         dead_arcs = []
         fst = self.fst
@@ -1125,8 +1130,8 @@ class Wfst():
         machine that preserves input/output labels but not 
         state labels, output strings, or arc features.
         Alternative method that also preserves state labels 
-        and arc features: create an accept for the input string
-        with accep() and then compose with this machine.
+        and arc features: create an acceptor for the input
+        string with accep() and then compose with this machine.
         """
         fst = self.fst
         isymbols = fst.input_symbols().copy()
@@ -1158,9 +1163,9 @@ class Wfst():
         """
         Push arc weights and optionally remove total weight
         (see pynini.push/Fst.push, pynini.reweight/Fst.reweight).
-        [destructive]
         note: assume that Fst.push() does not change state ids
         or reorder arcs within state.
+        [destructive]
         """
         self.fst = self.fst.push( \
             delta=delta,
@@ -1172,11 +1177,11 @@ class Wfst():
         """
         Globally normalize this machine.
         (see pynini.push, pynini.reweight, Fst.push).
-        [destructive]
         Equivalent to:
             dist = shortestdistance(wfst, reverse=True)
             wfst.reweight(potentials=dist, reweight_type='to_initial')
             // then remove total weight
+        [destructive]
         """
         return self.push_weights(delta=delta,
                                  reweight_type='to_initial',
@@ -1195,10 +1200,10 @@ class Wfst():
         Push labels; see pynini.push with arguments
         remove_common_affix (False) and 
         reweight_type ("to_initial" or "to_final").
-        [destructive]
         note: assume that Fst.push() does not change state ids
         or reorder arcs within state.
         todo: testme
+        [destructive]
         """
         self.fst = pynini.push(self.fst,
                                push_labels=True,
@@ -1251,7 +1256,7 @@ class Wfst():
         osymbols = fst.output_symbols().copy()
         # Swap input and output labels in backing fst.
         fst.invert()
-        # Alternative with explicit label swap.
+        # Alternative with explicit label swap:
         # for q in fst.states():
         #     q_arcs = fst.mutable_arcs(q)
         #     for t in q_arcs:  # note: unstable arc reference
@@ -1267,8 +1272,8 @@ class Wfst():
 
     def copy(self):
         """
-        Copy preserving input/output/state symbols 
-        and string outputs.
+        Copy this machine, preserving input/output/state
+        symbols and string outputs.
         """
         fst = self.fst
         wfst = Wfst( \
@@ -1452,7 +1457,6 @@ def trans(ilabel, olabel, isymbols, osymbols, **kwargs):
         wfst.add_arc(src, x, y, None, dest)
         src = dest
     wfst.set_final(src)
-
     return wfst
 
 
@@ -1663,7 +1667,7 @@ def ngram_left(length, isymbols, tier=None, arc_type='standard'):
     wfst.add_arc(src=q0, ilabel=bos, dest=q1)
 
     # Interior arcs.
-    # xα -- y --> αy for each y
+    # xα -- y -> αy for each y
     Q = {q0, q1}
     Qnew = set(Q)
     for l in range(length + 1):
@@ -1744,7 +1748,7 @@ def ngram_right(length, isymbols, tier=None, arc_type='standard'):
     wfst.add_arc(src=qp, ilabel=eos, dest=qf)
 
     # Interior arcs.
-    # xα --> x --> αy for each y
+    # xα -- x -> αy for each y
     Q = {qf, qp}
     Qnew = set(Q)
     for l in range(length + 1):
