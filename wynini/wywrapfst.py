@@ -1172,6 +1172,7 @@ class Wfst():
         """
         Globally normalize this machine.
         (see pynini.push, pynini.reweight, Fst.push).
+        [destructive]
         Equivalent to:
             dist = shortestdistance(wfst, reverse=True)
             wfst.reweight(potentials=dist, reweight_type='to_initial')
@@ -1182,7 +1183,10 @@ class Wfst():
                                  remove_total_weight=True)
 
     def reweight(self, potentials, reweight_type='to_initial'):
-        # see pynini.reweight / Fst.reweight
+        """
+        See pynini.reweight / Fst.reweight
+        [destructive]
+        """
         self.fst.reweight(potentials, reweight_type)
         return self
 
@@ -1240,6 +1244,7 @@ class Wfst():
         Invert mapping (exchange input and output labels).
         note: assume Fst.invert() does not change state ids
         or order of arcs within state.
+        [destructive]
         """
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -1300,6 +1305,9 @@ class Wfst():
         return (q, ilabel, olabel, weight, dest)
 
     def print(self, show=True, **kwargs):
+        """
+        Print with method from pynini.
+        """
         fst = self.fst
         # Symbol table for state labels.
         state_symbols = pynini.SymbolTable()
@@ -1317,7 +1325,9 @@ class Wfst():
         return self.print(show=False)
 
     def draw(self, source, acceptor=True, portrait=True, **kwargs):
-        """ Write FST in dot format to file (source). """
+        """
+        Write underlying FST in dot format to file (= source).
+        """
         fst = self.fst
         # State symbol table.
         state_symbols = pynini.SymbolTable()
@@ -1341,13 +1351,17 @@ class Wfst():
         return ret
 
     def save(self, outfile):
-        """ Save to pickle file. """
+        """
+        Save to pickle file.
+        """
         with open(outfile, 'wb') as f:
             pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
 
     @classmethod
     def load(cls, infile):
-        """ Load from pickle file. """
+        """
+        Load from pickle file.
+        """
         with open(infile, 'rb') as f:
             wfst = pickle.load(f)
         return wfst
