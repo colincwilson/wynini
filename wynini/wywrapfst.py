@@ -679,14 +679,22 @@ class Wfst():
 
     # Algorithms.
     # todo: difference(), epsnormalize(),
-    # minimize(), rmepsilon()
+    # minimize(), reverse(), rmepsilon()
+
+    # # minimize a determinizable machine
+    # def minimize(m, epsilon):
+    #     m.reverse()
+    #     m = subset_determinize(m, epsilon)
+    #     m.reverse()
+    #     m = subset_determinize(m, epsilon)
+    #     return m
 
     def determinize(self, acceptor=True):
         """
         Subset determinization algorithm
         (e.g., Aho, Sethi, & Ulman 1986:118).
         Applies to transducers after encoding
-        transitions. Ignores state labels,
+        transition labels. Ignores state labels,
         weights, final strings, and features.
         todo: check determinizability
         """
