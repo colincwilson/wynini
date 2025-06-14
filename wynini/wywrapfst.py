@@ -762,8 +762,8 @@ class Wfst():
         for _, isym in input_symbols:
             for _, osym in output_symbols:
                 iosym = Wfst.pair_symbol(isym, osym, sep)
-                iosybols.add(iosym)
-        return config.make_symtable(list(iosymbols))
+                iosymbols.add(iosym)
+        return config.make_symtable(iosymbols)
 
     @classmethod
     def pair_symbol(cls, isym, osym, sep=':'):
@@ -775,10 +775,10 @@ class Wfst():
         epsilon = config.epsilon
         bos = config.bos
         eos = config.eos
-        if isym in [bos, eos] or osym in [bos, eos]:
+        if (isym == osym == bos) or \
+            (isym == osym == eos) or \
+            (isym == osym == eos):
             return isym
-        if isym == osym == epsilon:
-            return epsilon
         iosym = f'{isym} {sep} {osym}'
         return iosym
 
@@ -1383,7 +1383,6 @@ class Wfst():
 
 # # # # # # # # # #
 # Machine constructors.
-# todo: string_file
 
 
 #def empty_transducer(isymbols=None, osymbols=None, arc_type='standard'):
@@ -1466,6 +1465,7 @@ def string_map(inputs, outputs, isymbols, osymbols, add_delim=True, **kwargs):
     (all space-separated). If outputs arg is None,
     treat inputs as a pre-zipped list of pairs.
     todo: optional weight for each (input, output) pair.
+    todo: string_file (inputs and outputs read from file)
     """
     wfst = Wfst(isymbols=isymbols, osymbols=osymbols, **kwargs)
     q0 = wfst.add_state()
