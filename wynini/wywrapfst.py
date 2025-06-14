@@ -30,8 +30,8 @@ class Wfst():
     - https://www.openfst.org/twiki/bin/view/FST/FstQuickTour#FstWeights
     - https://www.openfst.org/twiki/bin/view/FST/FstAdvancedUsage#Weights
     - Weight constructor is Weight(weight_type, weight_value) 
-    where weight_type is "tropical" | "log" | "log64";
-    there are special constructors Weight.zero(weight_type), 
+    where weight_type is "tropical" | "log" | "log64".
+    There are special constructors Weight.zero(weight_type), 
     Weight.one(weight_type).
 
     OpenFst advanced usage:
@@ -693,10 +693,10 @@ class Wfst():
         """
         Subset determinization algorithm
         (e.g., Aho, Sethi, & Ulman 1986:118).
-        Applies to transducers after encoding
-        transition labels. Ignores state labels,
-        weights, final strings, and features.
-        todo: check determinizability
+        Applies to transducers after 'encoding' transition labels
+        (i.e., performs determinization-as-acceptor), followed
+        by 'decoding' the resulting machine.
+        Ignores state labels, weights, final strings, and features.
         """
         epsilon = config.epsilon
         isymbols = self.input_symbols().copy()
@@ -748,12 +748,13 @@ class Wfst():
 
         # State set is final in determinized machine
         # iff any of its states is final in this machine.
+        wfst_finals = set(wfst.finals(label=False))
         finals = []
         for Q in stateMap:
             for q in Q:
-                if q in wfst.finals():
+                if q in wfst_finals:
                     finals.append(Q)
-                    continue
+                    break
 
         # Construct determinized machine.
         if acceptor:
