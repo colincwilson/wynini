@@ -127,7 +127,7 @@ class Wfst():
         self._label2state[label] = q
         return None
 
-    def add_state(self, label=None, start=False, initial=False, final=False):
+    def add_state(self, label=None, initial=False, start=False, final=False):
         """ Add new state, optionally specifying its label. """
         # Enforce one-to-one state labeling.
         if label in self._label2state:
@@ -147,8 +147,8 @@ class Wfst():
         self._state2label[q] = label
         self._label2state[label] = q
         # Initial and final state properties.
-        if start or initial:
-            self.set_start(q)
+        if initial or start:
+            self.set_initial(q)
         if final:
             # todo: accept final weight argument
             self.set_final(q, final)
@@ -170,31 +170,31 @@ class Wfst():
         """ Number of states in this machine. """
         return self.fst.num_states()
 
-    def set_start(self, q):
-        """ Set start state by id or label. """
+    def set_initial(self, q):
+        """ Set initial state by id or label. """
         q = self.state_id(q)
         return self.fst.set_start(q)
 
-    # Alias for set_start().
-    set_initial = set_start
+    # Alias for set_initial().
+    set_start = set_initial
 
-    def start(self, label=True):
-        """ Start state label (or id). """
+    def initial(self, label=True):
+        """ Initial state label (or id). """
         q0 = self.fst.start()
         if not label:
             return q0
         return self.state_label(q0)
 
-    # Alias for start().
-    initial = start
+    # Alias for initial().
+    start = initial
 
-    def is_start(self, q):
-        """ Check start status by id or label. """
+    def is_initial(self, q):
+        """ Check initial status by id or label. """
         q = self.state_id(q)
         return q == self.fst.start()
 
-    # Alias for is_start().
-    is_initial = is_start
+    # Alias for is_initial().
+    is_start = is_initial
 
     def set_final(self, q, weight=None):
         """
@@ -678,15 +678,122 @@ class Wfst():
         return self
 
     # Algorithms.
-    # todo: determinize(), difference(), epsnormalize(),
+    # todo: difference(), epsnormalize(),
     # minimize(), rmepsilon()
+
+    def determinize(self, acceptor=True):
+        """
+        Subset determinization algorithm
+        (e.g., Aho, Sethi, & Ulman 1986:118).
+        Applies to transducers after encoding
+        transitions. Ignores state labels,
+        weights, final strings, and features.
+        todo: check determinizability
+        """
+        epsilon = config.epsilon
+        isymbols = self.input_symbols().copy()
+        osymbols = self.output_symbols().copy()
+        if acceptor:
+            wfst = self
+        else:
+            # Encode labels of transducer.
+            wfst, iosymbols = self.encode_labels()
+
+        # Map from state sets in this machine
+        # to state ids in determinization.
+        stateMap = {}
+
+        # Initial state.
+        q0 = wfst.initial(label=False)
+        Q0 = wfst.epsilon_closure([q0])
+        stateMap[Q0] = 0
+
+        # Main loop.
+        queue = [Q0]
+        q_count = 1
+        transitions = {}
+        while len(queue) > 0:
+            # Pop state set from queue.
+            Q1 = queue.pop()
+            # Group transitions from states in Q1 by label.
+            outgoing = {}  # Map label -> state sets
+            for q in Q1:
+                for t in wfst.arcs(q):
+                    label = wfst.ilabel(t)
+                    if label == epsilon:
+                        continue
+                    try:
+                        outgoing[label].add(t.nextstate)
+                    except:
+                        outgoing[label] = set([t.nextstate])
+            # Determine arcs from Q1 in determinized machine;
+            # add new state sets to the queue.
+            T = set()
+            for label in outgoing:
+                Q2 = wfst.epsilon_closure(outgoing[label])
+                if Q2 not in stateMap:
+                    stateMap[Q2] = q_count
+                    q_count += 1
+                    queue.append(Q2)
+                T.add((Q1, label, Q2))
+            transitions[Q1] = T
+
+        # State set is final in determinized machine
+        # iff any of its states is final in this machine.
+        finals = []
+        for Q in stateMap:
+            for q in Q:
+                if q in wfst.finals():
+                    finals.append(Q)
+                    continue
+
+        # Construct determinized machine.
+        if acceptor:
+            wfst_ = Wfst(isymbols=isymbols)
+        else:
+            wfst_ = Wfst(isymbols=iosymbols)
+        for Q in stateMap:
+            q = stateMap[Q]
+            wfst_.add_state(q, initial=(Q == Q0), final=(Q in finals))
+        for Q, arcs in transitions.items():
+            q = stateMap[Q]
+            for (_, label, Q2) in arcs:
+                wfst_.add_arc(src=q, ilabel=label, dest=stateMap[Q2])
+
+        if not acceptor:
+            # Decode labels of transducer.
+            wfst_ = wfst_.decode_labels(isymbols, osymbols)
+
+        return wfst_
+
+    def epsilon_closure(self, Q1):
+        """
+        Epsilon closure of a set of states in this machine.
+        """
+        epsilon = config.epsilon
+        Q2 = set(Q1)
+        queue = list(Q1)
+        while len(queue) > 0:
+            q = queue.pop()
+            for t in self.arcs(q):
+                label = self.ilabel(t)
+                if label == epsilon:
+                    dest = t.nextstate
+                    if not dest in Q2:
+                        Q2.add(dest)
+                        queue.insert(0, dest)
+        # note: sorted() is needed for set-based identity of states,
+        # tuple() makes the return value hashable
+        Q2 = tuple(sorted(Q2))
+        return Q2
 
     def encode_labels(self, iosymbols=None, sep=':'):
         """
         Convert transducer to acceptor by combining
         input and output label of each arc.
         arg iosymbols: symbol table for encoded labels
-        todo: destructive version, to avoid copying.
+        todo: destructive version, to avoid copying,
+        using fst.mutable_arcs
         [nondestructive]
         """
         # Symbol table for input/output label pairs.
@@ -775,9 +882,8 @@ class Wfst():
         epsilon = config.epsilon
         bos = config.bos
         eos = config.eos
-        if (isym == osym == bos) or \
-            (isym == osym == eos) or \
-            (isym == osym == eos):
+        if (isym == osym) and \
+            (isym == epsilon or isym == bos or isym == eos):
             return isym
         iosym = f'{isym} {sep} {osym}'
         return iosym
@@ -1834,7 +1940,7 @@ def compose(wfst1,
     zero = Weight.zero(wfst.weight_type())
 
     # Initial state (possibly also final).
-    q1, q2 = wfst1.start(), wfst2.start()
+    q1, q2 = wfst1.initial(), wfst2.initial()
     q0 = (q1, q2)
     wfst.add_state(q0, initial=True)
     wfinal1 = wfst1.final(q1)
@@ -2041,7 +2147,7 @@ def compose_sorted(wfst1, wfst2):
     zero = Weight.zero(wfst.weight_type())
 
     # Initial state (possibly also final).
-    q1, q2 = wfst1.start(), wfst2.start()
+    q1, q2 = wfst1.initial(), wfst2.initial()
     q0 = (q1, q2)
     wfst.add_state(q0, initial=True)
     wfinal1 = wfst1.final(q1)
