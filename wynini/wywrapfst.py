@@ -1518,24 +1518,24 @@ def empty_transducer(**kwargs):
     return wfst
 
 
-def accep(x, isymbols, add_delim=True, **kwargs):
+def accep(word, isymbols, sep=' ', add_delim=True, **kwargs):
     """
-    Acceptor for space-separated input (see pynini.accep).
+    Acceptor for separated word (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
     arc_type ("standard", "log", or "log64").
-    todo: optionally set isymbols with symbols in x
     """
-    if not isinstance(x, str):
-        x = ' '.join(x)
+    if not isinstance(word, str):
+        word = sep.join(word)
     if add_delim:
-        x = f'{config.bos} {x} {config.eos}'
+        word = f'{config.bos} {word} {config.eos}'
 
     if isymbols is None:
-        isymbols = config.symtable
+        sigma = word.split(sep)
+        isymbols, _ = config.make_symtable(sigma)
     if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
         isymbols, _ = config.make_symtable(isymbols)
 
-    fst = pynini.accep(x, token_type=isymbols, **kwargs)
+    fst = pynini.accep(word, token_type=isymbols, **kwargs)
     fst.set_input_symbols(isymbols)
     fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
