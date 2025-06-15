@@ -1405,9 +1405,11 @@ class Wfst():
     @classmethod
     def from_fst(cls, fst):
         """ Wrap pynini FST / VectorFst in Wfst. """
+        isymbols = fst.input_symbols().copy()
+        osymbols = fst.output_symbols().copy()
         wfst = Wfst( \
-            fst.input_symbols(),
-            fst.output_symbols(),
+            isymbols,
+            osymbols,
             fst.arc_type())
         wfst.fst = fst
         wfst._state2label = {q: q for q in fst.states()}
