@@ -4,8 +4,8 @@ import itertools
 import numpy as np
 
 import pynini
-from pynini import Fst, Arc, Weight, \
-    SymbolTable, SymbolTableView
+from pynini import (Fst, Arc, Weight, \
+    SymbolTable, SymbolTableView)
 from graphviz import Source
 
 from wynini import config
@@ -1422,7 +1422,7 @@ class Wfst():
             return self.fst
         return self.fst.copy()
 
-    # Printing/drawing/saving/loading.
+    # Print/draw/save/load.
 
     def print_arc(self, q, t):
         """
@@ -1460,8 +1460,7 @@ class Wfst():
         Write underlying FST in dot format to file (= source).
         """
         fst = self.fst
-        # State symbol table.
-        state_symbols = pynini.SymbolTable()
+        state_symbols = pynini.SymbolTable()  # State symbol table.
         for q, label in self._state2label.items():
             state_symbols.add_symbol(str(label), q)
         return fst.draw(source,
@@ -1826,7 +1825,7 @@ def ngram_right(length, isymbols, tier=None, arc_type='standard'):
     """
     Acceptor (identity transducer) for segments in immediately 
     following contexts (futures) of specified length.
-    (see ngram_left() on tier handling)
+    (see ngram_left() for tier handling)
     """
     epsilon = config.epsilon
     bos = config.bos
@@ -2409,7 +2408,7 @@ def union(wfst1, wfst2):
 
 # # # # # # # # # #
 # Operations on one machine.
-# todo: closure
+# todo: closure (generalization of plus and star)
 
 
 def ques(wfst):
@@ -2565,7 +2564,7 @@ def arc_equal(arc1, arc2):
     return val
 
 
-# todo: move to string util
+# todo: use method from string util
 def str_pad(word, n, sep=' ', pad=config.epsilon):
     """
     Pad end of string or list up to length n.
