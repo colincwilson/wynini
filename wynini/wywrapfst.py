@@ -2,6 +2,7 @@ import re, sys, pickle
 import bisect
 import itertools
 import numpy as np
+from pathlib import Path
 
 import pynini
 from pynini import (Fst, Arc, Weight, \
@@ -217,7 +218,7 @@ class Wfst():
         q = self.state_id(q)
         return self.fst.final(q)
 
-    # Alias for final.
+    # Alias for final().
     final_weight = final
 
     def finals(self, label=True):
@@ -554,9 +555,9 @@ class Wfst():
     def project(self, project_type):
         """
         Project input or output labels.
+        assume: Fs.project() does not reindex states
         [destructive]
         """
-        # assumption: Fst.project() does not reindex states.
         fst = self.fst
         if project_type == 'input':
             isymbols = fst.input_symbols().copy()
@@ -591,7 +592,7 @@ class Wfst():
     def map_weights(self, map_type='identity', **kwargs):
         """
         Map arc weights (see pynini.arcmap).
-        map_type is "identity", "invert", "quantize", "plus", 
+        Arg map_type is "identity", "invert", "quantize", "plus", 
         "power", "rmweight", "times", "to_log", "to_log64",
         or "to_std" (which maps to the tropical semiring).
         # note: assume that pynini.arcmap() does not reindex states.
@@ -638,17 +639,13 @@ class Wfst():
         return self
 
     def features(self, q, t, default={}):
-        """
-        Get features of arc t from state q.
-        """
+        """ Get features of arc t from state q. """
         q = self.state_id(q)
         t_ = (q, t.ilabel, t.olabel, t.nextstate)
         return self.phi.get(t_, default)
 
     def set_features(self, q, t, phi_t):
-        """
-        Set features of arc t from state q.
-        """
+        """ Set features of arc t from state q. """
         if not phi_t:
             return
         q = self.state_id(q)
@@ -691,8 +688,7 @@ class Wfst():
 
     def determinize(self, acceptor=True):
         """
-        Subset determinization algorithm
-        (e.g., Aho, Sethi, & Ulman 1986:118).
+        Subset determinization (e.g., Aho, Sethi, & Ulman 1986:118).
         Applies to transducers after 'encoding' transition labels
         (i.e., performs determinization-as-acceptor), followed
         by 'decoding' the resulting machine.
@@ -963,12 +959,12 @@ class Wfst():
             path_iter.next()
             yield path
 
-    def accepted_strings(self,
-                         side='input',
-                         has_delim=True,
-                         weights=True,
-                         max_len=10,
-                         delete_epsilon=True):
+    def strings(self,
+                side='input',
+                has_delim=True,
+                weights=False,
+                max_len=10,
+                delete_epsilon=True):
         """
         Generate input (default) / output / aligned io labels
         of paths through this machine (possibly cyclic) up
@@ -976,6 +972,10 @@ class Wfst():
         optionally with summary path weights.
         For acyclic machines, see paths() above.
         """
+        # Fail fast if no states in this machine.
+        if self.num_states() == 0:
+            return set()
+
         fst = self.fst
         q0 = fst.start()
         weight_type = fst.weight_type()
@@ -1047,7 +1047,7 @@ class Wfst():
             paths_old, paths_new = paths_new, paths_old
             paths_new.clear()
 
-    strings = accepted_strings  # Alias.
+    accepted_strings = strings  # Alias.
 
     def connect(self):
         """
@@ -1405,13 +1405,15 @@ class Wfst():
     @classmethod
     def from_fst(cls, fst):
         """ Wrap pynini FST / VectorFst in Wfst. """
+        if isinstance(fst, (str, Path)):
+            fst = pynini.Fst.read(fst)
         isymbols = fst.input_symbols().copy()
         osymbols = fst.output_symbols().copy()
         wfst = Wfst( \
             isymbols,
             osymbols,
             fst.arc_type())
-        wfst.fst = fst
+        wfst.fst = fst  # todo: copy
         wfst._state2label = {q: q for q in fst.states()}
         wfst._label2state = wfst._state2label.copy()
         return wfst

@@ -50,5 +50,11 @@ def make_symtable(sigma):
     return symtable, syms
 
 
-# todo: pretty-print symbol table;
-# see pynini.SymbolTableView.write_text
+def print_symtable(symtable):
+    """
+    Print SymbolTable / SymbolTableVIew as 
+    (symbol_id, symbol) pairs.
+    see pynini.SymbolTableView.write_text
+    """
+    for (sym_id, sym) in symtable:
+        print(f'{sym_id}\t{sym}')
