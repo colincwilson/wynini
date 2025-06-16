@@ -798,7 +798,7 @@ class Wfst():
         Convert transducer to acceptor by combining
         input and output label of each arc.
         arg iosymbols: symbol table for encoded labels
-        todo: destructive version, to avoid copying,
+        todo: destructive version (to avoid copying)
         using fst.mutable_arcs
         [nondestructive]
         """
@@ -1383,6 +1383,15 @@ class Wfst():
         self.set_input_symbols(osymbols)
         self.set_output_symbols(isymbols)
         return self
+
+    # def ques(self):
+    #     return wynini.ques(self)
+
+    # def plus(self):
+    #     return wynini.plus(self)
+
+    # def star(self):
+    #     return wynini.star(self)
 
     # Copy/create machines.
 
