@@ -693,6 +693,7 @@ class Wfst():
         (i.e., performs determinization-as-acceptor), followed
         by 'decoding' the resulting machine.
         Ignores state labels, weights, final strings, and features.
+        todo: auto-set acceptor flag
         """
         epsilon = config.epsilon
         isymbols = self.input_symbols().copy()
@@ -1355,7 +1356,7 @@ class Wfst():
         elif ret_type == 'wfst':
             wfst_out = Wfst.from_fst(fst_out)
             return wfst_out
-        # default: return output strings
+        # Default: return output strings.
         path_iter = fst_out.paths(output_token_type=osymbols)
         return path_iter.ostrings()
 
@@ -1577,7 +1578,12 @@ def trans(ilabel, olabel, isymbols, osymbols, **kwargs):
     return wfst
 
 
-def string_map(inputs, outputs, isymbols, osymbols, add_delim=True, **kwargs):
+def string_map(inputs,
+               outputs=None,
+               isymbols=None,
+               osymbols=None,
+               add_delim=True,
+               **kwargs):
     """
     Transducer that maps input strings to output strings
     (all space-separated). If outputs arg is None,
@@ -1604,7 +1610,7 @@ def string_map(inputs, outputs, isymbols, osymbols, add_delim=True, **kwargs):
     pairs = zip(inputs, outputs) if outputs is not None \
         else inputs
     # Eliminate spurious amiguity, preserving original order.
-    pairs = list(dict.fromkeys(pairs))
+    #pairs = list(dict.fromkeys(pairs))
     for ilabel, olabel in pairs:
         if ilabel is not None:
             ilabels = ilabel.split(' ')
