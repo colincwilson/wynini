@@ -623,14 +623,16 @@ class Wfst():
         [destructive]
         """
         if func is None:
-            # Identity function by default.
-            return self
+            return self  # No change.
         fst = self.fst
         weight_type = self.weight_type()
+        One = Weight.one(weight_type)
         for q in fst.states():
             q_arcs = fst.mutable_arcs(q)
             for t in q_arcs:  # note: unstable arc reference
                 w = func(self, q, t)
+                if w is None:  # Handle partial functions.
+                    w = One
                 if isinstance(w, int) or isinstance(w, float):
                     w = Weight(weight_type, w)
                     # todo: handle non-numerical weights
@@ -1239,39 +1241,6 @@ class Wfst():
                     dead_arcs.append(t)
         return delete_arcs(dead_arcs)
 
-    def transduce(self, x, add_delim=True, ret_type='outputs'):
-        """
-        Transduce space-separated input with this machine, 
-        returning iterator over output strings (default) or 
-        machine that preserves input/output labels but not 
-        state labels, output strings, or arc features.
-        Alternative method that also preserves state labels 
-        and arc features: create an acceptor for the input
-        string with accep() and then compose with this machine.
-        """
-        fst = self.fst
-        isymbols = fst.input_symbols().copy()
-        osymbols = fst.output_symbols().copy()
-
-        if not isinstance(x, str):
-            x = ' '.join(x)
-        if add_delim:
-            x = config.bos + ' ' + x + ' ' + config.eos
-        fst_in = pynini.accep(x, token_type=isymbols)
-
-        fst_out = fst_in @ fst
-        fst_out.set_input_symbols(isymbols)
-        fst_out.set_output_symbols(osymbols)
-
-        if ret_type == 'wfst':
-            wfst_out = Wfst.from_fst(fst_out)
-            return wfst_out
-        if ret_type == 'fst':
-            return fst_out
-        # default: return output strings
-        path_iter = fst_out.paths(output_token_type=osymbols)
-        return path_iter.ostrings()
-
     def push_weights(self,
                      delta=1e-6,
                      reweight_type='to_initial',
@@ -1428,6 +1397,51 @@ class Wfst():
                 one,
                 q0)
         return wfst
+
+    def transduce(self, x, add_delim=True, ret_type='outputs'):
+        """
+        Transduce space-separated input with this machine, 
+        returning iterator over output strings (default) or 
+        machine that preserves input/output labels but not 
+        state labels, output strings, or arc features.
+        Alternative method that also preserves state labels 
+        and arc features: create an acceptor for the input
+        string with accep() and then compose with this machine.
+        """
+        fst = self.fst
+        isymbols = fst.input_symbols().copy()
+        osymbols = fst.output_symbols().copy()
+
+        if not isinstance(x, str):
+            x = ' '.join(x)
+        if add_delim:
+            x = config.bos + ' ' + x + ' ' + config.eos
+        fst_in = pynini.accep(x, token_type=isymbols)
+
+        fst_out = fst_in @ fst
+        fst_out.set_input_symbols(isymbols)
+        fst_out.set_output_symbols(osymbols)
+
+        if ret_type == 'wfst':
+            wfst_out = Wfst.from_fst(fst_out)
+            return wfst_out
+        if ret_type == 'fst':
+            return fst_out
+        # default: return output strings
+        path_iter = fst_out.paths(output_token_type=osymbols)
+        return path_iter.ostrings()
+
+    def compose(self, wfst2, **kwargs):
+        return compose(self, wfst2, **kwargs)
+
+    def compose_sorted(self, wfst2, **kwargs):
+        return compose_sorted(self, wfst2, **kwargs)
+
+    def concat(self, wfst2):
+        return concat(self, wfst2)
+
+    def union(self, wfst2):
+        return union(self, wfst2)
 
     # Copy/create machines.
 
@@ -1591,38 +1605,6 @@ def accep(word, isymbols, sep=' ', add_delim=True, **kwargs):
     return wfst
 
 
-def trans(ilabel, olabel, isymbols, osymbols, **kwargs):
-    """
-    Transducer that maps space-separated input string to
-    space-separated output string. One-off alternative
-    to string_map(); use union() to combine multiple
-    transducers as alteratives.
-    todo: optionally add bos/eos
-    """
-    if ilabel is None:
-        ilabel = config.epsilon
-    if olabel is None:
-        olabel = config.epsilon
-    ilabels = ilabel.split(' ')
-    olabels = olabel.split(' ')
-    ilength = len(ilabels)
-    olength = len(olabels)
-    if ilength < olength:
-        ilabels += [config.epsilon] * (olength - ilength)
-    if ilength > olength:
-        olabels += [config.epsilon] * (ilength - olength)
-
-    wfst = Wfst(isymbols=isymbols, osymbols=osymbols, **kwargs)
-    n = len(ilabels)  # == len(olabels)
-    src = wfst.add_state(initial=True)
-    for (x, y) in zip(ilabels, olabels):
-        dest = wfst.add_state()
-        wfst.add_arc(src, x, y, None, dest)
-        src = dest
-    wfst.set_final(src)
-    return wfst
-
-
 def string_map(inputs,
                outputs=None,
                isymbols=None,
@@ -1630,8 +1612,9 @@ def string_map(inputs,
                add_delim=True,
                **kwargs):
     """
-    Transducer that maps input strings to output strings
-    (all space-separated). If outputs arg is None,
+    Transducer that maps input string tuples/lists or 
+    space-separated strings to output string tuples/lists
+    or space-separated strings. If arg outputs is None,
     treat inputs as a pre-zipped list of pairs.
     todo: optional weight for each (input, output) pair.
     todo: string_file (inputs and outputs read from file)
@@ -1657,18 +1640,27 @@ def string_map(inputs,
     # Eliminate spurious amiguity, preserving original order.
     #pairs = list(dict.fromkeys(pairs))
     for ilabel, olabel in pairs:
-        if ilabel is not None:
+        if ilabel is None:
+            ilabels = [config.epsilon]
+        elif isinstance(ilabel, str):
             ilabels = ilabel.split(' ')
         else:
-            ilabels = [config.epsilon]
-        if olabel is not None:
+            ilabels = list(ilabel)
+
+        if olabel is None:
+            olabels = [config.epsilon]
+        elif isinstance(olabel, str):
             olabels = olabel.split(' ')
         else:
-            olabels = [config.epsilon]
-        if len(ilabels) < len(olabels):
-            ilabels = str_pad(ilabels, len(olabels))
-        elif len(olabels) < len(ilabels):
-            olabels = str_pad(olabels, len(ilabels))
+            olabels = list(olabel)
+
+        ilength = len(ilabels)
+        olength = len(olabels)
+        if ilength < olength:
+            ilabels += [config.epsilon] * (olength - ilength)
+        elif olength < ilength:
+            olabels += [config.epsilon] * (ilength - olength)
+
         n = len(ilabels)  # == len(olabels)
         dest = q_start
         for i, (x, y) in enumerate(zip(ilabels, olabels)):
