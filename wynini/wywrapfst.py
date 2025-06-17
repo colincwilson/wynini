@@ -1384,14 +1384,50 @@ class Wfst():
         self.set_output_symbols(isymbols)
         return self
 
-    # def ques(self):
-    #     return wynini.ques(self)
+    def ques(self):
+        """ Optionality. [nondestructive] """
+        wfst = self.copy()
+        one = Weight.one(wfst.weight_type())
+        q0 = wfst.initial()
+        qf = wfst.add_state(final=True)
+        wfst.add_arc( \
+            q0,
+            config.epsilon,
+            config.epsilon,
+            one,
+            qf)
+        return wfst
 
-    # def plus(self):
-    #     return wynini.plus(self)
+    def plus(self):
+        """ Plus operator. [nondestructive] """
+        wfst = self.copy()
+        one = Weight.one(wfst.weight_type())
+        q0 = wfst.initial()
+        for qf in wfst.finals():
+            wfst.add_arc( \
+                qf,
+                config.epsilon,
+                config.epsilon,
+                one,
+                q0)
+        return wfst
 
-    # def star(self):
-    #     return wynini.star(self)
+    def star(wfst):
+        """ Repetition. [destructive] """
+        wfst = wfst.copy()
+        one = Weight.one(wfst.weight_type())
+        q0 = wfst.initial()
+        wfst.set_final(q0, one)
+        for qf in wfst.finals():
+            if qf == q0:  # use implicit epsilon self-transition
+                continue
+            wfst.add_arc( \
+                qf,
+                config.epsilon,
+                config.epsilon,
+                one,
+                q0)
+        return wfst
 
     # Copy/create machines.
 
@@ -2420,59 +2456,6 @@ def union(wfst1, wfst2):
     wfst.add_arc(q0, config.epsilon, config.epsilon, one, q1)
     wfst.add_arc(q0, config.epsilon, config.epsilon, one, q2)
 
-    return wfst
-
-
-# # # # # # # # # #
-# Operations on one machine.
-# todo: closure (generalization of plus and star)
-
-
-def ques(wfst):
-    """ Optionality. """
-    wfst = wfst.copy()
-    one = Weight.one(wfst.weight_type())
-    q0 = wfst.initial()
-    qf = wfst.add_state(final=True)
-    wfst.add_arc( \
-        q0,
-        config.epsilon,
-        config.epsilon,
-        one,
-        qf)
-    return wfst
-
-
-def plus(wfst):
-    """ Plus operator. """
-    wfst = wfst.copy()
-    one = Weight.one(wfst.weight_type())
-    q0 = wfst.initial()
-    for qf in wfst.finals():
-        wfst.add_arc( \
-            qf,
-            config.epsilon,
-            config.epsilon,
-            one,
-            q0)
-    return wfst
-
-
-def star(wfst):
-    """ Repetition. """
-    wfst = wfst.copy()
-    one = Weight.one(wfst.weight_type())
-    q0 = wfst.initial()
-    wfst.set_final(q0, one)
-    for qf in wfst.finals():
-        if qf == q0:  # use implicit epsilon self-transition
-            continue
-        wfst.add_arc( \
-            qf,
-            config.epsilon,
-            config.epsilon,
-            one,
-            q0)
     return wfst
 
 
