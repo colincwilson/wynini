@@ -6,7 +6,7 @@ from pynini import Weight
 
 from wynini import config, Wfst, shortestdistance
 
-# Reference:
+# References:
 # * Eisner, J. (2002). Parameter estimation for probabilistic
 # finite-state transducers. In Proceedings of the 40th Annual
 # Meeting of the Association for Computational Linguistics (pp. 1-8).
@@ -71,15 +71,13 @@ def assign_weights(wfst, w):
     """
     wfst.map_weights('to_log')
     fst = wfst.fst
-    one = Weight('log', 0.0)
+    One = Weight('log', 0.0)
     for q in fst.states():
         q_arcs = fst.mutable_arcs(q)
         for t in q_arcs:  # note: unstable arc reference
             phi_t = wfst.features(q, t)
-            if phi_t:
-                t.weight = Weight('log', dot_product(phi_t, w))
-            else:
-                t.weight = one
+            t.weight = Weight('log', dot_product(phi_t, w)) \
+                if phi_t is not None else One
             q_arcs.set_value(t)
     return wfst
 
@@ -150,7 +148,7 @@ def expected(wfst, w=None):
         for t in fst.arcs(q):
             # Feature vector.
             phi_t = wfst.features(q, t)
-            if not phi_t:
+            if phi_t is None:
                 continue
             # Unnormalized -logprob of all paths through t.
             plog = alpha[q] + float(t.weight) + beta[t.nextstate]
@@ -184,7 +182,7 @@ def update(w, grad, alpha=1.0, w_min=1e-4):
     """
     Update weights in-place with neg gradient,
     learning rate alpha, and minimum weight w_min.
-    todo: regularizer(s)
+    todo: regularizer(s); interface to adagrad, etc.
     note: features without entries in grad are 
     not updated (except for regularization).
     """
