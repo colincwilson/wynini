@@ -8,7 +8,7 @@ from wynini.wywrapfst import *
 config.init()
 
 # Simple acceptor.
-M = trellis(length=2, arc_type='log')
+M = trellis(length=2, isymbols=['a', 'b'], arc_type='log')
 M.print(acceptor=True, show_weight_one=True)
 
 
