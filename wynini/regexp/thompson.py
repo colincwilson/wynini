@@ -1,6 +1,9 @@
 # Construct FSA from parsed regexp as in Thompson (xxxx).
-import regexp_parser
+import sys
+import string
 from pynini import SymbolTable, SymbolTableView
+
+from parser import Parser
 import wynini
 from wynini import *
 
@@ -18,7 +21,6 @@ class Thompson():
 
     def apply(self, root):
         """ Build FSA from root of parsed regexp. """
-        print(root)
         wfst = self.build(root)
         wfst = wfst.connect()
         return wfst
@@ -30,9 +32,11 @@ class Thompson():
         elif (node[0] == '|'):
             wfst = self.buildPipe(self.build(node[1]), self.build(node[2]))
         elif (node[0] == '+'):
-            wfst = self.BuildPlus(self.build(node[1]))
+            wfst = self.buildPlus(self.build(node[1]))
         elif (node[0] == '*'):
             wfst = self.buildStar(self.build(node[1]))
+        elif (node[0] == '?'):
+            wfst = self.buildQues(self.build(node[1]))
         else:
             wfst = self.buildSeg(node)
         return wfst
@@ -56,6 +60,11 @@ class Thompson():
         wfst = wynini.star(wfst1)
         return wfst
 
+    # Optionality.
+    def buildQues(self, wfst1):
+        wfst = wynini.ques(wfst1)
+        return wfst
+
     # Consumption.
     def buildSeg(self, node):
         wfst = wynini.accep(node[0], isymbols=self.isymbols, add_delim=False)
@@ -63,10 +72,15 @@ class Thompson():
 
 
 if __name__ == "__main__":
-    pattern = "(a|b)*(c)"
-    parser = regexp_parser.Parser(pattern)
-    thompson = Thompson(isymbols=['a', 'b', 'c'])
-    wfst = thompson.apply(parser.parse())
+    # Test with regexp from commandline.
+    regexp = "(a|b)+(c|d)?"
+    if len(sys.argv) > 1:
+        regexp = sys.argv[1]
+    parser = Parser(regexp)
+    parse = parser.parse()
+    print(parse)
+    thompson = Thompson(isymbols=string.ascii_lowercase)
+    wfst = thompson.apply(parse)
     wfst = wfst.connect().determinize()
-    wfst.draw('fst/wfst_thompson.dot')
+    wfst.draw('fst/thompson.dot')
     print(wfst)

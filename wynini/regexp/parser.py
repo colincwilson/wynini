@@ -1,6 +1,8 @@
-# Parse regular expressions.
+# Parse simple regular expressions (with | + * ?).
 # todo: namedtuple for AST nodes
 import re, sys
+
+meta = ['(', ')', '|', '.', '*', '+', '?']
 
 
 class Parser:
@@ -17,7 +19,7 @@ class Parser:
 
     # exp := "dot | expr" | "dot"
     def expr(self):
-        #		print('expr ', (self.scanner.data, self.scanner.next))
+        # print('expr ', (self.scanner.data, self.scanner.next))
         left = self.dot()
         if self.scanner.peek() == '|':
             self.scanner.pop()
@@ -28,7 +30,7 @@ class Parser:
 
     # dot := "star . dot" | "star"
     def dot(self):
-        #		print('dot ', (self.scanner.data, self.scanner.next))
+        # print('dot ', (self.scanner.data, self.scanner.next))
         left = self.star()
         if self.scanner.peek() == '.':
             self.scanner.pop()
@@ -37,19 +39,25 @@ class Parser:
         else:
             return left
 
-    # star := "atom *" | "atom"
+    # star := "atom *" | "atom +" | "atom ?" | "atom"
     def star(self):
-        #		print('star ', (self.scanner.data, self.scanner.next))
+        # print('star ', (self.scanner.data, self.scanner.next))
         left = self.atom()
         if self.scanner.peek() == '*':
             self.scanner.pop()
             return ('*', left, None)
+        elif self.scanner.peek() == '+':
+            self.scanner.pop()
+            return ('+', left, None)
+        elif self.scanner.peek() == '?':
+            self.scanner.pop()
+            return ('?', left, None)
         else:
             return left
 
     # atom := "seg" | "( expr )"
     def atom(self):
-        #		print('atom ', (self.scanner.data, self.scanner.next))
+        # print('atom ', (self.scanner.data, self.scanner.next))
         left = None
         if self.scanner.peek() == '(':
             self.scanner.pop()
@@ -62,7 +70,7 @@ class Parser:
 
     # seg
     def seg(self):
-        #		print('seg ', (self.scanner.data, self.scanner.next))
+        # print('seg ', (self.scanner.data, self.scanner.next))
         return (self.scanner.pop(), None, None)
 
 
@@ -72,14 +80,14 @@ class Scanner:
         self.data = self.preprocess(regexp)
         self.next = 0
 
-    # insert explicit concatenation symbol (`.')
+    # Insert explicit concatenation symbol (.)
     # between regexp symbols.
     def preprocess(self, regexp):
         # Remove leading, trailing, and extra whitespace.
         regexp = re.sub(r'^\s*', '', regexp)
         regexp = re.sub(r'\s*$', '', regexp)
         regexp = re.sub(r'\s\s*', ' ', regexp)
-        # remove whitespace before and after punct.
+        # Remove whitespace before and after punct.
         regexp = re.sub(r'\s*(\W)', '\\1', regexp)
         regexp = re.sub(r'(\W)\s*', '\\1', regexp)
         data = ''
@@ -88,31 +96,30 @@ class Scanner:
             next = regexp[i + 1]
             if current != ' ':
                 data += current
-            if current == ' ' or current == ')' or current == '*':
-                if not (next == ')' or next == '|' or next == '*'):
+            if current in [' ', ')', '*', '+', '?']:
+                if not next in [')', '|', '*', '+', '?']:
                     data += '.'
         if (regexp[-1] != ' '):
             data += regexp[-1]
         # print(data)
         return data
 
-    # reset _next_ to 0
+    # Reset this scanner.
     def reset(self):
         self.next = 0
 
-    # return the next token
+    # Return the next token.
     def peek(self):
-        meta = ['(', ')', '*', '|', '.']
-        # return null if have reached end of data
+        # Return null if have reached end of data.
         if (self.next >= len(self.data)):
             return None
-        # return character at _next_ if it is special
+        # Return next character if meta sym.
         val = self.data[self.next]
         if val in meta:
             return val
-        # else return the substring of _data_ from
-        # _next_ up to but not including the next
-        # instance of [()*|.] or the end of _data_
+        # Else return the substring of data from
+        # next up to but not including the next
+        # instance of meta sym or end of data.
         end = self.next + 1
         while 1:
             if end >= len(self.data):
@@ -132,6 +139,8 @@ class Scanner:
 
 if __name__ == "__main__":
     # Test on regexp from commandline.
-    regexp = sys.argv[1]
+    regexp = "(a|b)?"
+    if len(sys.argv) > 1:
+        regexp = sys.argv[1]
     parser = Parser(regexp)
     print(parser.parse())
