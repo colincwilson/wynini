@@ -13,14 +13,11 @@ meta = ['(', ')', '|', '.', '*', '+', '?']
 
 class Parser:
 
-    def __init__(self, regexp=None, scanner=None):
-        if regexp:
-            self.scanner = Scanner(regexp)
-        else:
-            self.scanner = scanner
+    def __init__(self):
+        self.scanner = None
 
-    def parse(self):
-        self.scanner.reset()
+    def parse(self, regexp):
+        self.scanner = Scanner(regexp)
         return self.expr()
 
     # exp := "dot | expr" | "dot"
@@ -153,8 +150,10 @@ class Thompson():
             isymbols, _ = config.make_symtable(isymbols)
         self.isymbols = isymbols
 
-    def apply(self, root):
-        """ Build FSA from root of parsed regexp. """
+    def to_wfst(self, regexp):
+        """ Build FSA from regexp. """
+        parser = Parser()
+        root = parser.parse(regexp)
         wfst = self.build(root)
         wfst = wfst.connect()
         return wfst
@@ -210,11 +209,11 @@ if __name__ == "__main__":
     regexp = "(a|b)+(c|d)?"
     if len(sys.argv) > 1:
         regexp = sys.argv[1]
-    parser = Parser(regexp)
-    parse = parser.parse()
+    parser = Parser()
+    parse = parser.parse(regexp)
     print(parse)
     thompson = Thompson(isymbols=string.ascii_lowercase)
-    wfst = thompson.apply(parse)
+    wfst = thompson.to_wfst(regexp)
     wfst = wfst.connect().determinize()
     wfst.draw('fst/thompson.dot')
     print(wfst)
