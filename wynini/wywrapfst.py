@@ -59,6 +59,15 @@ class Wfst():
         self.sigma = {}  # State id -> output string.
         self.phi = {}  # Arc -> loglinear features ({f_k: v_k}).
 
+    def info(self):
+        """
+        Number of states and arcs, weight type.
+        """
+        nstate = self.num_states()
+        narc = self.num_arcs()
+        weight_type = self.weight_type()
+        return f'{nstate} states | {narc} arcs | {weight_type} weights'
+
     # Input/output labels (most delegate to pynini.Fst).
 
     def input_symbols(self):
@@ -258,7 +267,212 @@ class Wfst():
         self._label2state = label2state
         return self
 
-    # Arcs.
+    def accessible(self, forward=True):
+        """
+        Ids of states accessible from initial state (forward) 
+        -or- coaccessible from final states (backward).
+        States are sorted (reverse-)topologically.
+        """
+        fst = self.fst
+
+        states = []
+        if forward:
+            # Initial state id; forward arcs.
+            Q = set([fst.start()])
+            states += Q
+            T = {}
+            for src in fst.states():
+                T[src] = set()
+                for t in fst.arcs(src):
+                    dest = t.nextstate
+                    T[src].add(dest)
+        else:
+            # Final state ids; backward arcs
+            # todo: use finals()
+            Q = set([q for q in fst.states() if self.is_final(q)])
+            states += Q
+            T = {}
+            for src in fst.states():
+                for t in fst.arcs(src):
+                    dest = t.nextstate
+                    if dest not in T:
+                        T[dest] = set()
+                    T[dest].add(src)
+
+        # (Co)accessible state ids.
+        Q_old = set()
+        Q_new = set(Q)
+        while len(Q_new) != 0:
+            Q_old, Q_new = Q_new, Q_old
+            Q_new.clear()
+            for src in filter(lambda q1: q1 in T, Q_old):
+                for dest in filter(lambda q2: q2 not in Q, T[src]):
+                    Q.add(dest)
+                    Q_new.add(dest)
+                    states.append(dest)
+        #return Q
+        return states
+
+    def coaccessible(self):
+        """ Alias for accessible. """
+        return self.accessible(forward=False)
+
+    def delete_states(self, states, connect=True):
+        """
+        Remove states by id while preserving state labels, 
+        arc weights, and arc features.
+        [nondestructive]
+        """
+        fst = self.fst
+        live_states = set(fst.states()) - states
+
+        # Preserve input/output symbols and aweight type.
+        wfst = Wfst( \
+            self.input_symbols(),
+            self.output_symbols(),
+            fst.arc_type())
+
+        # Reindex live states, copying labels.
+        state_map = {}
+        q0 = fst.start()
+        for q in live_states:
+            q_label = self.state_label(q)
+            q_id = wfst.add_state(q_label)
+            state_map[q] = q_id
+            if q == q0:
+                wfst.set_start(q_id)
+            wfst.set_final(q_id, self.final(q))
+
+        # Copy arcs between live states.
+        for q in live_states:
+            src = state_map[q]
+            for t in filter(lambda t: t.nextstate in live_states, fst.arcs(q)):
+                dest = state_map[t.nextstate]
+                wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest)
+                phi_t = self.features(q, t)
+                if phi_t:
+                    t_ = (src, t.ilabel, t.olabel, dest)
+                    wfst.phi[t_] = phi_t
+
+        if connect:
+            wfst.connect()
+        return wfst
+
+    # Arcs/transitions.
+
+    def ilabel(self, x):
+        """ Arc input label. """
+        if isinstance(x, Arc):
+            x = x.ilabel
+        return self.fst.input_symbols().find(x)
+
+    def olabel(self, x):
+        """ Arc output label. """
+        if isinstance(x, Arc):
+            x = x.olabel
+        return self.fst.output_symbols().find(x)
+
+    def weight(self, arc):
+        """ Weight on arc. """
+        return arc.weight
+
+    def arc_type(self):
+        """ Arc type (standard, log, log64). """
+        return self.fst.arc_type()
+
+    def weight_type(self):
+        """ Weight type (tropical, log, log64). """
+        return self.fst.weight_type()
+
+    def num_arcs(self, src=None):
+        """
+        Number of arcs from designated state (out-degree)
+        or total number of arcs.
+        """
+        fst = self.fst
+        if src is None:
+            n = 0
+            for q in fst.states():
+                n += fst.num_arcs(q)
+            return n
+        src = self.state_id(src)
+        return fst.num_arcs(src)
+
+    def num_input_epsilons(self, src=None):
+        """
+        Number of arcs with input epsilon from one
+        state or from all states.
+        """
+        fst = self.fst
+        if src is None:
+            n = 0
+            for src in self.state_ids():
+                n += fst.num_input_epsilons(src)
+            return n
+        src = self.state_id(src)
+        return fst.num_input_epsilons(src)
+
+    def num_output_epsilons(self, src):
+        """
+        Number of arcs with output epsilon from one
+        state or from all states.
+        """
+        fst = self.fst
+        if src is None:
+            n = 0
+            for src in self.state_ids():
+                n += fst.num_output_epsilons(src)
+            return n
+        src = self.state_id(src)
+        return fst.num_output_epsilons(src)
+
+    def arc_labels(self, sep=None):
+        """
+        Get all ordinary input-output labels.
+        note: get epsilon, bos, eos labels from config.
+        """
+        epsilon = config.epsilon
+        bos = config.bos
+        eos = config.eos
+        for q, t in self.arcs():
+            ilabel = self.ilabel(t)
+            olabel = self.olabel(t)
+            if ilabel in [bos, eos] or olabel in [bos, eos]:
+                continue
+            if ilabel == epsilon and ilabel == olabel:
+                continue
+            if sep:
+                yield f'{ilabel} {sep} {olabel}'  # string
+            else:
+                yield (ilabel, olabel)  # tuple
+        return
+
+    def arcs(self, src=None):
+        """
+        Iterator over arcs from designated state or from all states.
+        # todo: decorate arcs with input/output labels if requested
+        """
+        if src is None:
+            for src in self.state_ids():
+                for t in self.fst.arcs(src):
+                    yield (src, t)  # (src, arc) pair
+            return
+        src = self.state_id(src)
+        for t in self.fst.arcs(src):
+            yield t  # Arc object.
+        #return self.fst.arcs(src) # fixme: does not work as expected
+
+    transitions = arcs  # Alias.
+
+    def mutable_arcs(self, src):
+        """
+        Mutable iterator over arcs from state.
+        todo: checkme
+        """
+        src = self.state_id(src)
+        return self.fst.mutable_arcs(src)  # _MutableArcIterator
+
+    mutable_transitions = mutable_arcs  # Alias.
 
     def make_arc(self,
                  src=None,
@@ -360,35 +574,6 @@ class Wfst():
         self.add_arc(q, ilabels[n - 1], olabels[n - 1], weight, dest)
         return self
 
-    def arcs(self, src=None):
-        """
-        Iterator over arcs from designated state or from all states.
-        # todo: decorate arcs with input/output labels if requested
-        """
-        if src is None:
-            for src in self.state_ids():
-                for t in self.fst.arcs(src):
-                    yield (src, t)  # (src, arc) pair
-            return
-        src = self.state_id(src)
-        for t in self.fst.arcs(src):
-            yield t  # Arc object.
-        #return self.fst.arcs(src) # fixme: does not work as expected
-
-    # Alias for arcs().
-    transitions = arcs
-
-    def mutable_arcs(self, src):
-        """
-        Mutable iterator over arcs from state.
-        todo: checkme
-        """
-        src = self.state_id(src)
-        return self.fst.mutable_arcs(src)  # _MutableArcIterator
-
-    # Alias for mutable_arcs().
-    # mutable_transitions = mutable_arcs
-
     def arcsort(self, sort_type='ilabel'):
         """
         Sort arcs from each state.
@@ -484,81 +669,6 @@ class Wfst():
         self.phi = phi_
         return self
 
-    def num_arcs(self, src=None):
-        """
-        Number of arcs from designated state (out-degree)
-        or total number of arcs.
-        """
-        fst = self.fst
-        if src is None:
-            n = 0
-            for q in fst.states():
-                n += fst.num_arcs(q)
-            return n
-        src = self.state_id(src)
-        return fst.num_arcs(src)
-
-    def num_input_epsilons(self, src=None):
-        """
-        Number of arcs with input epsilon from one
-        state or from all states.
-        """
-        fst = self.fst
-        if src is None:
-            n = 0
-            for src in self.state_ids():
-                n += fst.num_input_epsilons(src)
-            return n
-        src = self.state_id(src)
-        return fst.num_input_epsilons(src)
-
-    def num_output_epsilons(self, src):
-        """
-        Number of arcs with output epsilon from one
-        state or from all states.
-        """
-        fst = self.fst
-        if src is None:
-            n = 0
-            for src in self.state_ids():
-                n += fst.num_output_epsilons(src)
-            return n
-        src = self.state_id(src)
-        return fst.num_output_epsilons(src)
-
-    def info(self):
-        """
-        Number of states and arcs, weight type.
-        """
-        nstate = self.num_states()
-        narc = self.num_arcs()
-        weight_type = self.weight_type()
-        return f'{nstate} states | {narc} arcs | {weight_type} weights'
-
-    def ilabel(self, x):
-        """ Arc input label. """
-        if isinstance(x, Arc):
-            x = x.ilabel
-        return self.fst.input_symbols().find(x)
-
-    def olabel(self, x):
-        """ Arc output label. """
-        if isinstance(x, Arc):
-            x = x.olabel
-        return self.fst.output_symbols().find(x)
-
-    def weight(self, arc):
-        """ Weight on arc. """
-        return arc.weight
-
-    def arc_type(self):
-        """ Arc type (standard, log, log64). """
-        return self.fst.arc_type()
-
-    def weight_type(self):
-        """ Weight type (tropical, log, log64). """
-        return self.fst.weight_type()
-
     def project(self, project_type):
         """
         Project input or output labels.
@@ -575,26 +685,21 @@ class Wfst():
         fst.project(project_type)
         return self
 
-    def arc_labels(self, sep=None):
+    def push_labels(self, reweight_type='to_initial', **kwargs):
         """
-        Get all ordinary input-output labels.
-        note: get epsilon, bos, eos labels from config.
+        Push labels; see pynini.push with arguments
+        remove_common_affix (False) and 
+        reweight_type ("to_initial" or "to_final").
+        note: assume that Fst.push() does not change state ids
+        or reorder arcs within state.
+        todo: testme
+        [destructive]
         """
-        epsilon = config.epsilon
-        bos = config.bos
-        eos = config.eos
-        for q, t in self.arcs():
-            ilabel = self.ilabel(t)
-            olabel = self.olabel(t)
-            if ilabel in [bos, eos] or olabel in [bos, eos]:
-                continue
-            if ilabel == epsilon and ilabel == olabel:
-                continue
-            if sep:
-                yield f'{ilabel} {sep} {olabel}'  # string
-            else:
-                yield (ilabel, olabel)  # tuple
-        return
+        self.fst = pynini.push(self.fst,
+                               push_labels=True,
+                               reweight_type=reweight_type,
+                               **kwargs)
+        return self
 
     def encode_labels(self, iosymbols=None, sep=':'):
         """
@@ -710,6 +815,95 @@ class Wfst():
         iosym = re.match(f'^(.+) {sep} (.+)$', iosym)
         return (iosym[1], iosym[2])
 
+    def delete_arcs(self, dead_arcs):
+        """
+        Remove arcs.
+        Implemented by deleting all arcs from relevant states 
+        then adding back all non-dead arcs, as suggested in the 
+        OpenFst forum: 
+        https://www.openfst.org/twiki/bin/view/Forum/FstForumArchive2014
+        [destructive]
+        """
+        fst = self.fst
+
+        # Group dead arcs by source state.
+        dead_arcs_ = {}
+        for (src, t) in dead_arcs:
+            if src not in dead_arcs_:
+                dead_arcs_[src] = []
+            dead_arcs_[src].append(t)
+
+        # Process states with some dead arcs.
+        for q in dead_arcs_:
+            # Remove all arcs from state.
+            arcs = fst.arcs(q)
+            fst.delete_arcs(q)
+            # Add back live arcs.
+            for t1 in arcs:
+                live = True
+                for t2 in dead_arcs_[q]:
+                    if arc_equal(t1, t2):
+                        live = False
+                        break
+                if live:
+                    self.add_arc(q, t1.ilabel, t1.olabel, t1.weight,
+                                 t1.nextstate)
+        return self
+
+    def collapse_arcs(self):
+        """
+        Delete duplicate arcs (which are allowed by Fst).
+        todo: sum weights of arcs with same src/ilabel/olabel/dest
+        [destructive]
+        """
+        fst = self.fst
+        q_arc_set = set()
+        q_arcs = []
+        duplicates = False
+        # Process each source state.
+        for q in fst.states():
+            # Identify unique arcs.
+            q_arc_set.clear()
+            q_arcs.clear()
+            duplicates = False
+            for t in fst.arcs(q):
+                t_ = (t.ilabel, t.olabel, t.nextstate, str(t.weight))
+                if t_ in q_arc_set:
+                    duplicates = True
+                else:
+                    q_arc_set.add(t_)
+                    q_arcs.append(t)
+            # Skip if there are no duplicates.
+            if not duplicates:
+                continue
+            # Delete all arcs.
+            fst.delete_arcs(q)
+            # Add back unique arcs.
+            for t in q_arcs:
+                self.add_arc( \
+                    q, t.ilabel, t.olabel, t.weight, t.nextstate)
+        return self
+
+    def remove_arcs(self, func):
+        """
+        Delete arcs for which an arbitracy function 
+        func(<Wfst, q, t> -> boolean) is True. The function 
+        receives this machine, a source state id, and an arc 
+        as arguments; it can examine the src/input/output/dest and 
+        associated labels of the arc.
+        [destructive]
+        """
+        dead_arcs = []
+        fst = self.fst
+        for q in fst.states():
+            for t in fst.arcs(q):
+                if func(self, q, t):
+                    dead_arcs.append(t)
+
+        return delete_arcs(dead_arcs)
+
+    # Weights and loglinear features.
+
     def map_weights(self, map_type='identity', **kwargs):
         """
         Map arc weights (see pynini.arcmap).
@@ -796,6 +990,47 @@ class Wfst():
                     phi[t_] = phi_t
         self.phi = phi
         return self
+
+    def push_weights(self,
+                     delta=1e-6,
+                     reweight_type='to_initial',
+                     remove_total_weight=True):
+        """
+        Push arc weights and optionally remove total weight
+        (see pynini.push/Fst.push, pynini.reweight/Fst.reweight).
+        note: assume that Fst.push() does not change state ids
+        or reorder arcs within state.
+        [destructive]
+        """
+        self.fst = self.fst.push( \
+            delta=delta,
+            reweight_type=reweight_type,
+            remove_total_weight=remove_total_weight)
+        return self
+
+    def normalize(self, delta=1e-6):
+        """
+        Globally normalize this machine.
+        (see pynini.push, pynini.reweight, Fst.push).
+        Equivalent to:
+            dist = shortestdistance(wfst, reverse=True)
+            wfst.reweight(potentials=dist, reweight_type='to_initial')
+            // then remove total weight
+        [destructive]
+        """
+        return self.push_weights(delta=delta,
+                                 reweight_type='to_initial',
+                                 remove_total_weight=True)
+
+    def reweight(self, potentials, reweight_type='to_initial'):
+        """
+        See pynini.reweight / Fst.reweight
+        [destructive]
+        """
+        self.fst.reweight(potentials, reweight_type)
+        return self
+
+    # Paths and their yields.
 
     def paths(self):
         """
@@ -939,250 +1174,6 @@ class Wfst():
             paths_new.clear()
 
     accepted_strings = strings  # Alias.
-
-    def connect(self):
-        """
-        Remove states and arcs that are not on successful paths.
-        [nondestructive]
-        """
-        accessible = self.accessible()
-        coaccessible = self.coaccessible()
-        live_states = set(accessible) & set(coaccessible)
-        dead_states = set(self.fst.states()) - live_states
-        wfst = self.delete_states(dead_states, connect=False)
-        return wfst
-
-    def accessible(self, forward=True):
-        """
-        Ids of states accessible from initial state (forward) 
-        -or- coaccessible from final states (backward).
-        States are sorted (reverse-)topologically.
-        """
-        fst = self.fst
-
-        states = []
-        if forward:
-            # Initial state id; forward arcs.
-            Q = set([fst.start()])
-            states += Q
-            T = {}
-            for src in fst.states():
-                T[src] = set()
-                for t in fst.arcs(src):
-                    dest = t.nextstate
-                    T[src].add(dest)
-        else:
-            # Final state ids; backward arcs
-            # todo: use finals()
-            Q = set([q for q in fst.states() if self.is_final(q)])
-            states += Q
-            T = {}
-            for src in fst.states():
-                for t in fst.arcs(src):
-                    dest = t.nextstate
-                    if dest not in T:
-                        T[dest] = set()
-                    T[dest].add(src)
-
-        # (Co)accessible state ids.
-        Q_old = set()
-        Q_new = set(Q)
-        while len(Q_new) != 0:
-            Q_old, Q_new = Q_new, Q_old
-            Q_new.clear()
-            for src in filter(lambda q1: q1 in T, Q_old):
-                for dest in filter(lambda q2: q2 not in Q, T[src]):
-                    Q.add(dest)
-                    Q_new.add(dest)
-                    states.append(dest)
-        #return Q
-        return states
-
-    def coaccessible(self):
-        """ Alias for accessible. """
-        return self.accessible(forward=False)
-
-    def delete_states(self, states, connect=True):
-        """
-        Remove states by id while preserving state labels, 
-        arc weights, and arc features.
-        [nondestructive]
-        """
-        fst = self.fst
-        live_states = set(fst.states()) - states
-
-        # Preserve input/output symbols and aweight type.
-        wfst = Wfst( \
-            self.input_symbols(),
-            self.output_symbols(),
-            fst.arc_type())
-
-        # Reindex live states, copying labels.
-        state_map = {}
-        q0 = fst.start()
-        for q in live_states:
-            q_label = self.state_label(q)
-            q_id = wfst.add_state(q_label)
-            state_map[q] = q_id
-            if q == q0:
-                wfst.set_start(q_id)
-            wfst.set_final(q_id, self.final(q))
-
-        # Copy arcs between live states.
-        for q in live_states:
-            src = state_map[q]
-            for t in filter(lambda t: t.nextstate in live_states, fst.arcs(q)):
-                dest = state_map[t.nextstate]
-                wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest)
-                phi_t = self.features(q, t)
-                if phi_t:
-                    t_ = (src, t.ilabel, t.olabel, dest)
-                    wfst.phi[t_] = phi_t
-
-        if connect:
-            wfst.connect()
-        return wfst
-
-    def delete_arcs(self, dead_arcs):
-        """
-        Remove arcs.
-        Implemented by deleting all arcs from relevant states 
-        then adding back all non-dead arcs, as suggested in the 
-        OpenFst forum: 
-        https://www.openfst.org/twiki/bin/view/Forum/FstForumArchive2014
-        [destructive]
-        """
-        fst = self.fst
-
-        # Group dead arcs by source state.
-        dead_arcs_ = {}
-        for (src, t) in dead_arcs:
-            if src not in dead_arcs_:
-                dead_arcs_[src] = []
-            dead_arcs_[src].append(t)
-
-        # Process states with some dead arcs.
-        for q in dead_arcs_:
-            # Remove all arcs from state.
-            arcs = fst.arcs(q)
-            fst.delete_arcs(q)
-            # Add back live arcs.
-            for t1 in arcs:
-                live = True
-                for t2 in dead_arcs_[q]:
-                    if arc_equal(t1, t2):
-                        live = False
-                        break
-                if live:
-                    self.add_arc(q, t1.ilabel, t1.olabel, t1.weight,
-                                 t1.nextstate)
-        return self
-
-    def prune_arcs(self):
-        """
-        Delete duplicate arcs (which are allowed by Fst).
-        todo: sum weights of arcs with same src/ilabel/olabel/dest
-        [destructive]
-        """
-        fst = self.fst
-        q_arc_set = set()
-        q_arcs = []
-        duplicates = False
-        # Process each source state.
-        for q in fst.states():
-            # Identify unique arcs.
-            q_arc_set.clear()
-            q_arcs.clear()
-            duplicates = False
-            for t in fst.arcs(q):
-                t_ = (t.ilabel, t.olabel, t.nextstate, str(t.weight))
-                if t_ in q_arc_set:
-                    duplicates = True
-                else:
-                    q_arc_set.add(t_)
-                    q_arcs.append(t)
-            # Skip if there are no duplicates.
-            if not duplicates:
-                continue
-            # Delete all arcs.
-            fst.delete_arcs(q)
-            # Add back unique arcs.
-            for t in q_arcs:
-                self.add_arc( \
-                    q, t.ilabel, t.olabel, t.weight, t.nextstate)
-        return self
-
-    def remove_arcs(self, func):
-        """
-        Delete arcs for which an arbitracy function 
-        func(<Wfst, q, t> -> boolean) is True. The function 
-        receives this machine, a source state id, and an arc 
-        as arguments; it can examine the src/input/output/dest and 
-        associated labels of the arc.
-        [destructive]
-        """
-        dead_arcs = []
-        fst = self.fst
-        for q in fst.states():
-            for t in fst.arcs(q):
-                if func(self, q, t):
-                    dead_arcs.append(t)
-        return delete_arcs(dead_arcs)
-
-    def push_weights(self,
-                     delta=1e-6,
-                     reweight_type='to_initial',
-                     remove_total_weight=True):
-        """
-        Push arc weights and optionally remove total weight
-        (see pynini.push/Fst.push, pynini.reweight/Fst.reweight).
-        note: assume that Fst.push() does not change state ids
-        or reorder arcs within state.
-        [destructive]
-        """
-        self.fst = self.fst.push( \
-            delta=delta,
-            reweight_type=reweight_type,
-            remove_total_weight=remove_total_weight)
-        return self
-
-    def normalize(self, delta=1e-6):
-        """
-        Globally normalize this machine.
-        (see pynini.push, pynini.reweight, Fst.push).
-        Equivalent to:
-            dist = shortestdistance(wfst, reverse=True)
-            wfst.reweight(potentials=dist, reweight_type='to_initial')
-            // then remove total weight
-        [destructive]
-        """
-        return self.push_weights(delta=delta,
-                                 reweight_type='to_initial',
-                                 remove_total_weight=True)
-
-    def reweight(self, potentials, reweight_type='to_initial'):
-        """
-        See pynini.reweight / Fst.reweight
-        [destructive]
-        """
-        self.fst.reweight(potentials, reweight_type)
-        return self
-
-    def push_labels(self, reweight_type='to_initial', **kwargs):
-        """
-        Push labels; see pynini.push with arguments
-        remove_common_affix (False) and 
-        reweight_type ("to_initial" or "to_final").
-        note: assume that Fst.push() does not change state ids
-        or reorder arcs within state.
-        todo: testme
-        [destructive]
-        """
-        self.fst = pynini.push(self.fst,
-                               push_labels=True,
-                               reweight_type=reweight_type,
-                               **kwargs)
-        return self
 
     def randgen(self, npath=1, select=None, ret_type='outputs', **kwargs):
         """
@@ -1368,6 +1359,9 @@ class Wfst():
         return wfst
 
     # Operations defined outside of class.
+
+    def connect(self, **kwargs):
+        return connect(self, **kwargs)
 
     def invert(self, **kwargs):
         return invert(self, **kwargs)
@@ -1822,6 +1816,19 @@ def _suffix(x, l):
 #     m.reverse()
 #     m = subset_determinize(m, epsilon)
 #     return m
+
+
+def connect(wfst_in):
+    """
+    Remove states and arcs that are not on successful paths.
+    [nondestructive]
+    """
+    accessible = wfst_in.accessible()
+    coaccessible = wfst_in.coaccessible()
+    live_states = set(accessible) & set(coaccessible)
+    dead_states = set(wfst_in.fst.states()) - live_states
+    wfst = wfst_in.delete_states(dead_states, connect=False)
+    return wfst
 
 
 def invert(wfst_in):
