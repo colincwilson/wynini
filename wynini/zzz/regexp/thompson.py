@@ -7,8 +7,6 @@ from parser import Parser
 import wynini
 from wynini import *
 
-epsilon = 0
-
 
 class Thompson():
 
