@@ -1199,6 +1199,7 @@ class Wfst():
         fst_out.set_input_symbols(isymbols)
         fst_out.set_output_symbols(osymbols)
 
+        ret_type = ret_type.lower()
         if ret_type == 'fst':
             return fst_out
         elif ret_type == 'wfst':
@@ -1217,29 +1218,40 @@ class Wfst():
         Alternative method that also preserves state labels 
         and arc features: create an acceptor for the input
         string with accep() and then compose with this machine.
+        todo: relocate
         """
         fst = self.fst
         isymbols = fst.input_symbols().copy()
         osymbols = fst.output_symbols().copy()
+        for (sym_id, sym) in isymbols:
+            print((sym_id, sym))
 
         if not isinstance(x, str):
             x = ' '.join(x)
         if add_delim:
-            x = config.bos + ' ' + x + ' ' + config.eos
+            x = f'{config.bos} {x} {config.eos}'
         fst_in = pynini.accep(x, token_type=isymbols)
+        fst_in.set_input_symbols(isymbols)  # FML
+        fst_in.set_output_symbols(osymbols)
+        print(fst_in.print(show_weight_one=True))
+        print(fst_in.num_states())
+        print('xxx')
 
         fst_out = fst_in @ fst
         fst_out.set_input_symbols(isymbols)
         fst_out.set_output_symbols(osymbols)
+        print('xxx')
 
+        ret_type = ret_type.lower()
         if ret_type == 'wfst':
             wfst_out = Wfst.from_fst(fst_out)
             return wfst_out
         if ret_type == 'fst':
             return fst_out
-        # default: return output strings
+        # Default: return output strings.
         path_iter = fst_out.paths(output_token_type=osymbols)
-        return path_iter.ostrings()
+        # note: returning path_iter.ostrings() gives segfault!
+        return list(path_iter.ostrings())
 
     # Copy/create machines.
 
@@ -1299,6 +1311,7 @@ class Wfst():
     def print(self, show=True, **kwargs):
         """
         Print with method from pynini.
+        note: kwargs can include show_weight_one=True
         """
         fst = self.fst
         # Symbol table for state labels.
@@ -1319,7 +1332,7 @@ class Wfst():
     def draw(self, source, acceptor=True, portrait=True, **kwargs):
         """
         Write underlying FST in dot format to file (= source).
-        todo: option to show weights equal to semiring One.
+        note: kwargs can include show_weight_one=True
         """
         fst = self.fst
         state_symbols = pynini.SymbolTable()  # State symbol table.
@@ -1515,7 +1528,11 @@ def string_map(inputs,
     return wfst
 
 
-def trellis(length, isymbols, tier=None, trellis=True, arc_type='standard'):
+def trellis(length,
+            isymbols=None,
+            tier=None,
+            trellis=True,
+            arc_type='standard'):
     """
     Acceptor for all strings up to specified length (trellis = True), 
     or of specified length (trellis = False), +2 for bos/eos. 
@@ -2550,18 +2567,17 @@ def shortestpath(wfst, delta=1e-6, ret_type='wfst', **kwargs):
     fst_out.set_output_symbols(osymbols)
 
     # Return path machine or strings.
+    ret_type = ret_type.lower()
     if ret_type == 'fst':
         return fst_out
     elif ret_type in ('ostrings', 'outputs'):
         path_iter = fst_out.paths(input_token_type=isymbols,
                                   output_token_type=osymbols)
-        ostrings = list(path_iter.ostrings())
-        return ostrings
+        return list(path_iter.ostrings())
     elif ret_type == 'iostrings':
         wfst_out = Wfst.from_fst(fst_out)
-        iostrings = wfst_out.iostrings()
-        return iostrings
-    # default: return wfst representing shortest paths
+        return list(wfst_out.iostrings())
+    # Default: return wfst representing shortest paths
     wfst_out = Wfst.from_fst(fst_out)
     wfst_out.relabel_states()
     return wfst_out

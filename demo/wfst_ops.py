@@ -12,8 +12,8 @@ wyconfig.init(config)
 
 # Weighted finite-state machine
 # acyclic, accepts ⋊(a|b)⋉
-M = Wfst(wyconfig.symtable)
-for q in [0, 1, 2, 3, 4, 5]:
+M = Wfst(isymbols=wyconfig.symtable)
+for q in range(6):
     M.add_state(f'q{q}')
 M.set_start('q0')
 M.set_final('q4')
@@ -23,8 +23,8 @@ M.add_arc(src='q1', ilabel='b', dest='q3')
 M.add_arc(src='q2', ilabel=wyconfig.eos, dest='q4')
 M.add_arc(src='q3', ilabel=wyconfig.eos, dest='q4')
 M.add_arc(src='q1', ilabel='c', dest='q5')  # dead arc
+M.print(acceptor=True, show_weight_one=True)
 M = M.connect()
-
 M.print(acceptor=True, show_weight_one=True)
 M.draw('fig/M.dot')
 # dot -Tpdf fig/M.dot > fig/M.pdf
@@ -47,14 +47,16 @@ print('weight type:', M.weight_type())
 print('input strings:', list(M.istrings()))
 
 # Transduce
-inpt = 'a'
-outpt = M.transduce(inpt)
-#print(O.print(acceptor=True, show_weight_one=True))
-print(list(outpt))
+input_ = 'a'
+output_ = M.transduce(input_)  #, ret_type='wfst')
+print(output_)
+print(list(output_))
+#output_.draw('fig/M_a.dot', show_weight_one=True)
+#output_.print(show_weight_one=True)
 
 # Transduce (alternative method)
-inpt = '⋊ a ⋉'
-wfst_in = accep(inpt, add_delim=False)
+input_ = '⋊ a ⋉'
+wfst_in = accep(input_, isymbols=None, add_delim=False)
 wfst_in.print(acceptor=True)
 wfst_out = compose(wfst_in, M)
 print(list(wfst_out.ostrings()))
@@ -147,7 +149,7 @@ print()
 
 # # # # # # # # # #
 print('Weighted transduction / composition')
-I = accep('a b', arc_type='log')
+I = accep('a b', isymbols=None, arc_type='log')
 I.assign_weights(lambda wfst, q, t: Weight('log', 2))
 I.print(show_weight_one=True)
 I.draw('fig/I.dot')
@@ -175,8 +177,6 @@ I.arcsort('olabel')
 M.arcsort('ilabel')
 O = compose_sorted(I, M)
 O.print(show_weight_one=True)
-
-sys.exit(0)
 
 # # # # # # # # # #
 # Shortest distance / shortest paths.
