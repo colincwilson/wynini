@@ -64,7 +64,7 @@ def violation_matrix(wfst, ftrs):
 def assign_weights(wfst, w):
     """
     Assign unnormalized -logprob weight to each arc t in wfst
-    according to its Harmony: $-\sum_k (w_k \cdot \phi_k(t))$.
+    according to its Harmony: $- sum_k (w_k \cdot \phi_k(t))$.
     phi: arc t -> dictionary of feature values ('violations') {\phi_0:v_0, \phi_1:v_1, ...}
     arg w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
     All feature values and weights should be non-negative.
