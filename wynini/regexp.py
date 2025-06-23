@@ -7,6 +7,7 @@ from pynini import SymbolTable, SymbolTableView
 
 import wynini
 from wynini import *
+from wynini import Wfst
 
 meta = ['(', ')', '|', '.', '*', '+', '?']
 
@@ -83,9 +84,8 @@ class Scanner:
         self.data = self.preprocess(regexp)
         self.next = 0
 
-    # Insert explicit concatenation symbol (.)
-    # between regexp symbols.
     def preprocess(self, regexp):
+        """ Prepare regexp for parsing. """
         # Remove leading, trailing, and extra whitespace.
         regexp = re.sub(r'^\s*', '', regexp)
         regexp = re.sub(r'\s*$', '', regexp)
@@ -100,6 +100,8 @@ class Scanner:
             if current != ' ':
                 data += current
             if current in [' ', ')', '*', '+', '?']:
+                # Insert explicit concatenation symbol (.)
+                # between regexp symbols.
                 if not next in [')', '|', '*', '+', '?']:
                     data += '.'
         if (regexp[-1] != ' '):
@@ -107,12 +109,12 @@ class Scanner:
         # print(data)
         return data
 
-    # Reset this scanner.
     def reset(self):
+        """ Reset this scanner. """
         self.next = 0
 
-    # Return the next token.
     def peek(self):
+        """ Return next token. """
         # Return null if have reached end of data.
         if (self.next >= len(self.data)):
             return None
@@ -134,14 +136,17 @@ class Scanner:
         return self.data[self.next:end]
 
     def pop(self):
+        """ Pop next token. """
         value = self.peek()
         if (self.next < len(self.data)):
             self.next += len(value)
         return value
 
 
-# Construct FSA from parsed regexp with Thompson construction.
 class Thompson():
+    """
+    Thompson construction of FSA from parsed regexp.
+    """
 
     def __init__(self, isymbols):
         if isymbols is None:
@@ -159,49 +164,88 @@ class Thompson():
         return wfst
 
     def build(self, node):
+        """ Build step. """
         wfst = None
-        if (node[0] == '.'):
-            wfst = self.buildDot(self.build(node[1]), self.build(node[2]))
-        elif (node[0] == '|'):
-            wfst = self.buildPipe(self.build(node[1]), self.build(node[2]))
-        elif (node[0] == '+'):
-            wfst = self.buildPlus(self.build(node[1]))
-        elif (node[0] == '*'):
-            wfst = self.buildStar(self.build(node[1]))
-        elif (node[0] == '?'):
-            wfst = self.buildQues(self.build(node[1]))
-        else:
-            wfst = self.buildSeg(node)
+        match node[0]:
+            case '.':
+                wfst = self.buildDot(self.build(node[1]), self.build(node[2]))
+            case '|':
+                wfst = self.buildPipe(self.build(node[1]), self.build(node[2]))
+            case '+':
+                wfst = self.buildPlus(self.build(node[1]))
+            case '*':
+                wfst = self.buildStar(self.build(node[1]))
+            case '?':
+                wfst = self.buildQues(self.build(node[1]))
+            case _:
+                wfst = self.buildSeg(node)
         return wfst
 
-    # Concatenation.
     def buildDot(self, wfst1, wfst2):
+        """ Concatenation. """
         wfst = wynini.concat(wfst1, wfst2)
         return wfst
 
-    # Disjunction.
     def buildPipe(self, wfst1, wfst2):
+        """ Disjunction. """
         wfst = wynini.union(wfst1, wfst2)
         return wfst
 
-    # Repetition.
     def buildPlus(self, wfst1):
+        """ Repetition. """
         wfst = wynini.plus(wfst1)
         return wfst
 
     def buildStar(self, wfst1):
+        """ Kleene star. """
         wfst = wynini.star(wfst1)
         return wfst
 
-    # Optionality.
     def buildQues(self, wfst1):
+        """ Optionality. """
         wfst = wynini.ques(wfst1)
         return wfst
 
-    # Consumption.
     def buildSeg(self, node):
+        """ Consumption. """
         wfst = wynini.accep(node[0], isymbols=self.isymbols, add_delim=False)
         return wfst
+
+    def sigmaStar(self, add_delim=False, ignore=[]):
+        """ Acceptor for Sigma* """
+        wfst = Wfst(isymbols=self.isymbols)
+        if add_delim:
+            q0 = wfst.add_state(initial=True)
+            q = wfst.add_state()
+            qf = wfst.add_state(final=True)
+            wfst.add_arc(q0, config.bos, None, None, q)
+            wfst.add_arc(q, config.eos, None, None, qf)
+        else:
+            q = wfst.add_state(initial=True, final=True)
+        ignore = [config.epsilon, config.bos, config.eos] + ignore
+        for sym_id, sym in self.isymbols:
+            if sym not in ignore:
+                wfst.add_arc(q, sym, None, None, q)
+        return wfst
+
+    def sigma_star_regexp(self, beta, add_delim=False, ignore=[]):
+        """
+        Acceptor for Sigma* beta, where beta is a regexp.
+        """
+        wfst = self.dot( \
+            self.sigmaStar(add_delim, ignore),
+            self.to_wfst(beta))
+        wfst = wfst.relabel_states()
+        wfst = wfst.determinize()
+        return wfst
+
+    # Alias.
+    dot = buildDot
+    pipe = buildPipe
+    plus = buildPlus
+    star = buildStar
+    ques = buildQues
+    seg = buildSeg
 
 
 if __name__ == "__main__":
@@ -217,3 +261,14 @@ if __name__ == "__main__":
     wfst = wfst.connect().determinize()
     wfst.draw('fst/thompson.dot')
     print(wfst)
+
+    wfst = thompson.sigmaStar()
+    print(wfst)
+
+    beta = '(a|b)'
+    sigma = ['a', 'b', 'c', 'd']
+    ignore = [config.epsilon, config.bos, config.eos]
+    thompson = Thompson(isymbols=sigma)
+    alpha = thompson.sigma_star_regexp(beta, False, ignore)
+    alpha.draw('fig/alpha.dot', acceptor=False)
+    print(alpha)

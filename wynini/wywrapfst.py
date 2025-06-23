@@ -185,8 +185,7 @@ class Wfst():
         q = self.state_id(q)
         return self.fst.set_start(q)
 
-    # Alias for set_initial().
-    set_start = set_initial
+    set_start = set_initial  # Alias.
 
     def initial(self, label=True):
         """ Initial state label (or id). """
@@ -195,16 +194,20 @@ class Wfst():
             return q0
         return self.state_label(q0)
 
-    # Alias for initial().
-    start = initial
+    start = initial  # Alias.
+
+    def initial_id(self):
+        """ Id of initial state. """
+        return self.initial(label=False)
+
+    start_id = initial_id  # Alias.
 
     def is_initial(self, q):
         """ Check initial status by id or label. """
         q = self.state_id(q)
         return q == self.fst.start()
 
-    # Alias for is_initial().
-    is_start = is_initial
+    is_start = is_initial  # Alias.
 
     def set_final(self, q, weight=None):
         """
@@ -214,6 +217,8 @@ class Wfst():
         q = self.state_id(q)
         if weight is None or weight is True:
             weight = Weight.one(self.weight_type())
+        if weight is False:
+            weight = Weight.zero(self.weight_type())
         return self.fst.set_final(q, weight)
 
     def is_final(self, q):
@@ -227,8 +232,7 @@ class Wfst():
         q = self.state_id(q)
         return self.fst.final(q)
 
-    # Alias for final().
-    final_weight = final
+    final_weight = final  # Alias.
 
     def finals(self, label=True):
         """
@@ -241,6 +245,12 @@ class Wfst():
         if label:
             state_iter = map(lambda q: self.state_label(q), state_iter)
         return state_iter
+
+    def final_ids(self):
+        """
+        Iterator over ids of states with non-zero final weights.
+        """
+        return self.finals(label=False)
 
     def relabel_states(self, func=None):
         """
@@ -467,7 +477,7 @@ class Wfst():
     def mutable_arcs(self, src):
         """
         Mutable iterator over arcs from state.
-        todo: checkme
+        todo: doc usage
         """
         src = self.state_id(src)
         return self.fst.mutable_arcs(src)  # _MutableArcIterator
@@ -574,6 +584,34 @@ class Wfst():
         self.add_arc(q, ilabels[n - 1], olabels[n - 1], weight, dest)
         return self
 
+    def add_self_arcs(self, ilabels=[]):
+        """
+        Add unweighted self arcs on each state.
+        """
+        if not ilabels:
+            return self
+        for q in self.state_ids():
+            for ilabel in ilabels:
+                self.add_arc(q, ilabel, ilabel, None, q)
+        return self
+
+    def delete_self_arcs(self, ilabels=[]):
+        """
+        Remove self arcs with ilabels==olabels.
+        """
+        dead_arcs = []
+        for q in self.state_ids():
+            for t in self.arcs(q):
+                ilabel = self.ilabel(t)
+                if ilabel not in ilabels:
+                    continue
+                olabel = self.olabel(t)
+                if olabel != ilabel:
+                    continue
+                dead_arcs.append((q, t))
+        self.delete_arcs(dead_arcs=dead_arcs)
+        return self
+
     def arcsort(self, sort_type='ilabel'):
         """
         Sort arcs from each state.
@@ -595,12 +633,12 @@ class Wfst():
         todo: checkme
         [destructive]
         """
-        if ifunc is None and ofunc is None:
+        if not ifunc and not ofunc:
             return self
 
         # Relabel input symbols.
         isymbols = self.input_symbols()
-        if ifunc is not None:
+        if ifunc:
             idx = 0
             isymbols_idx = {}  # Old index -> new index.
             isymbols_label = {}  # New label -> new index.
@@ -620,7 +658,7 @@ class Wfst():
 
         # Relabel output symbols.
         osymbols = self.output_symbols()
-        if ofunc is not None:
+        if ofunc:
             idx = 0
             osymbols_idx = {}  # Old index -> new index.
             osymbols_label = {}  # New label -> new index.
@@ -647,23 +685,23 @@ class Wfst():
             fst.delete_arcs(q)
             for t in arcs:
                 ilabel = t.ilabel
-                if ifunc is not None:
+                if ifunc:
                     ilabel = isymbols_idx[ilabel]
                 olabel = t.olabel
-                if ofunc is not None:
+                if ofunc:
                     olabel = osymbols_idx[olabel]
                 self.add_arc(q, ilabel, olabel, t.weight, t.nextstate)
 
         # Relabel arcs (keys) in feature mapping phi.
         # note: features may be invalidated by relabeling.
         phi = self.phi
-        if phi is not None:
+        if phi:
             phi_ = {}
             for (t, ftrs) in phi.items():
                 (q, ilabel, olabel, nextstate) = t
-                if ifunc is not None:
+                if ifunc:
                     ilabel = isymbols_idx[ilabel]
-                if ofunc is not None:
+                if ofunc:
                     olabel = osymbols_idx[olabel]
                 phi_[(q, ilabel, olabel, nextstate)] = ftrs
         self.phi = phi_
@@ -815,7 +853,7 @@ class Wfst():
         iosym = re.match(f'^(.+) {sep} (.+)$', iosym)
         return (iosym[1], iosym[2])
 
-    def delete_arcs(self, dead_arcs):
+    def delete_arcs(self, dead_arcs=None, states=None):
         """
         Remove arcs.
         Implemented by deleting all arcs from relevant states 
@@ -824,14 +862,19 @@ class Wfst():
         https://www.openfst.org/twiki/bin/view/Forum/FstForumArchive2014
         [destructive]
         """
+        if not states and not dead_arcs:
+            return self
+
         fst = self.fst
 
         # Group dead arcs by source state.
         dead_arcs_ = {}
-        for (src, t) in dead_arcs:
-            if src not in dead_arcs_:
-                dead_arcs_[src] = []
-            dead_arcs_[src].append(t)
+        if dead_arcs:
+            for (src, t) in dead_arcs:
+                dead_arcs_.setdefault(src, []).append(t)
+        if states:
+            for src in states:
+                dead_arcs_.setdefault(src, []).extend(self.arcs(src))
 
         # Process states with some dead arcs.
         for q in dead_arcs_:
@@ -937,7 +980,7 @@ class Wfst():
         "plus", "power", "times")
         [destructive]
         """
-        if func is None:
+        if not func:
             return self  # No change.
         fst = self.fst
         weight_type = self.weight_type()
@@ -1489,8 +1532,7 @@ def string_map(inputs,
         wfst.set_final(q_stop)
 
     # Unweighted input string -> output string pairs.
-    pairs = zip(inputs, outputs) if outputs is not None \
-        else inputs
+    pairs = zip(inputs, outputs) if outputs else inputs
     # Eliminate spurious amiguity, preserving original order.
     #pairs = list(dict.fromkeys(pairs))
     for ilabel, olabel in pairs:
@@ -2415,7 +2457,7 @@ def epsilon_filter(q1, t1, q2, t2, q3):
     return '⊥'
 
 
-def concat(wfst1, wfst2):
+def concatenate(wfst1, wfst2):
     """
     Concatenation of two machines, assumed to share the 
     same input/output symbol tables and arc type.
@@ -2466,8 +2508,7 @@ def concat(wfst1, wfst2):
     return wfst
 
 
-# Alias for concat().
-concatenate = concat
+concat = concatenate  # Alias.
 
 
 def union(wfst1, wfst2):
