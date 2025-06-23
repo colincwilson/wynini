@@ -5,8 +5,8 @@ bos = '⋊'  # Beginning-of-string / start symbol (alternatives '>' or <s>).
 eos = '⋉'  # End-of-string / stop symbol (alternatives '<' or </s>).
 λ = ''  # Empty string (de la Higuera, p. 48).
 unk = '⊥'  # Unknown / empty set (de la Higuera, p. 376).
-sigma = ['a', 'b']  # Ordinary symbols.
 special_syms = []  # Special symbols.
+sigma = ['a', 'b']  # Ordinary symbols.
 syms = []  # All symbols in symtable.
 symtable = None  # SymbolTable.
 
@@ -50,11 +50,14 @@ def make_symtable(sigma):
     return symtable, syms
 
 
-def print_symtable(symtable):
+def print_symtable(symtable_):
     """
     Print SymbolTable / SymbolTableVIew as 
     (symbol_id, symbol) pairs.
     see pynini.SymbolTableView.write_text
     """
-    for (sym_id, sym) in symtable:
+    global symtable
+    if not symtable_:
+        symtable_ = symtable
+    for (sym_id, sym) in symtable_:
         print(f'{sym_id}\t{sym}')

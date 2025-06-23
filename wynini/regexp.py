@@ -211,30 +211,13 @@ class Thompson():
         wfst = wynini.accep(node[0], isymbols=self.isymbols, add_delim=False)
         return wfst
 
-    def sigmaStar(self, add_delim=False, ignore=[]):
-        """ Acceptor for Sigma* """
-        wfst = Wfst(isymbols=self.isymbols)
-        if add_delim:
-            q0 = wfst.add_state(initial=True)
-            q = wfst.add_state()
-            qf = wfst.add_state(final=True)
-            wfst.add_arc(q0, config.bos, None, None, q)
-            wfst.add_arc(q, config.eos, None, None, qf)
-        else:
-            q = wfst.add_state(initial=True, final=True)
-        ignore = [config.epsilon, config.bos, config.eos] + ignore
-        for sym_id, sym in self.isymbols:
-            if sym not in ignore:
-                wfst.add_arc(q, sym, None, None, q)
-        return wfst
-
-    def sigma_star_regexp(self, beta, add_delim=False, ignore=[]):
+    def sigma_star_regexp(self, beta, sigma=None, add_delim=False):
         """
         Acceptor for Sigma* beta, where beta is a regexp.
         """
-        wfst = self.dot( \
-            self.sigmaStar(add_delim, ignore),
-            self.to_wfst(beta))
+        sigstar = wynini.sigma_star(self.isymbols, sigma, add_delim)
+        alpha = self.to_wfst(beta)
+        wfst = self.dot(sigstar, alpha)
         wfst = wfst.relabel_states()
         wfst = wfst.determinize()
         return wfst
@@ -250,25 +233,27 @@ class Thompson():
 
 if __name__ == "__main__":
     # Test with regexp from commandline.
+    sigma = string.ascii_lowercase[:4]
+    isymbols, _ = config.make_symtable(sigma)
+    parser = Parser()
+    compiler = Thompson(isymbols)
+
     regexp = "(a|b)+(c|d)?"
     if len(sys.argv) > 1:
         regexp = sys.argv[1]
-    parser = Parser()
+
     parse = parser.parse(regexp)
     print(parse)
-    thompson = Thompson(isymbols=string.ascii_lowercase)
-    wfst = thompson.to_wfst(regexp)
+    wfst = compiler.to_wfst(regexp)
     wfst = wfst.connect().determinize()
-    wfst.draw('fst/thompson.dot')
+    wfst.draw('fst/regexp.dot')
     print(wfst)
 
-    wfst = thompson.sigmaStar()
+    wfst = wynini.sigma_star(isymbols)
     print(wfst)
 
     beta = '(a|b)'
-    sigma = ['a', 'b', 'c', 'd']
     ignore = [config.epsilon, config.bos, config.eos]
-    thompson = Thompson(isymbols=sigma)
-    alpha = thompson.sigma_star_regexp(beta, False, ignore)
+    alpha = compiler.sigma_star_regexp(beta, None, False)
     alpha.draw('fig/alpha.dot', acceptor=False)
     print(alpha)

@@ -1656,6 +1656,30 @@ def braid(length=1, isymbols=None, tier=None, arc_type='standard'):
     return trellis(length, isymbols, tier, False, arc_type)
 
 
+def sigma_star(isymbols=None, sigma=None, add_delim=False, **kwargs):
+    """
+    Acceptor for Sigma* (by default all syms except eps/bos/eos).
+    """
+    wfst = Wfst(isymbols, **kwargs)
+
+    if add_delim:
+        q0 = wfst.add_state(initial=True)
+        q = wfst.add_state()
+        qf = wfst.add_state(final=True)
+        wfst.add_arc(q0, config.bos, None, None, q)
+        wfst.add_arc(q, config.eos, None, None, qf)
+    else:
+        q = wfst.add_state(initial=True, final=True)
+
+    if not sigma:
+        ignore = [config.epsilon, config.bos, config.eos]
+        sigma = [sym for (sym_id, sym) in isymbols \
+            if sym not in ignore]
+    for sym in sigma:
+        wfst.add_arc(q, sym, None, None, q)
+    return wfst
+
+
 def ngram(context='left',
           length=1,
           isymbols=None,
