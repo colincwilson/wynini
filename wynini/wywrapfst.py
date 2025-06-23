@@ -710,7 +710,7 @@ class Wfst():
     def project(self, project_type):
         """
         Project input or output labels.
-        assume: Fs.project() does not reindex states
+        note: assume fst.project() does not reindex states
         [destructive]
         """
         fst = self.fst
@@ -953,7 +953,7 @@ class Wfst():
         Arg map_type is "identity", "invert", "quantize", "plus",
         "power", "rmweight", "times", "to_log", "to_log64",
         or "to_std" (which maps to the tropical semiring).
-        # note: assume that pynini.arcmap() does not reindex states.
+        # note: assume pynini.arcmap() does not reindex states.
         [destructive]
         """
         if map_type == 'identity':
@@ -1278,12 +1278,10 @@ class Wfst():
         fst_in.set_output_symbols(osymbols)
         print(fst_in.print(show_weight_one=True))
         print(fst_in.num_states())
-        print('xxx')
 
         fst_out = fst_in @ fst
         fst_out.set_input_symbols(isymbols)
         fst_out.set_output_symbols(osymbols)
-        print('xxx')
 
         ret_type = ret_type.lower()
         if ret_type == 'wfst':
@@ -1422,6 +1420,9 @@ class Wfst():
     def invert(self, **kwargs):
         return invert(self, **kwargs)
 
+    def reverse(self, **kwargs):
+        return reverse(self, **kwargs)
+
     def ques(self, **kwargs):
         return ques(self, **kwargs)
 
@@ -1470,7 +1471,7 @@ def empty_transducer(**kwargs):
     #wfst = Wfst(isymbols, osymbols, arc_type=arc_type)
     wfst = Wfst(**kwargs)
     for i in range(3):
-        wfst.add_state(i)
+        wfst.add_state()  # note: self-labeling by id
     wfst.set_initial(0)
     wfst.set_final(2)
     wfst.add_arc(0, config.bos, config.bos, None, 1)
@@ -1890,14 +1891,14 @@ def _suffix(x, l):
 
 # Algorithms.
 # todo: difference(), epsnormalize(),
-# minimize(), reverse(), rmepsilon()
+# minimize(), rmepsilon()
 
 # # minimize a determinizable machine
 # def minimize(m, epsilon):
 #     m.reverse()
-#     m = subset_determinize(m, epsilon)
+#     m = determinize(m, epsilon)
 #     m.reverse()
-#     m = subset_determinize(m, epsilon)
+#     m = determinize(m, epsilon)
 #     return m
 
 
@@ -1937,6 +1938,55 @@ def invert(wfst_in):
     wfst_in.set_input_symbols(osymbols)
     wfst_in.set_output_symbols(isymbols)
     return wfst_in
+
+
+def reverse(wfst_in):
+    """
+    Reverse language / mapping.
+    [destructive]
+    """
+    isymbols = wfst_in.input_symbols().copy()
+    osymbols = wfst_in.output_symbols().copy()
+    arc_type = wfst_in.arc_type()
+    weight_type = wfst_in.weight_type()
+    One = Weight.one(weight_type)
+    bos, eos = config.bos, config.eos
+
+    wfst = Wfst(isymbols, osymbols, arc_type)
+
+    q0 = wfst.add_state(initial=True)  # New initial state.
+    stateMap = {}  # Old state id -> new state id.
+    for q in wfst_in.state_ids():
+        q_ = wfst.add_state(label=wfst_in.state_label(q),
+                            initial=False,
+                            final=wfst_in.is_initial(q))
+        if wfst_in.is_final(q):
+            wfst.add_arc(q0, config.epsilon, config.epsilon, One, q_)
+        stateMap[q] = q_
+
+    # Reverse arcs.
+    for src in wfst_in.state_ids():
+        src_ = stateMap[src]
+        for t in wfst_in.arcs(src):
+            ilabel = wfst_in.ilabel(t)
+            if ilabel == bos:  # Reverse bos/eos.
+                ilabel = eos
+            elif ilabel == eos:
+                ilabel = bos
+
+            olabel = wfst_in.olabel(t)
+            if olabel == bos:  # Reverse bos/eos.
+                olabel = eos
+            elif olabel == eos:
+                olabel = bos
+
+            dest_ = stateMap[t.nextstate]
+            t_ = wfst.add_arc(dest_, ilabel, olabel, t.weight, src_)
+            phi_t = wfst_in.features(src, t)
+            if phi_t:
+                t__ = (dest_, t_.ilabel, t_.olabel, src_)
+                wfst.phi[t__] = phi_t  # todo: copy features
+    return wfst
 
 
 def ques(wfst_in):

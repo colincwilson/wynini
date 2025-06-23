@@ -48,11 +48,9 @@ print('input strings:', list(M.istrings()))
 
 # Transduce
 input_ = 'a'
-output_ = M.transduce(input_)  #, ret_type='wfst')
+output_ = M.transduce(input_, ret_type='outputs')  #, ret_type='wfst')
 print(output_)
 print(list(output_))
-#output_.draw('fig/M_a.dot', show_weight_one=True)
-#output_.print(show_weight_one=True)
 
 # Transduce (alternative method)
 input_ = '⋊ a ⋉'
@@ -61,9 +59,14 @@ wfst_in.print(acceptor=True)
 wfst_out = compose(wfst_in, M)
 print(list(wfst_out.ostrings()))
 
-# Copy
+# Copy.
 M2 = M.copy()
 M2.print(acceptor=True, show_weight_one=True)
+
+# Reverse.
+M2 = M.reverse()
+M2.print(acceptor=True, show_weight_one=True)
+M2.draw('fig/M_rev.dot')
 
 # # # # # # # # # #
 print('Braid acceptor')
