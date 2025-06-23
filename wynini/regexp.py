@@ -246,7 +246,7 @@ if __name__ == "__main__":
     print(parse)
     wfst = compiler.to_wfst(regexp)
     wfst = wfst.connect().determinize()
-    wfst.draw('fst/regexp.dot')
+    wfst.draw('fig/regexp.dot')
     print(wfst)
 
     wfst = wynini.sigma_star(isymbols)
@@ -256,4 +256,6 @@ if __name__ == "__main__":
     ignore = [config.epsilon, config.bos, config.eos]
     alpha = compiler.sigma_star_regexp(beta, None, False)
     alpha.draw('fig/alpha.dot', acceptor=False)
+    alpha = alpha.determinize()
+    alpha.draw('fig/alpha_det.dot', acceptor=False)
     print(alpha)

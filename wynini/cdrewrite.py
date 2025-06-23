@@ -22,12 +22,13 @@ class CDRewrite():
         if isinstance(sigma, (SymbolTable, SymbolTableView)):
             sigma = [sym for (sym_id, sym) in sigma]
         self.sigma = sigma
-        config.init({'special_symbols': markers})
+        config.init({'special_syms': markers})
         self.isymbols, _ = config.make_symtable(sigma)
+        #config.print_symtable(self.isymbols)
         # Regexp compiler.
         self.regexper = Thompson(self.isymbols)
 
-    def rule(self, phi, psi, lamb, rho, replace=None):
+    def rule(self, phi, psi, lam, rho, replace=None):
         """
         "A transducer corresponding to the left-to-right
         obligatory rule phi -> psi / lambda __ rho can be
@@ -38,22 +39,30 @@ class CDRewrite():
 
         # "1. The transducer r introduces in a string
         # a marker > before every instance of rho.
-        r_alpha = regexper.sigma_star_regexp(rho[::-1], sigma=self.sigma)
-        r = marker(r_alpha, type=1, insertions=['_>_']).reverse()
+        r_alpha = self.sigma_star_regexp(rho[::-1], sigma=self.sigma)
+        r = self.marker(r_alpha, type=1, insertions=['_>_'])
+        r = r.reverse()
+        print(r.info())
+        r.draw('fig/r_alpha.dot')
+        r.draw('fig/r.dot')
 
         # "2. The transducer f introduces markers <1 and <2
-        # before each instance of phi that is followed by > ....
+        # before each instance of phi that is followed by > ...
         # In other words, this transducer marks just those phi
         # that occur before rho."
         f_alpha = regexper.dot( \
-            regexper.sigma_star(sigma=(self.sigma + ['_>_'])),
+            wynini.sigma_star( \
+                isymbols=self.isymbols, sigma=(self.sigma + ['_>_'])),
             regexper.dot(
-                regexper.to_wfst(phi).add_self_transitions('_>_'),
+                regexper.to_wfst(phi).add_self_arcs('_>_'),
                 regexper.to_wfst('_>_')
                 ).reverse()
             )
         f_alpha = f_alpha.determinize()
-        f = marker(f_alpha, type=1, insertions=['_<1_', '_<2_'])
+        f = self.marker(f_alpha, type=1, insertions=['_<1_', '_<2_'])
+        f = f.reverse()
+        print(f.info())
+        f.draw('fig/f.dot')
 
         # "3. The replacement transducer _replace_ replaces
         # phi with psi in the context <1 phi >, simultaneously
@@ -63,32 +72,33 @@ class CDRewrite():
         # <2:eps at all states of phi, or equivalently of the
         # states of the cross product transducer phi x psi."
         if not replace:
-            # Note: use string_map to implement mapping.
-            # Build replace arg separately for cross-product,
-            # weighted mapping, etc.
-            pass  # xxx fixme
+            replace = wynini.string_map( \
+                phi, psi,
+                isymbols=self.isymbols,
+                add_delim=False)
+        replace = self.replace_with_markers(replace)
 
         # "The transducer l1 admits only those strings in which
         # occurrences of <1 are precede by lambda and deletes <1
         # at such occurrences."
-        l1_alpha = regexper.sigma_star_regexp(lamb, sigma=self.sigma)
-        l1 = marker(l1_alpha, type=2, deletions=['_<1_'])
-        l1.add_self_transitions(['_<2_'])
+        l1_alpha = self.sigma_star_regexp(lam, sigma=self.sigma)
+        l1 = self.marker(l1_alpha, type=2, deletions=['_<1_'])
+        l1.add_self_arcs(['_<2_'])
 
         # "The transducer l2 admits only those strings in which
         # occurrences of <2 are not preceded by lambda and deletes
         # <2 at such occurrences."
-        l2_alpha = regexper.sigma_star_regexp(lamb, sigma=self.sigma)
-        l2 = marker(l2_alpha, type=3, deletions=['_<2_'])
+        l2_alpha = self.sigma_star_regexp(lam, sigma=self.sigma)
+        l2 = self.marker(l2_alpha, type=3, deletions=['_<2_'])
 
         # Rewrite rule derived by composition.
+        rule = wynini.compose(r, f, verbose=0)
+        print(rule.info())
+        rule.draw('fig/rule.dot', acceptor=False, show_weight_one=True)
+
         rule = r.compose(f).compose(replace).compose(l1).compose(l2)
         #rule = rule.determinize()
         return rule
-
-    def sigma_star_regexp(self, beta, sigma=None, add_delim=False):
-        wfst = self.regexper.sigma_star_regexp(beta, sigma, add_delim)
-        return wfst
 
     def marker(self, alpha=None, type=1, insertions=[], deletions=[]):
         """
@@ -170,9 +180,39 @@ class CDRewrite():
             tau.set_final(q, True)
         return tau
 
+    def replace_with_markers(self, replace):
+        """
+        Mohri & Sproat (1996), fig. 2.
+        """
+        # Add marker self-transitions to replace.
+        for q in replace.state_ids():
+            replace.add_arc(q, '_<1_', config.epsilon, None, q)
+            replace.add_arc(q, '_<2_', config.epsilon, None, q)
+            replace.add_arc(q, '_>_', config.epsilon, None, q)
+        # New initial/final state and transitions.
+        q0 = replace.add_state()
+        for sym in self.sigma:
+            replace.add_arc(q0, sym, sym, None, q0)
+        replace.add_arc(q0, '_<2_', '_<2_', None, q0)
+        replace.add_arc(q0, '_>_', config.epsilon, None, q0)
+        q = replace.initial_id()
+        replace.add_arc(q0, '_<1_', '_<1_', None, q)
+        replace.set_initial(q0)
+        finals = set(replace.finals())
+        for q in finals:
+            replace.add_arc(q, '_>_', config.epsilon, None, q0)
+            replace.set_final(q, False)
+        replace.set_final(q0, True)
+        replace.draw('fig/replace.dot')
+        return replace
+
+    def sigma_star_regexp(self, beta, sigma=None, add_delim=False):
+        wfst = self.regexper.sigma_star_regexp(beta, sigma, add_delim)
+        return wfst
+
 
 if __name__ == "__main__":
-    sigma = ['a', 'b', 'c']
+    sigma = ['a', 'b', 'c', 'd']
     cdrewrite = CDRewrite(sigma)
 
     beta1 = '(a|b)'
@@ -187,3 +227,5 @@ if __name__ == "__main__":
 
     tau3 = cdrewrite.marker(alpha2, type=3, deletions=['_#_'])
     tau3.draw('fig/tau3.dot', acceptor=False)
+
+    rule = cdrewrite.rule(phi='a', psi='b', lam='c', rho='d')
