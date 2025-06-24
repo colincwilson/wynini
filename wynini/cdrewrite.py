@@ -25,7 +25,7 @@ class CDRewrite():
         config.init({'special_syms': markers})
         self.isymbols, _ = config.make_symtable(sigma)
         # Regexp compiler.
-        self.regexper = Thompson(self.isymbols)
+        self.regexper = Thompson(self.isymbols, self.sigma)
 
     def rule(self, phi, psi, lam, rho, replace=None):
         """
@@ -33,6 +33,11 @@ class CDRewrite():
         obligatory rule phi -> psi / lambda __ rho can be
         obtained by composition of five transducers:
         r * f * replace * l1 * l2
+        Arguments
+            phi, psi: list inputs for string_map
+            lam: regexp string (use empty string for wildcard)
+            rho: regexp string (use empty string for wildcard)
+            replace: precompiled transducer
         """
         regexper = self.regexper
 
@@ -232,9 +237,11 @@ if __name__ == "__main__":
     tau3 = cdrewrite.marker(alpha2, type=3, deletions=['_#_'])
     tau3.draw('fig/tau3.dot', acceptor=False)
 
+    # rule, (r, f, replace, l1, l2) = \
+    #     cdrewrite.rule(phi='a', psi='b', lam='c', rho='d')
     rule, (r, f, replace, l1, l2) = \
-        cdrewrite.rule(phi='a', psi='b', lam='c', rho='d')
-    input_ = wynini.accep('c a d c a d c a b', isymbols=None, add_delim=False)
+        cdrewrite.rule(phi='a', psi='b', lam='', rho='d')
+    input_ = wynini.accep('c a d c a d b a d', isymbols=None, add_delim=False)
     output_ = wynini.compose(input_, rule).determinize(acceptor=False)
     print(output_)
     print(output_.info())

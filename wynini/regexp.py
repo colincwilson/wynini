@@ -104,7 +104,7 @@ class Scanner:
                 # between regexp symbols.
                 if not next in [')', '|', '*', '+', '?']:
                     data += '.'
-        if (regexp[-1] != ' '):
+        if (len(regexp) > 0 and regexp[-1] != ' '):
             data += regexp[-1]
         # print(data)
         return data
@@ -148,25 +148,28 @@ class Thompson():
     Thompson construction of FSA from parsed regexp.
     """
 
-    def __init__(self, isymbols):
+    def __init__(self, isymbols, sigma):
         if isymbols is None:
             isymbols, _ = config.make_symtable([])
         if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
             isymbols, _ = config.make_symtable(isymbols)
         self.isymbols = isymbols
+        self.sigma = sigma
 
     def to_wfst(self, regexp):
         """ Build FSA from regexp. """
         parser = Parser()
         root = parser.parse(regexp)
         wfst = self.build(root)
-        wfst = wfst.connect()
+        wfst = wfst.connect().determinize()
         return wfst
 
     def build(self, node):
         """ Build step. """
-        wfst = None
         match node[0]:
+            case None:
+                wfst = wynini.sigma_star( \
+                    isymbols=self.isymbols, sigma=self.sigma, add_delim=False)
             case '.':
                 wfst = self.buildDot(self.build(node[1]), self.build(node[2]))
             case '|':
@@ -236,7 +239,7 @@ if __name__ == "__main__":
     sigma = string.ascii_lowercase[:4]
     isymbols, _ = config.make_symtable(sigma)
     parser = Parser()
-    compiler = Thompson(isymbols)
+    compiler = Thompson(isymbols, sigma)
 
     regexp = "(a|b)+(c|d)?"
     if len(sys.argv) > 1:
@@ -245,8 +248,13 @@ if __name__ == "__main__":
     parse = parser.parse(regexp)
     print(parse)
     wfst = compiler.to_wfst(regexp)
-    wfst = wfst.connect().determinize()
     wfst.draw('fig/regexp.dot')
+    print(wfst)
+
+    regexp = ''
+    parse = parser.parse(regexp)
+    print(parse)
+    wfst = compiler.to_wfst(regexp)
     print(wfst)
 
     wfst = wynini.sigma_star(isymbols)
