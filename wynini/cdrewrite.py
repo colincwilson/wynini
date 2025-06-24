@@ -1,5 +1,5 @@
 # (Weighted) Conditional rewriting as in Mohri & Sproat (1996).
-# see: pynini/extensions/cdrewritescript.cc
+# see: pynini/extensions/cdrewrite.h
 import re, sys
 import string
 from pynini import SymbolTable, SymbolTableView
@@ -27,14 +27,14 @@ class CDRewrite():
         # Regexp compiler.
         self.regexper = Thompson(self.isymbols, self.sigma)
 
-    def rule(self, phi, psi, lam, rho, replace=None):
+    def compile(self, phi, psi, lam, rho, replace=None):
         """
         "A transducer corresponding to the left-to-right
         obligatory rule phi -> psi / lambda __ rho can be
         obtained by composition of five transducers:
         r * f * replace * l1 * l2
         Arguments
-            phi, psi: list inputs for string_map
+            phi, psi: list/tuple inputs for string_map
             lam: regexp string (use empty string for wildcard)
             rho: regexp string (use empty string for wildcard)
             replace: precompiled transducer
@@ -199,7 +199,7 @@ class CDRewrite():
             replace.add_arc(q, '_<1_', epsilon, None, q)
             replace.add_arc(q, '_<2_', epsilon, None, q)
             replace.add_arc(q, '_>_', epsilon, None, q)
-        # Old initial/final states.
+        # Old initial and final states.
         initial = replace.initial_id()
         finals = set(replace.finals())
         # New initial/final state and transitions.
@@ -238,9 +238,9 @@ if __name__ == "__main__":
     tau3.draw('fig/tau3.dot', acceptor=False)
 
     # rule, (r, f, replace, l1, l2) = \
-    #     cdrewrite.rule(phi='a', psi='b', lam='c', rho='d')
+    #     cdrewrite.compile(phi='a', psi='b', lam='c', rho='d')
     rule, (r, f, replace, l1, l2) = \
-        cdrewrite.rule(phi='a', psi='b', lam='', rho='d')
+        cdrewrite.compile(phi='a', psi='b', lam='', rho='d')
     input_ = wynini.accep('c a d c a d b a d', isymbols=None, add_delim=False)
     output_ = wynini.compose(input_, rule).determinize(acceptor=False)
     print(output_)

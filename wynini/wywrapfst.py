@@ -1382,13 +1382,15 @@ class Wfst():
         for q, label in self._state2label.items():
             state_symbols.add_symbol(str(label), q)
         ret = fst.draw(source,
-                        isymbols=fst.input_symbols(),
-                        osymbols=fst.output_symbols(),
-                        ssymbols=state_symbols,
-                        acceptor=acceptor,
-                        portrait=portrait,
-                        **kwargs)
-        cmd = f'dot -Tpdf {source} > {re.sub('.dot$', '.pdf', source)}'
+                       isymbols=fst.input_symbols(),
+                       osymbols=fst.output_symbols(),
+                       ssymbols=state_symbols,
+                       acceptor=acceptor,
+                       portrait=portrait,
+                       **kwargs)
+        source_in = str(source)
+        source_out = re.sub('.dot$', '.pdf', source_in)
+        cmd = f'dot -Tpdf {source_in} > {source_out}'
         os.system(cmd)
         return ret
 
@@ -1536,7 +1538,7 @@ def string_map(inputs,
         q_stop = wfst.add_state()  # Unique final state.
         wfst.set_final(q_stop)
 
-    # Unweighted input string -> output string pairs.
+    # Input string -> output string pairs (unweighted).
     pairs = zip(inputs, outputs) if outputs else inputs
     # Eliminate spurious amiguity, preserving original order.
     #pairs = list(dict.fromkeys(pairs))
@@ -1974,14 +1976,14 @@ def reverse(wfst_in):
                 olabel = eos
             elif olabel == eos:
                 olabel = bos
-            
+
             weight = t.weight.copy() if t.weight else None
             dest = t.nextstate
             t_ = wfst.add_arc(dest, ilabel, olabel, weight, src)
 
             phi_t = wfst_in.features(src, t)
             if phi_t:
-                wfst.set_features(src, t_, dict(phi_t)) # todo: deepcopy
+                wfst.set_features(src, t_, dict(phi_t))  # todo: deepcopy
 
     # Exchange initial and final states (creating new initial).
     q0 = wfst.add_state()
