@@ -24,7 +24,6 @@ class CDRewrite():
         self.sigma = sigma
         config.init({'special_syms': markers})
         self.isymbols, _ = config.make_symtable(sigma)
-        #config.print_symtable(self.isymbols)
         # Regexp compiler.
         self.regexper = Thompson(self.isymbols)
 
@@ -43,8 +42,8 @@ class CDRewrite():
         r = self.marker(r_alpha, type=1, insertions=['_>_'])
         r = r.reverse()
         print(r.info())
-        r.draw('fig/r_alpha.dot')
-        r.draw('fig/r.dot')
+        r.draw('fig/r_alpha.dot', acceptor=False)
+        r.draw('fig/r.dot', acceptor=False)
 
         # "2. The transducer f introduces markers <1 and <2
         # before each instance of phi that is followed by > ...
@@ -62,7 +61,7 @@ class CDRewrite():
         f = self.marker(f_alpha, type=1, insertions=['_<1_', '_<2_'])
         f = f.reverse()
         print(f.info())
-        f.draw('fig/f.dot')
+        f.draw('fig/f.dot', acceptor=False)
 
         # "3. The replacement transducer _replace_ replaces
         # phi with psi in the context <1 phi >, simultaneously
@@ -77,6 +76,8 @@ class CDRewrite():
                 isymbols=self.isymbols,
                 add_delim=False)
         replace = self.replace_with_markers(replace)
+        print(replace.info())
+        replace.draw('fig/replace.dot', acceptor=False)
 
         # "The transducer l1 admits only those strings in which
         # occurrences of <1 are precede by lambda and deletes <1
@@ -84,21 +85,24 @@ class CDRewrite():
         l1_alpha = self.sigma_star_regexp(lam, sigma=self.sigma)
         l1 = self.marker(l1_alpha, type=2, deletions=['_<1_'])
         l1.add_self_arcs(['_<2_'])
+        print(l1.info())
+        l1.draw('fig/l1.dot', acceptor=False)
 
         # "The transducer l2 admits only those strings in which
         # occurrences of <2 are not preceded by lambda and deletes
         # <2 at such occurrences."
         l2_alpha = self.sigma_star_regexp(lam, sigma=self.sigma)
         l2 = self.marker(l2_alpha, type=3, deletions=['_<2_'])
+        print(l2.info())
+        l2.draw('fig/l2.dot', acceptor=False)
 
         # Rewrite rule derived by composition.
-        rule = wynini.compose(r, f, verbose=0)
+        rule = r.compose(f).compose(replace).compose(l1).compose(l2)
+        rule = rule.connect()
         print(rule.info())
         rule.draw('fig/rule.dot', acceptor=False, show_weight_one=True)
-
-        rule = r.compose(f).compose(replace).compose(l1).compose(l2)
         #rule = rule.determinize()
-        return rule
+        return rule, (r, f, replace, l1, l2)
 
     def marker(self, alpha=None, type=1, insertions=[], deletions=[]):
         """
@@ -184,25 +188,25 @@ class CDRewrite():
         """
         Mohri & Sproat (1996), fig. 2.
         """
+        epsilon = config.epsilon
         # Add marker self-transitions to replace.
         for q in replace.state_ids():
-            replace.add_arc(q, '_<1_', config.epsilon, None, q)
-            replace.add_arc(q, '_<2_', config.epsilon, None, q)
-            replace.add_arc(q, '_>_', config.epsilon, None, q)
+            replace.add_arc(q, '_<1_', epsilon, None, q)
+            replace.add_arc(q, '_<2_', epsilon, None, q)
+            replace.add_arc(q, '_>_', epsilon, None, q)
+        # Old initial/final states.
+        initial = replace.initial_id()
+        finals = set(replace.finals())
         # New initial/final state and transitions.
-        q0 = replace.add_state()
+        q0 = replace.add_state(initial=True, final=True)
         for sym in self.sigma:
             replace.add_arc(q0, sym, sym, None, q0)
         replace.add_arc(q0, '_<2_', '_<2_', None, q0)
-        replace.add_arc(q0, '_>_', config.epsilon, None, q0)
-        q = replace.initial_id()
-        replace.add_arc(q0, '_<1_', '_<1_', None, q)
-        replace.set_initial(q0)
-        finals = set(replace.finals())
+        replace.add_arc(q0, '_>_', epsilon, None, q0)
+        replace.add_arc(q0, '_<1_', '_<1_', None, initial)
         for q in finals:
-            replace.add_arc(q, '_>_', config.epsilon, None, q0)
+            replace.add_arc(q, '_>_', epsilon, None, q0)
             replace.set_final(q, False)
-        replace.set_final(q0, True)
         replace.draw('fig/replace.dot')
         return replace
 
@@ -228,4 +232,11 @@ if __name__ == "__main__":
     tau3 = cdrewrite.marker(alpha2, type=3, deletions=['_#_'])
     tau3.draw('fig/tau3.dot', acceptor=False)
 
-    rule = cdrewrite.rule(phi='a', psi='b', lam='c', rho='d')
+    rule, (r, f, replace, l1, l2) = \
+        cdrewrite.rule(phi='a', psi='b', lam='c', rho='d')
+    input_ = wynini.accep('c a d c a d c a b', isymbols=None, add_delim=False)
+    output_ = wynini.compose(input_, rule).determinize(acceptor=False)
+    print(output_)
+    print(output_.info())
+    outputs = list(output_.ostrings())
+    print(outputs)

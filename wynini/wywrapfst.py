@@ -161,7 +161,6 @@ class Wfst():
         if initial or start:
             self.set_initial(q)
         if final:
-            # todo: accept final weight argument
             self.set_final(q, final)
 
         return q
@@ -210,13 +209,13 @@ class Wfst():
 
     is_start = is_initial  # Alias.
 
-    def set_final(self, q, weight=None):
+    def set_final(self, q, weight=True):
         """
         Set final weight of state by id or label.
         note: default weight is one, not zero.
         """
         q = self.state_id(q)
-        if weight is None or weight is True:
+        if weight is True or weight is None:
             weight = Weight.one(self.weight_type())
         if weight is False:
             weight = Weight.zero(self.weight_type())
