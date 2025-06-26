@@ -2141,8 +2141,9 @@ def epsilon_closure(wfst, Q1):
     while len(queue) > 0:
         q = queue.pop()
         for t in wfst.arcs(q):
-            label = wfst.ilabel(t)
-            if label == epsilon:
+            ilabel = wfst.ilabel(t)
+            olabel = wfst.olabel(t)
+            if ilabel == olabel == epsilon:
                 dest = t.nextstate
                 if not dest in Q2:
                     Q2.add(dest)
