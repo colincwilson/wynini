@@ -256,13 +256,15 @@ if __name__ == "__main__":
     print(parse)
     wfst = compiler.to_wfst(regexp)
     print(wfst)
+    alpha = compiler.sigma_star_regexp(regexp)
+    print(alpha)
+    sys.exit(0)
 
     wfst = wynini.sigma_star(isymbols)
     print(wfst)
 
     beta = '(a|b)'
-    ignore = [config.epsilon, config.bos, config.eos]
-    alpha = compiler.sigma_star_regexp(beta, None, False)
+    alpha = compiler.sigma_star_regexp(beta)
     alpha.draw('fig/alpha.dot', acceptor=False)
     alpha = alpha.determinize()
     alpha.draw('fig/alpha_det.dot', acceptor=False)

@@ -148,7 +148,7 @@ class CDRewrite():
             if q in finals:
                 # Split final state.
                 tau.set_final(q, False)
-                q_ = tau.add_state(initial=tau.is_initial(q), final=True)
+                q_ = tau.add_state(final=True)
                 # Reroute outgoing transitions.
                 for t in tau.arcs(q):
                     tau.add_arc(q_, t.ilabel, t.olabel, t.weight, t.nextstate)
@@ -254,6 +254,8 @@ if __name__ == "__main__":
     #     cdrewrite.compile(phi='a', psi='b', lam='c', rho='d')
     rule, (r, f, replace, l1, l2) = \
         cdrewrite.compile(phi='a', psi='b', lam='b', rho='', verbose=0)
+    rule = rule.determinize(acceptor=False)
+    rule.draw('fig/rule.dot', acceptor=False)
 
     input_ = wynini.accep('b a a a', isymbols=None, add_delim=False)
     output_ = wynini.compose(input_, rule).determinize(acceptor=False)
