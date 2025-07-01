@@ -560,13 +560,13 @@ class Wfst():
         if ilabel is None:
             ilabels = [config.epsilon]
         elif isinstance(ilabel, str):
-            ilabels = ilabel.split(' ')
+            ilabels = ilabel.split()
         else:
             ilabels = ilabel
         if olabel is None:
             olabels = [config.epsilon]
         elif isinstance(olabel, str):
-            olabels = olabel.split(' ')
+            olabels = olabel.split()
         else:
             olabels = olabel
         ilength = len(ilabels)
@@ -680,7 +680,7 @@ class Wfst():
             for (y, idx) in osymbols_label:
                 osymbols.add_symbol(y)
 
-        # Relabel arc inputs/outputs in underlying fst.
+        # Relabel arc inputs/outputs in wrapped fst.
         fst = self.fst
         fst.set_input_symbols(isymbols)
         fst.set_output_symbols(osymbols)
@@ -717,6 +717,23 @@ class Wfst():
         note: assume fst.project() does not reindex states
         [destructive]
         """
+        # Update map arcs -> loglinear features.
+        # note: features may be invalidated by projection
+        phi = {}
+        for q in self.state_ids():
+            for t in self.arcs(q):
+                phi_t = self.features(q, t)
+                if phi_t:
+                    ilabel, olabel = t.ilabel, t.olabel
+                    if project_type == 'input':
+                        olabel = ilabel
+                    if project_type == 'output':
+                        ilabel = olabel
+                    t_ = (q, ilabel, olabel, t.nextstate)
+                    phi[t_] = phi_t
+        self.phi = phi
+
+        # Project labels in wrapped fst.
         fst = self.fst
         if project_type == 'input':
             isymbols = fst.input_symbols().copy()
@@ -734,7 +751,7 @@ class Wfst():
         reweight_type ("to_initial" or "to_final").
         note: assume that Fst.push() does not change state ids
         or reorder arcs within state.
-        todo: testme
+        todo: test
         [destructive]
         """
         self.fst = pynini.push(self.fst,
@@ -1415,7 +1432,7 @@ class Wfst():
 
     def draw(self, source, acceptor=True, portrait=True, **kwargs):
         """
-        Write underlying FST in dot format to file (= source).
+        Write wrapped FST in dot format to file (= source).
         note: kwargs can include show_weight_one=True
         """
         fst = self.fst
@@ -1600,6 +1617,12 @@ def string_map(inputs,
         q_stop = wfst.add_state()  # Unique final state.
         wfst.set_final(q_stop)
 
+    # Convenience: handle one-string maps.
+    if isinstance(inputs, str):
+        inputs = [inputs]
+    if isinstance(outputs, str):
+        outputs = [outputs]
+
     # Input string -> output string pairs (unweighted).
     pairs = zip(inputs, outputs) if outputs else inputs
     # Eliminate spurious amiguity, preserving original order.
@@ -1608,14 +1631,14 @@ def string_map(inputs,
         if ilabel is None:
             ilabels = [config.epsilon]
         elif isinstance(ilabel, str):
-            ilabels = ilabel.split(' ')
+            ilabels = ilabel.split()
         else:
             ilabels = list(ilabel)
 
         if olabel is None:
             olabels = [config.epsilon]
         elif isinstance(olabel, str):
-            olabels = olabel.split(' ')
+            olabels = olabel.split()
         else:
             olabels = list(olabel)
 
@@ -1997,7 +2020,7 @@ def invert(wfst_in):
     fst = wfst_in.fst
     isymbols = fst.input_symbols().copy()
     osymbols = fst.output_symbols().copy()
-    # Swap input and output labels in backing fst.
+    # Swap input and output labels in wrapped fst.
     fst.invert()
     # Alternative with explicit label swap:
     # for q in fst.states():
@@ -2836,7 +2859,7 @@ def str_pad(word, n, sep=' ', pad=config.epsilon):
     if word is None:
         ret = [pad]
     elif isinstance(word, str) and sep != '':
-        ret = word.split(' ')
+        ret = word.split(sep)
     else:
         ret = word
     if len(ret) < n:

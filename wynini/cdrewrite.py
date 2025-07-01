@@ -7,16 +7,16 @@ from pynini import SymbolTable, SymbolTableView
 import wynini
 from wynini import *
 from wynini import Wfst
-from regexp import Thompson
+from wynini.regexp import Thompson
 
-markers = ['_#_', '_<1_', '_<2_', '_>_']  # Markers used internally.
+markers = ['_<1_', '_<2_', '_>_', '_#_']  # Markers used internally.
 
 
 class CDRewrite():
     """
     Compiler for conditional rewrite rules and constraints.
-    To compile a constraint, pass identity transducer 'replace'
-    with weights or features on targeted arcs.
+    To compile a constraint, pass transducer 'replace'
+    with weights or loglinear features on targeted arcs.
     """
 
     def __init__(self, sigma):
@@ -95,7 +95,6 @@ class CDRewrite():
         l1_alpha = self.sigma_star_regexp(lam, sigma=self.sigma)
         l1 = self.marker(l1_alpha, type=2, deletions=['_<1_'])
         l1.add_self_arcs(['_<2_'])
-        print(l1)
         if verbose:
             print(l1.info())
             l1.draw('fig/l1.dot', acceptor=False)
@@ -230,7 +229,7 @@ class CDRewrite():
         for q in finals:
             replace.add_arc(q, '_>_', epsilon, None, q0)
             replace.set_final(q, False)
-        replace.draw('fig/replace.dot')
+        #replace.draw('fig/replace.dot')
         return replace
 
     def sigma_star_regexp(self, beta, sigma=None, add_delim=False):
@@ -242,26 +241,26 @@ class CDRewrite():
 if __name__ == "__main__":
     # Tests.
     sigma = ['a', 'b', 'c', 'd']
-    cdrewrite = CDRewrite(sigma)
-    isymbols = cdrewrite.isymbols
+    compiler = CDRewrite(sigma)
+    isymbols = compiler.isymbols
 
     beta1 = '(a|b)'
-    alpha1 = cdrewrite.sigma_star_regexp(beta1)
-    tau1 = cdrewrite.marker(alpha1, type=1, insertions=['_#_'])
+    alpha1 = compiler.sigma_star_regexp(beta1)
+    tau1 = compiler.marker(alpha1, type=1, insertions=['_#_'])
     tau1.draw('fig/tau1.dot', acceptor=False)
 
     beta2 = '(a|b)'
-    alpha2 = cdrewrite.sigma_star_regexp(beta2)
-    tau2 = cdrewrite.marker(alpha2, type=2, deletions=['_#_'])
+    alpha2 = compiler.sigma_star_regexp(beta2)
+    tau2 = compiler.marker(alpha2, type=2, deletions=['_#_'])
     tau2.draw('fig/tau2.dot', acceptor=False)
 
-    tau3 = cdrewrite.marker(alpha2, type=3, deletions=['_#_'])
+    tau3 = compiler.marker(alpha2, type=3, deletions=['_#_'])
     tau3.draw('fig/tau3.dot', acceptor=False)
 
     # rule, (r, f, replace, l1, l2) = \
-    #     cdrewrite.compile(phi='a', psi='b', lam='c', rho='d')
+    #     compiler.compile(phi='a', psi='b', lam='c', rho='d')
     rule, (r, f, replace, l1, l2) = \
-        cdrewrite.compile(phi='a', psi='b', lam='b', rho='', verbose=0)
+        compiler.compile(phi='a', psi='b', lam='b', rho='', verbose=0)
     rule = rule.determinize(acceptor=False)
     rule.draw('fig/rule.dot', acceptor=False)
 
@@ -275,6 +274,24 @@ if __name__ == "__main__":
     # print(output_)
     # print(output_.info())
     # outputs = list(output_.ostrings())
+    print('* * * * *')
 
     # Loglinear constraint.
-    replace = wynini.string_map(['b'], ['b'], isymbols=isymbols)
+    replace = wynini.string_map( \
+        inputs=['a'],
+        outputs=['b'],
+        isymbols=isymbols,
+        add_delim=False,
+        weights=[1],
+        phis=[{'*ab':1}])
+    replace.print_arcs()
+    print()
+    rule, *_ = compiler.compile(phi='a',
+                                psi=None,
+                                lam='c',
+                                rho='d',
+                                replace=replace)
+    rule.relabel_states()
+    print(rule.phi)
+    rule = rule.determinize()
+    rule.draw('fig/rule.dot', acceptor=False)
