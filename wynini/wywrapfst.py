@@ -359,11 +359,8 @@ class Wfst():
             src = state_map[q]
             for t in filter(lambda t: t.nextstate in live_states, fst.arcs(q)):
                 dest = state_map[t.nextstate]
-                wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest)
-                phi_t = self.features(q, t)
-                if phi_t:
-                    t_ = (src, t.ilabel, t.olabel, dest)
-                    wfst.phi[t_] = phi_t
+                phi = self.features(q, t)
+                wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest, phi)
 
         if connect:
             wfst.connect()
@@ -526,7 +523,8 @@ class Wfst():
                 ilabel=None,
                 olabel=None,
                 weight=None,
-                dest=None):
+                dest=None,
+                phi=None):
         """
         Add arc. Accepts id or label for each of 
         src / ilabel / olabel / dest.
@@ -538,6 +536,8 @@ class Wfst():
         src_id, arc = self.make_arc( \
             src, ilabel, olabel, weight, dest)
         self.fst.add_arc(src_id, arc)
+        if phi:
+            self.set_features(src_id, arc, phi)
         return src_id, arc
 
     def add_path(self,
@@ -545,7 +545,8 @@ class Wfst():
                  ilabel=None,
                  olabel=None,
                  weight=None,
-                 dest=None):
+                 dest=None,
+                 phi=None):
         """
         Add path labeled by tuple/list or space-separated string
         ilabel and olabel (possibly of different lengths, either
@@ -583,7 +584,7 @@ class Wfst():
             r = self.add_state()
             self.add_arc(q, ilabels[i], olabels[i], None, r)
             q = r
-        self.add_arc(q, ilabels[n - 1], olabels[n - 1], weight, dest)
+        self.add_arc(q, ilabels[n - 1], olabels[n - 1], weight, dest, phi)
         return self
 
     def add_self_arcs(self, ilabels=[]):
@@ -776,8 +777,7 @@ class Wfst():
                     iolabel,
                     None,
                     t.weight,
-                    t.nextstate)
-                wfst.set_features(q_, t_, phi_t)
+                    t.nextstate, phi_t)
         return wfst, iosymbols
 
     def decode_labels(self, isymbols, osymbols, sep=':'):
@@ -809,8 +809,7 @@ class Wfst():
                     ilabel,
                     olabel,
                     t.weight,
-                    t.nextstate)
-                wfst.set_features(q_, t_, phi_t)
+                    t.nextstate, phi_t)
         return wfst
 
     @classmethod
@@ -863,6 +862,7 @@ class Wfst():
         then adding back all non-dead arcs, as suggested in the 
         OpenFst forum: 
         https://www.openfst.org/twiki/bin/view/Forum/FstForumArchive2014
+        todo: preserve arc features
         [destructive]
         """
         if not states and not dead_arcs:
@@ -900,6 +900,7 @@ class Wfst():
         """
         Delete duplicate arcs (which are allowed by Fst).
         todo: sum weights of arcs with same src/ilabel/olabel/dest
+        todo: handle arc features
         [destructive]
         """
         fst = self.fst
@@ -1548,6 +1549,8 @@ def string_map(inputs,
                isymbols=None,
                osymbols=None,
                add_delim=True,
+               weights=None,
+               phis=none,
                **kwargs):
     """
     Transducer that maps input string tuples/lists or 
@@ -1575,7 +1578,7 @@ def string_map(inputs,
     pairs = zip(inputs, outputs) if outputs else inputs
     # Eliminate spurious amiguity, preserving original order.
     #pairs = list(dict.fromkeys(pairs))
-    for ilabel, olabel in pairs:
+    for i, ilabel, olabel in enumerate(pairs):
         if ilabel is None:
             ilabels = [config.epsilon]
         elif isinstance(ilabel, str):
@@ -1599,13 +1602,17 @@ def string_map(inputs,
 
         n = len(ilabels)  # == len(olabels)
         dest = q_start
-        for i, (x, y) in enumerate(zip(ilabels, olabels)):
+        for posn, (x, y) in enumerate(zip(ilabels, olabels)):
             src = dest
-            if i < (n - 1):
+            if posn < (n - 1):
                 dest = wfst.add_state()
+                wfst.add_arc(src, x, y, None, dest)
+                continue
             else:
                 dest = q_stop
-            wfst.add_arc(src, x, y, None, dest)
+                weight = weights[i] if weights else None
+                phi = phis[i] if phis else None
+                wfst.add_arc(src, x, y, weight, dest, phi)
 
     return wfst
 
@@ -2012,11 +2019,8 @@ def reverse(wfst_in):
 
             weight = t.weight.copy() if t.weight else None
             dest = t.nextstate
-            t_ = wfst.add_arc(dest, ilabel, olabel, weight, src)
-
             phi_t = wfst_in.features(src, t)
-            if phi_t:
-                wfst.set_features(src, t_, dict(phi_t))  # todo: deepcopy
+            t_ = wfst.add_arc(dest, ilabel, olabel, weight, src, phi_t)
 
     # Exchange initial and final states (creating new initial).
     q0 = wfst.add_state()
@@ -2576,6 +2580,7 @@ def concatenate(wfst1, wfst2):
     """
     Concatenation of two machines, assumed to share the 
     same input/output symbol tables and arc type.
+    todo: retain features from arg machines
     """
     wfst = Wfst( \
         wfst1.input_symbols(),
@@ -2630,6 +2635,7 @@ def union(wfst1, wfst2):
     """
     Union of two machines, assumed to share the 
     same input/output symbol tables and arc type.
+    todo: retain features from arg machines
     """
     wfst = Wfst( \
         wfst1.input_symbols(),
