@@ -698,17 +698,16 @@ class Wfst():
 
         # Relabel arcs (keys) in feature mapping phi.
         # note: features may be invalidated by relabeling.
-        phi = self.phi
-        if phi:
-            phi_ = {}
-            for (t, ftrs) in phi.items():
+        if self.phi:
+            phi = {}
+            for (t, phi_t) in self.phi.items():
                 (q, ilabel, olabel, nextstate) = t
                 if ifunc:
                     ilabel = isymbols_idx[ilabel]
                 if ofunc:
                     olabel = osymbols_idx[olabel]
-                phi_[(q, ilabel, olabel, nextstate)] = ftrs
-        self.phi = phi_
+                phi[(q, ilabel, olabel, nextstate)] = phi_t
+           self.phi = phi
         return self
 
     def project(self, project_type):
@@ -719,19 +718,16 @@ class Wfst():
         """
         # Update map arcs -> loglinear features.
         # note: features may be invalidated by projection
-        phi = {}
-        for q in self.state_ids():
-            for t in self.arcs(q):
-                phi_t = self.features(q, t)
-                if phi_t:
-                    ilabel, olabel = t.ilabel, t.olabel
-                    if project_type == 'input':
-                        olabel = ilabel
-                    if project_type == 'output':
-                        ilabel = olabel
-                    t_ = (q, ilabel, olabel, t.nextstate)
-                    phi[t_] = phi_t
-        self.phi = phi
+        if self.phi:
+            phi = {}
+            for (t, phi_t) in self.phi.items():
+                (q, ilabel, olabel, nextstate) = t
+                if project_type == 'input':
+                    olabel = ilabel
+                if project_type == 'output':
+                    ilabel = olabel
+                phi[(q, ilabel, olabel, nextstate)] = phi_t
+            self.phi = phi
 
         # Project labels in wrapped fst.
         fst = self.fst
