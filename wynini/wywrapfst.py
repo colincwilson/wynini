@@ -707,7 +707,7 @@ class Wfst():
                 if ofunc:
                     olabel = osymbols_idx[olabel]
                 phi[(q, ilabel, olabel, nextstate)] = phi_t
-           self.phi = phi
+            self.phi = phi
         return self
 
     def project(self, project_type):
