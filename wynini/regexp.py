@@ -1,6 +1,6 @@
 # Parse simple regular expressions (with | + * ?)
 # and convert to unweighted machines.
-# todo: namedtuple for parse nodes
+# todo: class or namedtuple for parse nodes
 import re, sys
 import string
 from pynini import SymbolTable, SymbolTableView
@@ -167,7 +167,7 @@ class Thompson():
     def build(self, node):
         """ Build step. """
         match node[0]:
-            case None:
+            case None:  # node type for empty string
                 wfst = wynini.sigma_star( \
                     isymbols=self.isymbols, sigma=self.sigma, add_delim=False)
             case '.':

@@ -1,3 +1,4 @@
+# Finite-state acceptors/transducers with weights and loglinear features.
 import os, re, sys, pickle
 import bisect
 import itertools
@@ -960,7 +961,9 @@ class Wfst():
         """
         if map_type == 'identity':
             return self
-        if map_type in ('to_trop', 'to_tropical', 'to_standard'):
+        if map_type in ('log', 'log64'):
+            map_type = 'to_' + map_type
+        if map_type in ('to_trop', 'to_tropical', 'to_standard', 'tropical'):
             map_type = 'to_std'
         fst = self.fst
         isymbols = fst.input_symbols().copy()
@@ -1024,6 +1027,7 @@ class Wfst():
         and returns a dictionary of feature 'violations'.
         The function can examine the src/input/output/dest and 
         associated labels of the arc.
+        todo: (optionally) update features instead of overwriting
         [destructive]
         """
         phi = {}
@@ -1142,6 +1146,7 @@ class Wfst():
         to max_len (optionally excluding bos/eos), and
         optionally with summary path weights.
         For acyclic machines, see paths() above.
+        todo: use collections.deque
         """
         # Fail fast if no states in this machine.
         if self.num_states() == 0:
@@ -1260,8 +1265,8 @@ class Wfst():
         returning iterator over output strings (default) or 
         machine that preserves input/output labels but not 
         state labels, output strings, or arc features.
-        Alternative method that also preserves state labels 
-        and arc features: create an acceptor for the input
+        An alternative method that also preserves state labels
+        and arc features is: create an acceptor for the input
         string with accep() and then compose with this machine.
         todo: relocate
         """
@@ -1342,14 +1347,24 @@ class Wfst():
 
     def print_arc(self, q, t):
         """
-        Pretty-print a single arc from state q.
+        Pretty a single arc from state q,
+        showing weight and features.
         """
         q = self.state_label(q)
         ilabel = self.ilabel(t)
         olabel = self.olabel(t)
         weight = self.weight(t)
+        ftrs = self.features(q, t)
         dest = self.state_label(t.nextstate)
-        return (q, ilabel, olabel, weight, dest)
+        return (q, ilabel, olabel, weight, dest, ftrs)
+
+    def print_arcs(self):
+        """
+        Print all arcs showing weights and features.
+        """
+        for q in self.state_ids():
+            for t in self.arcs(q):
+                print(self.print_arc(q, t))
 
     def print(self, show=True, **kwargs):
         """
@@ -1486,9 +1501,15 @@ def empty_transducer(**kwargs):
     return wfst
 
 
-def accep(word, isymbols, sep=' ', add_delim=True, **kwargs):
+def accep(word,
+          isymbols,
+          sep=' ',
+          add_delim=True,
+          weight=None,
+          phi=None,
+          **kwargs):
     """
-    Acceptor for separated word (see pynini.accep).
+    Acceptor for space-separated word (see pynini.accep).
     pynini.accep() arguments: weight (final weight) and 
     arc_type ("standard", "log", or "log64").
     """
@@ -1507,6 +1528,18 @@ def accep(word, isymbols, sep=' ', add_delim=True, **kwargs):
     fst.set_input_symbols(isymbols)
     fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
+
+    # Assign weights or loglinear features to arcs that
+    # lead to final state.
+    if weight:
+        func = lambda W, q, t: \
+            weight if t.nextstate in W.final_ids() else None
+        wfst.assign_weights(func)
+    if phi:
+        func = lambda W, q, t: \
+            dict(phi) if t.nextstate in W.final_ids() else None
+        wfst.assign_features(func)
+
     return wfst
 
 

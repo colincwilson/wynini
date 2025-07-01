@@ -1,5 +1,5 @@
 # (Weighted) Conditional rewriting as in Mohri & Sproat (1996).
-# see: pynini/extensions/cdrewrite.h
+# reference implementation: pynini/extensions/cdrewrite.h
 import re, sys
 import string
 from pynini import SymbolTable, SymbolTableView
@@ -14,7 +14,9 @@ markers = ['_#_', '_<1_', '_<2_', '_>_']  # Markers used internally.
 
 class CDRewrite():
     """
-    Compiler for conditional rewrite rules.
+    Compiler for conditional rewrite rules and constraints.
+    To compile a constraint, pass identity transducer 'replace'
+    with weights or features on targeted arcs.
     """
 
     def __init__(self, sigma):
@@ -108,6 +110,10 @@ class CDRewrite():
             l2.draw('fig/l2.dot', acceptor=False)
 
         # Rewrite rule derived by composition.
+        weight_type = replace.weight_type()
+        for m in [r, f, l1, l2]:
+            m.map_weights(weight_type)
+
         rule = r.compose(f).compose(replace).compose(l1).compose(l2)
         rule = rule.connect()
         if verbose:
@@ -234,8 +240,10 @@ class CDRewrite():
 
 
 if __name__ == "__main__":
+    # Tests.
     sigma = ['a', 'b', 'c', 'd']
     cdrewrite = CDRewrite(sigma)
+    isymbols = cdrewrite.isymbols
 
     beta1 = '(a|b)'
     alpha1 = cdrewrite.sigma_star_regexp(beta1)
@@ -267,3 +275,6 @@ if __name__ == "__main__":
     # print(output_)
     # print(output_.info())
     # outputs = list(output_.ostrings())
+
+    # Loglinear constraint.
+    replace = wynini.string_map(['b'], ['b'], isymbols=isymbols)
