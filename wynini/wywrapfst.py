@@ -1578,7 +1578,7 @@ def string_map(inputs,
                osymbols=None,
                add_delim=True,
                weights=None,
-               phis=none,
+               phis=None,
                **kwargs):
     """
     Transducer that maps input string tuples/lists or 
