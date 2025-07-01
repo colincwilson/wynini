@@ -58,7 +58,7 @@ class Wfst():
         self._label2state = {}  # State label -> state id.
         # note: state id <-> state label assumed to be one-to-one.
         self.sig = {}  # State id -> output string. (note: name change)
-        self.phi = {}  # Arc -> loglinear features ({f_k: v_k}).
+        self.phi = {}  # Arc -> loglinear features ({ftr_k: val_k}).
 
     def info(self):
         """
@@ -536,8 +536,7 @@ class Wfst():
         src_id, arc = self.make_arc( \
             src, ilabel, olabel, weight, dest)
         self.fst.add_arc(src_id, arc)
-        if phi:
-            self.set_features(src_id, arc, phi)
+        self.set_features(src_id, arc, phi)
         return src_id, arc
 
     def add_path(self,
@@ -550,7 +549,8 @@ class Wfst():
         """
         Add path labeled by tuple/list or space-separated string
         ilabel and olabel (possibly of different lengths, either
-        of which can be null).
+        of which can be null), optionally adding weight or features
+        to the final transition of the path.
         [destructive]
         """
         # Ensure same-length input/output sequences.
@@ -684,7 +684,7 @@ class Wfst():
         fst = self.fst
         fst.set_input_symbols(isymbols)
         fst.set_output_symbols(osymbols)
-        for q in self.states:
+        for q in self.state_ids():
             arcs = fst.arcs(q)
             fst.delete_arcs(q)
             for t in arcs:
@@ -777,7 +777,8 @@ class Wfst():
                     iolabel,
                     None,
                     t.weight,
-                    t.nextstate, phi_t)
+                    t.nextstate,
+                    phi_t)
         return wfst, iosymbols
 
     def decode_labels(self, isymbols, osymbols, sep=':'):
@@ -809,7 +810,8 @@ class Wfst():
                     ilabel,
                     olabel,
                     t.weight,
-                    t.nextstate, phi_t)
+                    t.nextstate,
+                    phi_t)
         return wfst
 
     @classmethod
@@ -1006,20 +1008,35 @@ class Wfst():
 
     def features(self, q, t, default={}):
         """ Get features of arc t from state q. """
-        q = self.state_id(q)
-        t_ = (q, t.ilabel, t.olabel, t.nextstate)
-        return self.phi.get(t_, default)
+        q_id = self.state_id(q)
+        t_ = (q_id, t.ilabel, t.olabel, t.nextstate)
+        phi_t = self.phi.get(t_, default)
+        if phi_t is None:
+            phi_t = default
+        return phi_t
 
     def set_features(self, q, t, phi_t):
         """ Set features of arc t from state q. """
-        if not phi_t:
-            return
-        q = self.state_id(q)
-        t_ = (q, t.ilabel, t.olabel, t.nextstate)
-        self.phi[t_] = phi_t
+        q_id = self.state_id(q)
+        t_ = (q_id, t.ilabel, t.olabel, t.nextstate)
+        if not phi_t:  # Remove t_ key for empty / None value.
+            self.phi.pop(t_, None)
+        else:
+            self.phi[t_] = phi_t
         return
 
-    def assign_features(self, func):
+    def update_features(self, q, t, phi_t):
+        """ Update features of arc t from state q. """
+        if not phi_t:
+            return
+        q_id = self.state_id(q)
+        t_ = (q_id, t.ilabel, t.olabel, t.nextstate)
+        phi_t_ = get_features(q_id, t_)
+        if phi_t_:
+            phi_t = phi_t_ | phi_t  # New ftrs have priority.
+        self.phi[t_] = phi_t
+
+    def assign_features(self, func, update=False):
         """
         Assign features (as in loglinear/maxent/HG/OT models) 
         to arcs in this machine with an arbitrary function
@@ -1028,18 +1045,29 @@ class Wfst():
         and returns a dictionary of feature 'violations'.
         The function can examine the src/input/output/dest and 
         associated labels of the arc.
-        todo: (optionally) update features instead of overwriting
+        Set update flag to retain any original features,
+        updating values by summation (!).
         [destructive]
         """
-        phi = {}
-        for q in self.fst.states():
-            for t in self.fst.arcs(q):
-                phi_t = func(self, q, t)
-                if phi_t:  # Handle partial functions / empty phi_t.
-                    t_ = (q, t.ilabel, t.olabel, t.nextstate)
-                    phi[t_] = phi_t
-        self.phi = phi
+        if not self.phi:
+            self.phi = {}
+
+        for q_id in self.fst.state_ids():
+            for t in self.fst.arcs(q_id):
+                phi_t = func(self, q_id, t)
+                if update:
+                    self.update_features(q_id, t, phi_t)
+                else:
+                    self.assign_features(q_id, t, phi_t)
         return self
+
+    def update_features(self, func):
+        """ Update existing features / assign new ones. """
+        return assign_features(self, func, update=True)
+
+    def clear_features(self):
+        """ Remove all features from this machine. """
+        self.phi = {}
 
     def push_weights(self,
                      delta=1e-6,
@@ -1538,7 +1566,7 @@ def accep(word,
         wfst.assign_weights(func)
     if phi:
         func = lambda W, q, t: \
-            dict(phi) if t.nextstate in W.final_ids() else None
+            phi if t.nextstate in W.final_ids() else None
         wfst.assign_features(func)
 
     return wfst
@@ -2341,19 +2369,16 @@ def compose(wfst1,
                         Q.add(q)
                         Q_new.add(q)
 
-                    # Add arc.
+                    # New arc features.
+                    phi_t = combine_features(phi1_t, phi_t2)
+
+                    # Add new arc.
                     wfst.add_arc(src=src,
                                  ilabel=t1.ilabel,
                                  olabel=t2.olabel,
                                  weight=weight,
-                                 dest=dest)
-
-                    # Arc features: union of features assigned
-                    # to source arcs (ignoring {}).
-                    if phi_t1 or phi_t2:
-                        phi_t = phi_t1 | phi_t2
-                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
-                        wfst.phi[t_] = phi_t
+                                 dest=dest,
+                                 phi=phi_t)
 
     wfst = wfst.connect()
     return wfst
@@ -2531,19 +2556,16 @@ def compose_sorted(wfst1, wfst2):
                         Q.add(q)
                         Q_new.add(q)
 
-                    # Add arc.
+                    # New arc features.
+                    phi_t = combine_features(phi_t1, phi_t2)
+
+                    # Add new arc.
                     wfst.add_arc(src=src,
                                  ilabel=t1.ilabel,
                                  olabel=t2.olabel,
                                  weight=weight,
-                                 dest=dest)
-
-                    # Arc features: union of features assigned
-                    # to source arcs (ignoring {}).
-                    if phi_t1 or phi_t2:
-                        phi_t = phi_t1 | phi_t2
-                        t_ = (src_id, t1.ilabel, t2.olabel, dest_id)
-                        wfst.phi[t_] = phi_t
+                                 dest=dest,
+                                 phi=phi_t)
 
     wfst = wfst.connect()
     return wfst
@@ -2784,6 +2806,26 @@ def arc_equal(arc1, arc2):
             (arc1.nextstate == arc2.nextstate) and \
             (arc1.weight == arc2.weight)
     return val
+
+
+def combine_features(phi_t1, phi_t2):
+    """
+    Combine loglinear features of two arcs
+    (used in machine composition).
+    """
+    if (not phi_t1) and (not phi_t2):
+        return None
+    if phi_t1 and (not phi_t2):
+        return dict(phi_t1)
+    if (not phi_t1) and phi_t2:
+        return dict(phi_t2)
+    phi_t = dict(phi_t1)
+    for key, val in phi_t2.items():
+        if key in phi_t:
+            phi_t[key] += val
+        else:
+            phi_t[key] = val
+    return phi_t
 
 
 # todo: use method from string util
