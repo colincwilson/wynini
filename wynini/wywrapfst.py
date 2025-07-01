@@ -1016,13 +1016,13 @@ class Wfst():
         return phi_t
 
     def set_features(self, q, t, phi_t):
-        """ Set features of arc t from state q. """
+        """ Set or update features of arc t from state q. """
         q_id = self.state_id(q)
         t_ = (q_id, t.ilabel, t.olabel, t.nextstate)
         if not phi_t:  # Remove t_ key for empty / None value.
             self.phi.pop(t_, None)
         else:
-            self.phi[t_] = phi_t
+            self.phi[t_] = dict(phi_t)  # Note: copy features.
         return
 
     def update_features(self, q, t, phi_t):
@@ -1035,6 +1035,7 @@ class Wfst():
         if phi_t_:
             phi_t = phi_t_ | phi_t  # New ftrs have priority.
         self.phi[t_] = phi_t
+        return
 
     def assign_features(self, func, update=False):
         """
@@ -1052,18 +1053,14 @@ class Wfst():
         if not self.phi:
             self.phi = {}
 
-        for q_id in self.fst.state_ids():
+        for q_id in self.fst.states():
             for t in self.fst.arcs(q_id):
                 phi_t = func(self, q_id, t)
-                if update:
-                    self.update_features(q_id, t, phi_t)
+                if (not update):
+                    self.set_features(q_id, t, phi_t)
                 else:
-                    self.assign_features(q_id, t, phi_t)
+                    self.update_features(q_id, t, phi_t)
         return self
-
-    def update_features(self, func):
-        """ Update existing features / assign new ones. """
-        return assign_features(self, func, update=True)
 
     def clear_features(self):
         """ Remove all features from this machine. """
@@ -1113,7 +1110,7 @@ class Wfst():
     def paths(self):
         """
         Iterator over paths through this machine (must be acyclic). 
-        Returns pynini.StringPathIterator, which is not iterable (!)
+        Returns pynini.StringPathIterator, which is not iterable(!)
         but has methods: next(); ilabels(), istring(), labels(), ostring(),
         weights(); istrings(), ostrings(), weights(), items().
         """
@@ -1585,7 +1582,8 @@ def string_map(inputs,
     space-separated strings to output string tuples/lists
     or space-separated strings. If arg outputs is None,
     treat inputs as a pre-zipped list of pairs.
-    todo: optional weight for each (input, output) pair.
+    Accepts optional weight or loglinear features for
+    each (input, output) pair, contained in lists.
     todo: string_file (inputs and outputs read from file)
     """
     wfst = Wfst(isymbols=isymbols, osymbols=osymbols, **kwargs)
@@ -1606,7 +1604,7 @@ def string_map(inputs,
     pairs = zip(inputs, outputs) if outputs else inputs
     # Eliminate spurious amiguity, preserving original order.
     #pairs = list(dict.fromkeys(pairs))
-    for i, ilabel, olabel in enumerate(pairs):
+    for i, (ilabel, olabel) in enumerate(pairs):
         if ilabel is None:
             ilabels = [config.epsilon]
         elif isinstance(ilabel, str):
@@ -2370,7 +2368,7 @@ def compose(wfst1,
                         Q_new.add(q)
 
                     # New arc features.
-                    phi_t = combine_features(phi1_t, phi_t2)
+                    phi_t = combine_features(phi_t1, phi_t2)
 
                     # Add new arc.
                     wfst.add_arc(src=src,
@@ -2602,7 +2600,6 @@ def concatenate(wfst1, wfst2):
     """
     Concatenation of two machines, assumed to share the 
     same input/output symbol tables and arc type.
-    todo: retain features from arg machines
     """
     wfst = Wfst( \
         wfst1.input_symbols(),
@@ -2621,7 +2618,8 @@ def concatenate(wfst1, wfst2):
                 wfst1.ilabel(t),
                 wfst1.olabel(t),
                 wfst1.weight(t),
-                (wfst1.state_label(t.nextstate), 1))
+                (wfst1.state_label(t.nextstate), 1),
+                wfst1.features(q, t))
 
     # States and arcs from wfst2.
     for q in wfst2.states():
@@ -2635,7 +2633,8 @@ def concatenate(wfst1, wfst2):
                 wfst2.ilabel(t),
                 wfst2.olabel(t),
                 wfst2.weight(t),
-                (wfst2.state_label(t.nextstate), 2))
+                (wfst2.state_label(t.nextstate), 2),
+                wfst2.features(q,t))
 
     # Bridging arcs.
     for q1 in wfst1.finals():
@@ -2657,7 +2656,6 @@ def union(wfst1, wfst2):
     """
     Union of two machines, assumed to share the 
     same input/output symbol tables and arc type.
-    todo: retain features from arg machines
     """
     wfst = Wfst( \
         wfst1.input_symbols(),
@@ -2679,7 +2677,8 @@ def union(wfst1, wfst2):
                 wfst1.ilabel(t),
                 wfst1.olabel(t),
                 wfst1.weight(t),
-                (wfst1.state_label(t.nextstate), 1))
+                (wfst1.state_label(t.nextstate), 1),
+                wfst1.features(q, t))
 
     # States and arcs from wfst2.
     for q in wfst2.states():
@@ -2693,7 +2692,8 @@ def union(wfst1, wfst2):
                 wfst2.ilabel(t),
                 wfst2.olabel(t),
                 wfst2.weight(t),
-                (wfst2.state_label(t.nextstate), 2))
+                (wfst2.state_label(t.nextstate), 2),
+                wfst2.features(q,t))
 
     # Bridging arcs.
     q1 = (wfst1.initial(), 1)
@@ -2811,14 +2811,14 @@ def arc_equal(arc1, arc2):
 def combine_features(phi_t1, phi_t2):
     """
     Combine loglinear features of two arcs
-    (used in machine composition).
+    (used in composition).
     """
     if (not phi_t1) and (not phi_t2):
         return None
     if phi_t1 and (not phi_t2):
-        return dict(phi_t1)
+        return phi_t1
     if (not phi_t1) and phi_t2:
-        return dict(phi_t2)
+        return phi_t2
     phi_t = dict(phi_t1)
     for key, val in phi_t2.items():
         if key in phi_t:
