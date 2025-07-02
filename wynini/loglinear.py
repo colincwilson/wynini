@@ -1,3 +1,4 @@
+# Manipulate Wfsts with features on arcs as loglinear models.
 import numpy as np
 from collections import ChainMap
 from scipy import sparse
@@ -40,7 +41,7 @@ def violation_matrix(wfst, ftrs):
     ftrs = list(ftrs)
     ftr2index = {ftr: i for i, ftr in enumerate(ftrs)}
 
-    # CSR format. xxx check
+    # CSR format [checkme].
     arc_ids = []
     ftr_ids = []
     vals = []
@@ -68,6 +69,7 @@ def assign_weights(wfst, w):
     phi: arc t -> dictionary of feature values ('violations') {\phi_0:v_0, \phi_1:v_1, ...}
     arg w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
     All feature values and weights should be non-negative.
+    note: name clash with Wfst.assign_weights()
     """
     wfst.map_weights('to_log')
     fst = wfst.fst

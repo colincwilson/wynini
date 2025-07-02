@@ -1,3 +1,4 @@
+# Compile one-level (phonotactic) constraint.
 import wynini
 from wynini.cdrewrite import CDRewrite
 

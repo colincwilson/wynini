@@ -8,6 +8,7 @@ import wynini
 from wynini import *
 from wynini import Wfst
 from wynini.regexp import Thompson
+from wynini import loglinear
 
 markers = ['_<1_', '_<2_', '_>_', '_#_']  # Markers used internally.
 
@@ -29,7 +30,14 @@ class CDRewrite():
         # Regexp compiler.
         self.regexper = Thompson(self.isymbols, self.sigma)
 
-    def compile(self, phi, psi, lam, rho, replace=None, verbose=False):
+    def to_rule(self,
+                phi,
+                psi,
+                lam,
+                rho,
+                replace=None,
+                simplify=True,
+                verbose=False):
         """
         "A transducer corresponding to the left-to-right
         obligatory rule phi -> psi / lambda __ rho can be
@@ -114,12 +122,13 @@ class CDRewrite():
             m.map_weights(weight_type)
 
         rule = r.compose(f).compose(replace).compose(l1).compose(l2)
-        rule = rule.connect()
+        rule = rule.relabel_states().connect()
+        if simplify:
+            rule = rule.determinize(acceptor=False)
         if verbose:
             print(rule.info())
             rule.draw('fig/rule.dot', acceptor=False, show_weight_one=True)
 
-        #rule = rule.determinize()
         return rule, (r, f, replace, l1, l2)
 
     def marker(self, alpha=None, type=1, insertions=[], deletions=[]):
@@ -166,6 +175,7 @@ class CDRewrite():
             else:
                 # Make non-final state final.
                 tau.set_final(q, True)
+        tau = tau.determinize(acceptor=False)
         return tau
 
     def marker_type2(self, alpha, insertions=[], deletions=['_#_']):
@@ -184,6 +194,7 @@ class CDRewrite():
                 tau.add_arc(q, marker, epsilon, None, q)
         for q in states:
             tau.set_final(q, True)
+        tau = tau.determinize(acceptor=False)
         return tau
 
     def marker_type3(self, alpha, insertions=[], deletions=['_#_']):
@@ -204,6 +215,7 @@ class CDRewrite():
                 tau.add_arc(q, marker, epsilon, None, q)
         for q in states:
             tau.set_final(q, True)
+        tau = tau.determinize(acceptor=False)
         return tau
 
     def replace_with_markers(self, replace):
@@ -229,12 +241,30 @@ class CDRewrite():
         for q in finals:
             replace.add_arc(q, '_>_', epsilon, None, q0)
             replace.set_final(q, False)
+        #replace = replace.determinize(acceptor=False) # do not apply
         #replace.draw('fig/replace.dot')
         return replace
 
     def sigma_star_regexp(self, beta, sigma=None, add_delim=False):
         # (delegate to regexper)
         wfst = self.regexper.sigma_star_regexp(beta, sigma, add_delim)
+        return wfst
+
+    def to_constraint(self, phi, lam, rho, ftr):
+        """
+        Acceptor representing a single-level loglinear feature
+        that fires for each instance of phi / lam __ rho .
+        todo: determinize/minimize constraint while
+        preserving arc features
+        todo: two-level (aka input-output) constraints
+        """
+        replace = wynini.string_map(phi, phi, features={ftr: 1})
+        wfst, *_ = self.to_rule(phi=phi,
+                                psi=None,
+                                lam=lam,
+                                rho=rho,
+                                replace=replace,
+                                simplify=False)
         return wfst
 
 
@@ -260,8 +290,7 @@ if __name__ == "__main__":
     # rule, (r, f, replace, l1, l2) = \
     #     compiler.compile(phi='a', psi='b', lam='c', rho='d')
     rule, (r, f, replace, l1, l2) = \
-        compiler.compile(phi='a', psi='b', lam='b', rho='', verbose=0)
-    rule = rule.determinize(acceptor=False)
+        compiler.to_rule(phi='a', psi='b', lam='b', rho='', verbose=0)
     rule.draw('fig/rule.dot', acceptor=False)
 
     input_ = wynini.accep('b a a a', isymbols=None, add_delim=False)
@@ -274,24 +303,67 @@ if __name__ == "__main__":
     # print(output_)
     # print(output_.info())
     # outputs = list(output_.ostrings())
-    print('* * * * *')
 
-    # Loglinear constraint.
-    replace = wynini.string_map( \
-        inputs=['a'],
-        outputs=['b'],
-        isymbols=isymbols,
-        add_delim=False,
-        weights=[1],
-        phis=[{'*ab':1}])
-    replace.print_arcs()
-    print()
-    rule, *_ = compiler.compile(phi='a',
-                                psi=None,
-                                lam='c',
-                                rho='d',
-                                replace=replace)
-    rule.relabel_states()
-    print(rule.phi)
-    rule = rule.determinize()
-    rule.draw('fig/rule.dot', acceptor=False)
+    print('* * * * *')
+    # Loglinear constraint acceptor
+    ftr = '*a/a_'
+    constraint = compiler.to_constraint( \
+        phi='a', lam='a', rho='', ftr=ftr)
+    loglinear.assign_weights(constraint, {ftr: 1})
+    constraint.print_arcs()
+    constraint.draw('fig/constraint.dot', acceptor=False)
+    input_ = wynini.accep('b a a a', isymbols=None, arc_type='log')
+    output_ = input_.compose(constraint)
+    output_.print_arcs()
+    output_.draw('fig/output.dot', acceptor=True)
+    for x in output_.strings(weights=True, max_len=20):
+        print(x)
+    print(output_.shortestpath())
+    #print(output_.ostrings())
+
+    # replace = wynini.string_map( \
+    #     inputs=['a'], outputs=['a'], add_delim=False, phis=[{'*a/a_': 1}])
+    # constraint, (r, f, replace, l1, l2) = compiler.to_rule( \
+    #     phi='a', psi=None, lam='a', rho='', replace=replace)
+    # constraint.relabel_states().connect()
+    # loglinear.assign_weights(constraint, {'*a/a_': 1})
+    # constraint.print_arcs()
+    # constraint.draw('fig/constraint.dot', acceptor=False)
+
+# # # # # SCRAP # # # # #
+
+# def to_constraint(self, phi, lam, rho, ftr):
+#     """
+#     Acceptor representing a loglinear feature
+#     that fires when phi / lam __ rho
+#     fixme: incorrect when lam ends with phi!
+#     """
+#     # Add fire-symbol to alphabet.
+#     sigma = self.sigma
+#     sigma_ = sigma + ['_*_']
+#     self.__init__(sigma_)
+
+#     # Compile rule phi -> fire-symbol / lam __ rho
+#     # note: if |phi| > 1, fire-symbol will appear on output
+#     # label for first symbol in phi (bc string_map pads strings
+#     # with trailing epsilons), i.e. feature firing will be
+#     # registered as early as possible.
+#     wfst, *_ = self.to_rule(phi=phi, psi='_*_', lam=lam, rho=rho)
+#     return wfst
+
+#     # Assign loglinear feature to fire transitions.
+#     def func(W, q, t):
+#         if W.ilabel(t) != '_*_' and W.olabel(t) == '_*_':
+#             return {ftr: 1}
+#         return None
+
+#     wfst.assign_features(func)
+
+#     # Project input symbols; remove fire-symbol arcs.
+#     wfst.project(side='input')
+#     wfst.remove_arcs(lambda W, q, t: W.ilabel(t) == '_*_')
+
+#     # Remove fire-symbol from alphabet.
+#     self.__init__(sigma)
+
+#     return wfst
