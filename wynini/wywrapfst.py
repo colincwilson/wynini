@@ -1762,7 +1762,7 @@ def braid(length=1, isymbols=None, tier=None, arc_type='standard'):
 
 def sigma_star(isymbols=None, sigma=None, add_delim=False, **kwargs):
     """
-    Acceptor for Sigma* (by default all syms except eps/bos/eos).
+    Acceptor for Sigma* (by default all syms except epsilon/bos/eos).
     """
     wfst = Wfst(isymbols, **kwargs)
 
@@ -1793,8 +1793,9 @@ def ngram(context='left',
     Acceptor (identity transducer) for segments in immediately 
     preceding (left) / following (right) / both-side contexts of 
     specified length. For both-side context, length can be tuple.
-    ref. Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers.
+    Reference: Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers.
     In INTERSPEECH (pp. 1258-1262).
+    todo: make bos/eos delimiters optional
     """
     if context == 'left':
         return ngram_left(length, isymbols, tier, arc_type)
