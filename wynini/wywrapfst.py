@@ -1134,6 +1134,9 @@ class Wfst():
         Returns pynini.StringPathIterator, which is not iterable(!)
         but has methods: next(); ilabels(), istring(), labels(), ostring(),
         weights(); istrings(), ostrings(), weights(), items().
+        Example:
+            path_iter = wfst.paths()
+            print(list(path_iter.items()))
         """
         fst = self.fst
         isymbols = fst.input_symbols()
@@ -1504,6 +1507,9 @@ class Wfst():
     def determinize(self, **kwargs):
         return determinize(self, **kwargs)
 
+    def epsremoval(self, **kwargs):
+        return epsremoval(self, **kwargs)
+
     def compose(self, wfst2, **kwargs):
         return compose(self, wfst2, **kwargs)
 
@@ -1792,7 +1798,7 @@ def ngram(context='left',
     """
     Acceptor (identity transducer) for segments in immediately 
     preceding (left) / following (right) / both-side contexts of 
-    specified length. For both-side context, length can be tuple.
+    specified length. For both-side context, length can be int or tuple.
     Reference: Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers.
     In INTERSPEECH (pp. 1258-1262).
     todo: make bos/eos delimiters optional
@@ -2147,16 +2153,16 @@ def determinize(wfst_in, acceptor=True):
     Ignores state labels, weights, final strings, and features.
     todo: auto-set acceptor flag
     """
-    epsilon = config.epsilon
     isymbols = wfst_in.input_symbols().copy()
     osymbols = wfst_in.output_symbols().copy()
+    epsilon = config.epsilon
     if acceptor:
         wfst = wfst_in
     else:
         # Encode labels of transducer.
         wfst, iosymbols = wfst_in.encode_labels()
 
-    # Map from state-sets in this machine
+    # Map from state-sets in input output
     # to state ids in determinization.
     stateMap = {}
 
@@ -2226,11 +2232,15 @@ def determinize(wfst_in, acceptor=True):
     return wfst
 
 
-def epsilon_closure(wfst, Q1):
+def epsilon_closure(wfst, Q1, strict=False):
     """
     Epsilon closure of a set of states in this machine.
+    Classic definition has strict set to False (default).
+    If strict is True, requires epsilon transitions to
+    have weight One and empty loglinear features.
     """
     epsilon = config.epsilon
+    one = Weight.one(wfst.weight_type())
     Q2 = set(Q1)
     queue = list(Q1)
     while len(queue) > 0:
@@ -2238,15 +2248,74 @@ def epsilon_closure(wfst, Q1):
         for t in wfst.arcs(q):
             ilabel = wfst.ilabel(t)
             olabel = wfst.olabel(t)
-            if ilabel == olabel == epsilon:
-                dest = t.nextstate
-                if not dest in Q2:
-                    Q2.add(dest)
-                    queue.insert(0, dest)
+            if (ilabel != epsilon) or (olabel != epsilon):
+                continue
+            if strict and wfst.weight(t) != one:
+                continue
+            if strict and wfst.features(q, t):
+                continue
+            dest = t.nextstate  # dest id
+            if not dest in Q2:
+                Q2.add(dest)
+                queue.insert(0, dest)
     # note: sorted() is needed for identity of state sets;
     # tuple() makes the return value hashable
     Q2 = tuple(sorted(Q2))
     return Q2
+
+
+def epsremoval(wfst_in, acceptor=True):
+    """
+    Return version of acyclic input machine with unweighted,
+    featureless epsilon transitions removed.
+    todo: generic epsilon removal, see Mohri (2000).
+    fixme: handle final states!
+    [nondestructive]
+    """
+    isymbols = wfst_in.input_symbols().copy()
+    osymbols = wfst_in.output_symbols().copy()
+    epsilon = config.epsilon
+    one = Weight.one(wfst_in.weight_type())
+    wfst_in = wfst_in.copy()  # xxx
+    if acceptor:
+        wfst = wfst_in
+    else:
+        # Encode labels of transducer.
+        wfst, iosymbols = wfst_in.encode_labels()
+
+    # Epsilon closure of each state.
+    # (see Mohri 2000, p.5)
+    eps_closure = {q: epsilon_closure(wfst, [q], strict=True) \
+        for q in wfst.state_ids()}
+
+    # Reroute non-epsilon transitions.
+    for q in wfst.state_ids():
+        Q = eps_closure[q]
+        for r in Q:
+            if q == r:
+                continue
+            for t in wfst.arcs(r):
+                if wfst.ilabel(t) != epsilon or \
+                    wfst.olabel(t) != epsilon:
+                    wfst.add_arc(q, t.ilabel, t.olabel, wfst.weight(t),
+                                 t.nextstate, wfst.features(r, t))
+
+    # Remove unweighted, unfeatured epsilon transitions.
+    dead_arcs = []
+    for q in wfst.state_ids():
+        for t in wfst.arcs(q):
+            if wfst.ilabel(t) == epsilon \
+                and wfst.olabel(t) == epsilon \
+                and wfst.weight(t) == one \
+                and (not wfst.features(q, t)):
+                dead_arcs.append((q, t))
+    wfst = wfst.delete_arcs(dead_arcs=dead_arcs)
+
+    if not acceptor:
+        wfst = wfst.decode_labels(isymbols, osymbols)
+
+    wfst.connect()
+    return wfst
 
 
 # # # # # # # # # #
