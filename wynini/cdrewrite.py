@@ -252,7 +252,7 @@ class CDRewrite():
 
     def to_constraint(self, phi, lam, rho, ftr):
         """
-        Acceptor representing a single-level loglinear feature
+        Acceptor representing a single-level loglinear constraint
         that fires for each instance of phi / lam __ rho .
         todo: determinize/minimize constraint while
         preserving arc features
@@ -316,19 +316,11 @@ if __name__ == "__main__":
     output_ = input_.compose(constraint)
     output_.print_arcs()
     output_.draw('fig/output.dot', acceptor=True)
-    for x in output_.strings(weights=True, max_len=20):
-        print(x)
-    print(output_.shortestpath())
-    #print(output_.ostrings())
-
-    # replace = wynini.string_map( \
-    #     inputs=['a'], outputs=['a'], add_delim=False, phis=[{'*a/a_': 1}])
-    # constraint, (r, f, replace, l1, l2) = compiler.to_rule( \
-    #     phi='a', psi=None, lam='a', rho='', replace=replace)
-    # constraint.relabel_states().connect()
-    # loglinear.assign_weights(constraint, {'*a/a_': 1})
-    # constraint.print_arcs()
-    # constraint.draw('fig/constraint.dot', acceptor=False)
+    # for x in output_.strings(weights=True, max_len=20):
+    #     print(x)
+    # output_.map_weights('to_std')
+    # print(output_.shortestpath())
+    # print(output_.shortestdistance())
 
 # # # # # SCRAP # # # # #
 
