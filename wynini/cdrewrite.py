@@ -319,6 +319,7 @@ if __name__ == "__main__":
     output_.draw('fig/output2.dot', acceptor=True)
     print()
     output_.print_arcs()
+    print(output_.phi)
     path_iter = output_.paths()
     print(list(path_iter.items()))
     # for x in output_.strings(weights=True, max_len=20):

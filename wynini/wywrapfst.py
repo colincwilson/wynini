@@ -2269,7 +2269,7 @@ def epsremoval(wfst_in, acceptor=True):
     Return version of acyclic input machine with unweighted,
     featureless epsilon transitions removed.
     todo: generic epsilon removal, see Mohri (2000).
-    fixme: handle final states!
+    fixme: proper handling of final weights
     [nondestructive]
     """
     isymbols = wfst_in.input_symbols().copy()
@@ -2299,6 +2299,10 @@ def epsremoval(wfst_in, acceptor=True):
                     wfst.olabel(t) != epsilon:
                     wfst.add_arc(q, t.ilabel, t.olabel, wfst.weight(t),
                                  t.nextstate, wfst.features(r, t))
+            if wfst.is_final(r):
+                wfst.set_final(q, wfst.final(r))
+                # fixme: members of epsilon closure could have
+                # different final weights
 
     # Remove unweighted, unfeatured epsilon transitions.
     dead_arcs = []
@@ -2314,7 +2318,7 @@ def epsremoval(wfst_in, acceptor=True):
     if not acceptor:
         wfst = wfst.decode_labels(isymbols, osymbols)
 
-    wfst.connect()
+    wfst = wfst.connect()
     return wfst
 
 
