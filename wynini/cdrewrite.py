@@ -265,7 +265,7 @@ class CDRewrite():
                                 rho=rho,
                                 replace=replace,
                                 simplify=False)
-        wfst = wfst.epsremoval(acceptor=True)
+        wfst = wfst.rmepsilon(acceptor=False)
         return wfst
 
 

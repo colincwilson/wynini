@@ -884,6 +884,8 @@ class Wfst():
         then adding back all non-dead arcs, as suggested in the 
         OpenFst forum: 
         https://www.openfst.org/twiki/bin/view/Forum/FstForumArchive2014
+        note: output can contain duplicate arcs
+        note: ignores features when determining arc equality
         [destructive]
         """
         if not states and not dead_arcs:
@@ -920,42 +922,42 @@ class Wfst():
                                  t1.nextstate, phi_t)
                 else:
                     t1_ = (q, t1.ilabel, t1.olabel, t1.nextstate)
-                    self.phi.pop(t1_, None)
+                    self.phi.pop(t1_, None)  # remove phi[t1]
         return self
 
     def collapse_arcs(self):
         """
-        Delete duplicate arcs (which are allowed by Fst).
-        todo: sum weights of arcs with same src/ilabel/olabel/dest
-        todo: handle arc features
+        Delete duplicate arcs (which are allowed by Fst),
+        identified by src/ilabel/olabel/weight/ftrs/dest.
         [destructive]
         """
         fst = self.fst
-        q_arc_set = set()
-        q_arcs = []
-        duplicates = False
-        # Process each source state.
+
         for q in fst.states():
-            # Identify unique arcs.
-            q_arc_set.clear()
-            q_arcs.clear()
-            duplicates = False
+            # Identify unique arcs from state q.
+            q_arcs = dict()  # (src, ilabel, olabel, dest) -> [(weight, ftrs)]
+            found_duplicates = False
             for t in fst.arcs(q):
-                t_ = (t.ilabel, t.olabel, t.nextstate, str(t.weight))
-                if t_ in q_arc_set:
-                    duplicates = True
+                t_ = (q, t.ilabel, t.olabel, t.nextstate)
+                val = (t.weight, self.features(q, t))
+                if (t_ in q_arcs) and (val in q_arcs[t_]):
+                    found_duplicates = True
+                    self.set_features(q, t, None)  # remove phi[t]
                 else:
-                    q_arc_set.add(t_)
-                    q_arcs.append(t)
-            # Skip if there are no duplicates.
-            if not duplicates:
+                    q_arcs.setdefault(t_, []).append(val)
+
+            # Skip deletion/addition if no duplicate arcs
+            # found from q.
+            if not found_duplicates:
                 continue
-            # Delete all arcs.
+
+            # Delete all arcs from q; add back uniques.
             fst.delete_arcs(q)
-            # Add back unique arcs.
-            for t in q_arcs:
-                self.add_arc( \
-                    q, t.ilabel, t.olabel, t.weight, t.nextstate)
+            for t_ in q_arcs:
+                (src, ilabel, olabel, nextstate) = t_
+                for (weight, ftrs) in q_arcs[t_]:
+                    self.add_arc(src, ilabel, olabel, weight, nextstate, ftrs)
+
         return self
 
     def remove_arcs(self, func):
@@ -963,8 +965,9 @@ class Wfst():
         Delete arcs for which an arbitracy function 
         func (<W, q, t> -> boolean) is True. The function 
         receives this machine, a source state id, and an arc 
-        as arguments; it can examine the src/input/output/dest and 
-        associated labels of the arc.
+        as arguments; internally, it can examine the 
+        src/input/output/weight/dest/features and associated
+        labels of the arc.
         [destructive]
         """
         dead_arcs = []
@@ -1511,8 +1514,8 @@ class Wfst():
     def determinize(self, **kwargs):
         return determinize(self, **kwargs)
 
-    def epsremoval(self, **kwargs):
-        return epsremoval(self, **kwargs)
+    def rmepsilon(self, **kwargs):
+        return rmepsilon(self, **kwargs)
 
     def compose(self, wfst2, **kwargs):
         return compose(self, wfst2, **kwargs)
@@ -2268,10 +2271,9 @@ def epsilon_closure(wfst, Q1, strict=False):
     return Q2
 
 
-def epsremoval(wfst_in, acceptor=True):
+def rmepsilon(wfst_in, acceptor=True):
     """
-    Return version of acyclic input machine with unweighted,
-    featureless epsilon transitions removed.
+    Remove unweighted, features epsilon(:epsilon) arcs.
     todo: generic epsilon removal, see Mohri (2000).
     fixme: proper handling of final weights
     [nondestructive]
@@ -2317,7 +2319,9 @@ def epsremoval(wfst_in, acceptor=True):
                 and (not wfst.features(q, t)):
                 dead_arcs.append((q, t))
     wfst = wfst.delete_arcs(dead_arcs=dead_arcs)
-    wfst = wfst.connect()
+
+    # Remove dead states and duplicate arcs.
+    wfst = wfst.connect().collapse_arcs()
 
     if not acceptor:
         wfst = wfst.decode_labels(isymbols, osymbols)
@@ -2912,7 +2916,7 @@ def shortestpath_(wfst, delta=1e-6):
 def arc_equal(arc1, arc2):
     """
     Test equality of arcs from the same src
-    (missing from Pynini?).
+    (missing from pynini?).
     """
     val = (arc1.ilabel == arc2.ilabel) and \
             (arc1.olabel == arc2.olabel) and \
