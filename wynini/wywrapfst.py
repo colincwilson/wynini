@@ -1517,6 +1517,9 @@ class Wfst():
     def rmepsilon(self, **kwargs):
         return rmepsilon(self, **kwargs)
 
+    def simplify(self, **kwargs):
+        return simplify(self, **kwargs)
+
     def compose(self, wfst2, **kwargs):
         return compose(self, wfst2, **kwargs)
 
@@ -2330,6 +2333,18 @@ def rmepsilon(wfst_in, acceptor=True):
 
     if not acceptor:
         wfst = wfst.decode_labels(isymbols, osymbols)
+    return wfst
+
+
+def simplify(wfst_in, acceptor=True):
+    """
+    Convenience method that
+    (i) removes strict epsilon transitions
+    (ii) collapses identical arcs.
+    compare: pynini.minimize / optimize
+    """
+    wfst = rmepsilon(wfst_in, acceptor)
+    wfst = wfst.collapse_arcs()
     return wfst
 
 

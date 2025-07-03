@@ -261,8 +261,7 @@ class CDRewrite():
         replace = wynini.string_map(mu, mu, phis={ftr: 1})
         wfst, *_ = self.to_rule( \
             mu, None, lam, rho, replace, simplify=False)
-        wfst = wfst.rmepsilon(acceptor=False)
-        wfst = wfst.collapse_arcs()
+        wfst = wfst.simplify(acceptor=False)
         return wfst
 
 
