@@ -1149,7 +1149,7 @@ class Wfst():
     def istrings(self, delete_epsilon=False):
         """
         Iterator over input strings of paths through this 
-        machine (must be acyclic).
+        machine (must be acyclic); see paths().
         """
         ret = list(self.paths().istrings())
         if delete_epsilon:
@@ -1159,7 +1159,7 @@ class Wfst():
     def ostrings(self, delete_epsilon=False):
         """
         Iterator over output strings of paths through this 
-        machine (must be acyclic).
+        machine (must be acyclic); see paths().
         """
         ret = list(self.paths().ostrings())
         if delete_epsilon:
@@ -1169,7 +1169,7 @@ class Wfst():
     def iostrings(self, sep=':', delete_epsilon=False):
         """
         Generate aligned input:output sequences representing
-        paths through this machine (must be acyclic).
+        paths through this machine (must be acyclic); see paths().
         """
         path_iter = self.paths()
         while not path_iter.done():
@@ -1196,7 +1196,7 @@ class Wfst():
         of paths through this machine (possibly cyclic) up
         to max_len (optionally excluding bos/eos), and
         optionally with summary path weights.
-        For acyclic machines, see paths() above.
+        For acyclic machines, use paths() / istrings() / etc.
         todo: use collections.deque
         """
         # Fail fast if no states in this machine.
