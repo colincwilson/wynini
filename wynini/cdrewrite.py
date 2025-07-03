@@ -265,6 +265,7 @@ class CDRewrite():
                                 rho=rho,
                                 replace=replace,
                                 simplify=False)
+        wfst = wfst.epsremoval(acceptor=True)
         return wfst
 
 
@@ -310,15 +311,12 @@ if __name__ == "__main__":
     constraint = compiler.to_constraint( \
         phi='a', lam='a', rho='', ftr=ftr)
     loglinear.assign_weights(constraint, {ftr: 1})
-    constraint.print_arcs()
     constraint.draw('fig/constraint.dot', acceptor=False)
     input_ = wynini.accep('b a a a', isymbols=None, arc_type='log')
     output_ = input_.compose(constraint)
     output_.draw('fig/output.dot', acceptor=True)
-    output_ = output_.epsremoval(acceptor=False)
-    output_.draw('fig/output2.dot', acceptor=True)
     print()
-    output_.print_arcs()
+    #output_.print_arcs()
     print(output_.phi)
     path_iter = output_.paths()
     print(list(path_iter.items()))

@@ -5,7 +5,7 @@ from scipy import sparse
 
 from pynini import Weight
 
-from wynini import config, Wfst, shortestdistance
+from wynini import (config, Wfst, shortestdistance)
 
 # References:
 # * Eisner, J. (2002). Parameter estimation for probabilistic
@@ -65,21 +65,22 @@ def violation_matrix(wfst, ftrs):
 def assign_weights(wfst, w):
     """
     Assign unnormalized -logprob weight to each arc t in wfst
-    according to its Harmony: $- sum_k (w_k \cdot \phi_k(t))$.
-    phi: arc t -> dictionary of feature values ('violations') {\phi_0:v_0, \phi_1:v_1, ...}
-    arg w: dictionary of feature weights {\phi_0:w_0, \phi_1:w_1, ...}
+    according to its Harmony: $- sum_k (w_k · ftr_k(t))$.
+    phi: arc t -> dictionary of feature values ('violations')
+    {ftr_0: v_0, ftr_1: v_1, ...} (possibly empty or None).
+    arg w: dictionary of feature weights {ftr_0:w_0, ftr_1:w_1, ...}
     All feature values and weights should be non-negative.
     note: name clash with Wfst.assign_weights()
     """
     wfst.map_weights('to_log')
     fst = wfst.fst
-    One = Weight('log', 0.0)
+    one = Weight('log', 0.0)
     for q in fst.states():
         q_arcs = fst.mutable_arcs(q)
         for t in q_arcs:  # note: unstable arc reference
             phi_t = wfst.features(q, t)
             t.weight = Weight('log', dot_product(phi_t, w)) \
-                if phi_t is not None else One
+                if phi_t is not None else one
             q_arcs.set_value(t)
     return wfst
 

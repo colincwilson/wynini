@@ -1,3 +1,4 @@
+import logging
 from pynini import SymbolTable
 
 epsilon = eps = 'ϵ'  # <eps>
@@ -9,10 +10,9 @@ special_syms = []  # Special symbols.
 sigma = ['a', 'b']  # Ordinary symbols.
 syms = []  # All symbols in symtable.
 symtable = None  # SymbolTable.
+# todo: explicit input vs. output alphabets
 
 verbosity = 0
-
-# todo: explicit input vs. output alphabets
 
 
 def init(param={}):  # todo: change to **kwargs
@@ -61,3 +61,11 @@ def print_symtable(symtable_):
         symtable_ = symtable
     for (sym_id, sym) in symtable_:
         print(f'{sym_id}\t{sym}')
+
+
+# Logging
+logger = logging.getLogger(__name__)
+logging_formatter = logging.Formatter('%(levelno)s: %(message)s')
+logging_handler = logging.StreamHandler()
+logging_handler.setFormatter(logging_formatter)
+logger.addHandler(logging_handler)

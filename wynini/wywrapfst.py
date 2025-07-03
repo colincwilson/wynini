@@ -11,6 +11,7 @@ from pynini import (Fst, Arc, Weight, \
 from graphviz import Source
 
 from wynini import config
+from wynini.config import logger
 
 verbose = 0
 
@@ -152,9 +153,9 @@ class Wfst():
         # State id self-labeling by default.
         if label is None:
             label = q
-        if verbose and isinstance(label, int) and label != q:
-            print(f'Warning: labeling state {q} with '
-                  f'integer other than {q}.')
+        if isinstance(label, int) and label != q:
+            logger.warning(f'Labeling state {q} with '
+                           f'integer {label} != {q}.')
         # State <-> label dicts.
         self._state2label[q] = label
         self._label2state[label] = q
@@ -337,7 +338,7 @@ class Wfst():
         fst = self.fst
         live_states = set(fst.states()) - states
 
-        # Preserve input/output symbols and aweight type.
+        # Preserve input/output symbols and weight type.
         wfst = Wfst( \
             self.input_symbols(),
             self.output_symbols(),
@@ -348,7 +349,10 @@ class Wfst():
         q0 = fst.start()
         for q in live_states:
             q_label = self.state_label(q)
-            q_id = wfst.add_state(q_label)
+            if isinstance(q_label, int):
+                q_id = wfst.add_state()
+            else:
+                q_id = wfst.add_state(q_label)
             state_map[q] = q_id
             if q == q0:
                 wfst.set_start(q_id)
@@ -359,8 +363,8 @@ class Wfst():
             src = state_map[q]
             for t in filter(lambda t: t.nextstate in live_states, fst.arcs(q)):
                 dest = state_map[t.nextstate]
-                phi = self.features(q, t)
-                wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest, phi)
+                phi_t = self.features(q, t)
+                wfst.add_arc(src, t.ilabel, t.olabel, t.weight, dest, phi_t)
 
         if connect:
             wfst.connect()
@@ -2290,8 +2294,7 @@ def epsremoval(wfst_in, acceptor=True):
 
     # Reroute non-epsilon transitions.
     for q in wfst.state_ids():
-        Q = eps_closure[q]
-        for r in Q:
+        for r in eps_closure[q]:
             if q == r:
                 continue
             for t in wfst.arcs(r):
@@ -2314,11 +2317,10 @@ def epsremoval(wfst_in, acceptor=True):
                 and (not wfst.features(q, t)):
                 dead_arcs.append((q, t))
     wfst = wfst.delete_arcs(dead_arcs=dead_arcs)
+    wfst = wfst.connect()
 
     if not acceptor:
         wfst = wfst.decode_labels(isymbols, osymbols)
-
-    wfst = wfst.connect()
     return wfst
 
 
