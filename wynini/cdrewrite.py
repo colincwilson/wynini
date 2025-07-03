@@ -36,7 +36,7 @@ class CDRewrite():
                 lam,
                 rho,
                 replace=None,
-                simplify=True,
+                determinize=True,
                 verbose=False):
         """
         "A transducer corresponding to the left-to-right
@@ -123,7 +123,7 @@ class CDRewrite():
 
         rule = r.compose(f).compose(replace).compose(l1).compose(l2)
         rule = rule.relabel_states().connect()
-        if simplify:
+        if determinize:
             rule = rule.determinize(acceptor=False)
         if verbose:
             print(rule.info())
@@ -254,13 +254,11 @@ class CDRewrite():
         """
         Acceptor representing a single-level loglinear constraint
         that fires for each instance of mu / lam __ rho .
-        todo: determinize/minimize constraint while
-        preserving arc features
         todo: two-level (aka input-output) constraints
         """
         replace = wynini.string_map(mu, mu, phis={ftr: 1})
         wfst, *_ = self.to_rule( \
-            mu, None, lam, rho, replace, simplify=False)
+            mu, None, lam, rho, replace, determinize=False)
         wfst = wfst.simplify(acceptor=False)
         return wfst
 
