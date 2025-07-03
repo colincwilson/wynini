@@ -262,6 +262,7 @@ class CDRewrite():
         wfst, *_ = self.to_rule( \
             mu, None, lam, rho, replace, simplify=False)
         wfst = wfst.rmepsilon(acceptor=False)
+        wfst = wfst.collapse_arcs()
         return wfst
 
 

@@ -918,7 +918,9 @@ class Wfst():
                 else:
                     t1_ = (q, t1.ilabel, t1.olabel, t1.nextstate)
                     self.phi.pop(t1_, None)  # remove phi[t1]
-        return self
+
+        wfst_out = self.connect()
+        return wfst_out
 
     def collapse_arcs(self):
         """
@@ -1436,7 +1438,12 @@ class Wfst():
     def __str__(self):
         return self.print(show=False)
 
-    def draw(self, source, acceptor=True, portrait=True, **kwargs):
+    def draw(self,
+             source,
+             acceptor=True,
+             portrait=True,
+             to_pdf=True,
+             **kwargs):
         """
         Write wrapped FST in dot format to file (= source).
         note: kwargs can include show_weight_one=True
@@ -1452,10 +1459,11 @@ class Wfst():
                        acceptor=acceptor,
                        portrait=portrait,
                        **kwargs)
-        source_in = str(source)
-        source_out = re.sub('.dot$', '.pdf', source_in)
-        cmd = f'dot -Tpdf {source_in} > {source_out}'
-        os.system(cmd)
+        if to_pdf:
+            source_in = str(source)
+            source_out = re.sub('.dot$', '.pdf', source_in)
+            cmd = f'dot -Tpdf {source_in} > {source_out}'
+            os.system(cmd)
         return ret
 
     def viz(self, **kwargs):
@@ -2316,8 +2324,9 @@ def rmepsilon(wfst_in, acceptor=True):
                 dead_arcs.append((q, t))
     wfst = wfst.delete_arcs(dead_arcs=dead_arcs)
 
-    # Remove dead states and duplicate arcs.
-    wfst = wfst.connect().collapse_arcs()
+    # Remove dead states (which could be pre-existing
+    # or created by arc rerouting).
+    wfst = wfst.connect()
 
     if not acceptor:
         wfst = wfst.decode_labels(isymbols, osymbols)
