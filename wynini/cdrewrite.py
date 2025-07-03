@@ -256,7 +256,7 @@ class CDRewrite():
         that fires for each instance of mu / lam __ rho .
         todo: two-level (aka input-output) constraints
         """
-        replace = wynini.string_map(mu, mu, phis={ftr: 1})
+        replace = wynini.string_map(mu, mu, phis={ftr: 1.})
         wfst, *_ = self.to_rule( \
             mu, None, lam, rho, replace, determinize=False)
         wfst = wfst.simplify(acceptor=False)
