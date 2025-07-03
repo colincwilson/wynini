@@ -498,7 +498,7 @@ class Wfst():
         """
         Create (but do not add) arc. Accepts id or label
         for each of src / ilabel / olabel / dest.
-        Returns pynini Arc (all attributes int or weight).
+        Returns pynini Arc (all attributes int or Weight).
         """
         fst = self.fst
         src_id = self.state_id(src)
@@ -950,8 +950,8 @@ class Wfst():
             fst.delete_arcs(q)
             for t_ in q_arcs:
                 (src, ilabel, olabel, nextstate) = t_
-                for (weight, ftrs) in q_arcs[t_]:
-                    self.add_arc(src, ilabel, olabel, weight, nextstate, ftrs)
+                for (weight, phi_t) in q_arcs[t_]:
+                    self.add_arc(src, ilabel, olabel, weight, nextstate, phi_t)
 
         return self
 
@@ -1581,7 +1581,7 @@ def accep(word,
     fst.set_output_symbols(isymbols)
     wfst = Wfst.from_fst(fst)
 
-    # Assign weights or loglinear features to arcs that
+    # Assign weights and loglinear features to arcs that
     # lead to final state.
     if weight:
         func = lambda W, q, t: \
@@ -1601,7 +1601,7 @@ def string_map(inputs,
                osymbols=None,
                add_delim=False,
                weights=None,
-               features=None,
+               phis=None,
                **kwargs):
     """
     Transducer that maps input string tuples/lists or 
@@ -1633,8 +1633,8 @@ def string_map(inputs,
         outputs = [outputs] * len(inputs)
     if isinstance(weights, Weight):
         weights = [weights] * len(inputs)
-    if isinstance(features, dict):
-        features = [features] * len(inputs)
+    if isinstance(phis, dict):
+        phis = [phis] * len(inputs)
 
     # Input string -> output string pairs (unweighted).
     pairs = zip(inputs, outputs) if outputs else inputs
@@ -1673,7 +1673,7 @@ def string_map(inputs,
             else:
                 dest = q_stop
                 weight = weights[i] if weights else None
-                phi_t = features[i] if features else None
+                phi_t = phis[i] if phis else None
                 wfst.add_arc(src, x, y, weight, dest, phi_t)
 
     return wfst
@@ -2285,7 +2285,7 @@ def rmepsilon(wfst_in, acceptor=True):
 
     # Epsilon closure of each state.
     # (see Mohri 2000, p.5)
-    eps_closure = {q: epsilon_closure(wfst, [q], strict=True) \
+    eps_closure = {q: epsilon_closure(wfst, {q}, strict=True) \
         for q in wfst.state_ids()}
 
     # Reroute transitions (that will not be deleted below).
@@ -2302,7 +2302,7 @@ def rmepsilon(wfst_in, acceptor=True):
                                  t.nextstate, phi_t)
             if wfst.is_final(r):
                 wfst.set_final(q, wfst.final(r))
-                # fixme: members of epsilon closure could have
+                # fixme: states of epsilon closure could have
                 # different final weights
 
     # Remove unweighted, unfeatured epsilon transitions.
@@ -2340,8 +2340,8 @@ def compose(wfst1,
     Composition/intersection of two machines, retaining contextual 
     info from the original machines by labeling each state q = (q1, q2) 
     with (label(q1), label(q2)). Multiplies arc and final weights if
-    machines have the same arc type. Unifies arc features; assumes
-    that features for the two machines are disjoint.
+    machines have the same arc type. Combines arc features (does not
+    assume that feature sets for arg machines are disjoint).
     Optionally pass in organized arcs in either machine,
     precomputing organizations for faster repeated composition.
     Optionally apply functions to determine matching arc labels
@@ -2746,7 +2746,7 @@ def concatenate(wfst1, wfst2):
                 wfst2.olabel(t),
                 wfst2.weight(t),
                 (wfst2.state_label(t.nextstate), 2),
-                wfst2.features(q,t))
+                wfst2.features(q, t))
 
     # Bridging arcs.
     for q1 in wfst1.finals():
@@ -2805,7 +2805,7 @@ def union(wfst1, wfst2):
                 wfst2.olabel(t),
                 wfst2.weight(t),
                 (wfst2.state_label(t.nextstate), 2),
-                wfst2.features(q,t))
+                wfst2.features(q, t))
 
     # Bridging arcs.
     q1 = (wfst1.initial(), 1)

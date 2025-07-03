@@ -250,21 +250,17 @@ class CDRewrite():
         wfst = self.regexper.sigma_star_regexp(beta, sigma, add_delim)
         return wfst
 
-    def to_constraint(self, phi, lam, rho, ftr):
+    def to_constraint(self, mu, lam, rho, ftr):
         """
         Acceptor representing a single-level loglinear constraint
-        that fires for each instance of phi / lam __ rho .
+        that fires for each instance of mu / lam __ rho .
         todo: determinize/minimize constraint while
         preserving arc features
         todo: two-level (aka input-output) constraints
         """
-        replace = wynini.string_map(phi, phi, features={ftr: 1})
-        wfst, *_ = self.to_rule(phi=phi,
-                                psi=None,
-                                lam=lam,
-                                rho=rho,
-                                replace=replace,
-                                simplify=False)
+        replace = wynini.string_map(mu, mu, phis={ftr: 1})
+        wfst, *_ = self.to_rule( \
+            mu, None, lam, rho, replace, simplify=False)
         wfst = wfst.rmepsilon(acceptor=False)
         return wfst
 
@@ -309,7 +305,7 @@ if __name__ == "__main__":
     # Loglinear constraint acceptor
     ftr = '*a/a_'
     constraint = compiler.to_constraint( \
-        phi='a', lam='a', rho='', ftr=ftr)
+        mu='a', lam='a', rho='', ftr=ftr)
     print(constraint.phi)
     loglinear.assign_weights(constraint, {ftr: 1})
     constraint.draw('fig/constraint.dot', acceptor=False)
