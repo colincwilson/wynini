@@ -310,6 +310,7 @@ if __name__ == "__main__":
     ftr = '*a/a_'
     constraint = compiler.to_constraint( \
         phi='a', lam='a', rho='', ftr=ftr)
+    print(constraint.phi)
     loglinear.assign_weights(constraint, {ftr: 1})
     constraint.draw('fig/constraint.dot', acceptor=False)
     input_ = wynini.accep('b a a a', isymbols=None, arc_type='log')

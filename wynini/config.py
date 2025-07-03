@@ -65,7 +65,7 @@ def print_symtable(symtable_):
 
 # Logging
 logger = logging.getLogger(__name__)
-logging_formatter = logging.Formatter('%(levelno)s: %(message)s')
-logging_handler = logging.StreamHandler()
-logging_handler.setFormatter(logging_formatter)
-logger.addHandler(logging_handler)
+_formatter = logging.Formatter('%(levelno)s: %(message)s')
+_handler = logging.StreamHandler()
+_handler.setFormatter(_formatter)
+logger.addHandler(_handler)

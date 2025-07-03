@@ -59,7 +59,10 @@ class Wfst():
         self._label2state = {}  # State label -> state id.
         # note: state id <-> state label assumed to be one-to-one.
         self.sig = {}  # State id -> output string. (note: name change)
-        self.phi = {}  # Arc -> loglinear features ({ftr_k: val_k}).
+        # Arc (src_id, ilabel_id, olabel_id, dest_id) ->
+        # loglinear features ({ftr_k: val_k}).
+        # note: arc keys do not include weights (cf. arc_equal())
+        self.phi = {}
 
     def info(self):
         """
@@ -515,6 +518,7 @@ class Wfst():
         """
         Create (but do not add) 'virtual' epsilon:epsilon self-arc on a state.
         (see https://www.openfst.org/doxygen/fst/html/compose_8h_source.html)
+        note: arc does not have loglinear features
         """
         one = Weight.one(self.weight_type())
         src_id, arc = self.make_arc( \
@@ -638,7 +642,6 @@ class Wfst():
         Relabel arc input and/or output symbols
         (see: pynini.relabel_tables).
         note: epsilon, bos, eos should be mapped to themselves.
-        todo: checkme
         [destructive]
         """
         if not ifunc and not ofunc:
@@ -685,10 +688,14 @@ class Wfst():
                 osymbols.add_symbol(y)
 
         # Relabel arc inputs/outputs in wrapped fst.
+        # note: arc feature semantics can be invalidated
+        # by relabeling
         fst = self.fst
         fst.set_input_symbols(isymbols)
         fst.set_output_symbols(osymbols)
-        for q in self.state_ids():
+        phi = self.phi  # Old arc features.
+        self.phi = dict()  # New arc features.
+        for q in fst.states():
             arcs = fst.arcs(q)
             fst.delete_arcs(q)
             for t in arcs:
@@ -698,20 +705,9 @@ class Wfst():
                 olabel = t.olabel
                 if ofunc:
                     olabel = osymbols_idx[olabel]
-                self.add_arc(q, ilabel, olabel, t.weight, t.nextstate)
-
-        # Relabel arcs (keys) in feature mapping phi.
-        # note: features may be invalidated by relabeling.
-        if self.phi:
-            phi = {}
-            for (t, phi_t) in self.phi.items():
-                (q, ilabel, olabel, nextstate) = t
-                if ifunc:
-                    ilabel = isymbols_idx[ilabel]
-                if ofunc:
-                    olabel = osymbols_idx[olabel]
-                phi[(q, ilabel, olabel, nextstate)] = phi_t
-            self.phi = phi
+                t_ = (q, ilabel, olabel, t.nextstate)
+                phi_t = phi.get(t_, None)
+                self.add_arc(q, ilabel, olabel, t.weight, t.nextstate, phi_t)
         return self
 
     def project(self, project_type=None, side=None):
@@ -725,16 +721,15 @@ class Wfst():
 
         # Update map arcs -> loglinear features.
         # note: features may be invalidated by projection
-        if self.phi:
-            phi = {}
-            for (t, phi_t) in self.phi.items():
-                (q, ilabel, olabel, nextstate) = t
-                if project_type == 'input':
-                    olabel = ilabel
-                if project_type == 'output':
-                    ilabel = olabel
-                phi[(q, ilabel, olabel, nextstate)] = phi_t
-            self.phi = phi
+        phi = self.phi  # Old arc features.
+        self.phi = dict()  # New arc features.
+        for (t, phi_t) in phi.items():
+            (q, ilabel, olabel, nextstate) = t
+            if project_type == 'input':
+                olabel = ilabel
+            if project_type == 'output':
+                ilabel = olabel
+            self.phi[(q, ilabel, olabel, nextstate)] = phi_t
 
         # Project labels in wrapped fst.
         fst = self.fst
@@ -917,7 +912,7 @@ class Wfst():
                         live = False
                         break
                 if live:
-                    phi_t = self.features(q, t1)
+                    phi_t = self.features(q, t1)  # redundant
                     self.add_arc(q, t1.ilabel, t1.olabel, t1.weight,
                                  t1.nextstate, phi_t)
                 else:
@@ -928,7 +923,7 @@ class Wfst():
     def collapse_arcs(self):
         """
         Delete duplicate arcs (which are allowed by Fst),
-        identified by src/ilabel/olabel/weight/ftrs/dest.
+        identified by src/ilabel/olabel/weight/dest/ftrs.
         [destructive]
         """
         fst = self.fst
@@ -962,7 +957,7 @@ class Wfst():
 
     def remove_arcs(self, func):
         """
-        Delete arcs for which an arbitracy function 
+        Delete arcs for which an arbitrary function 
         func (<W, q, t> -> boolean) is True. The function 
         receives this machine, a source state id, and an arc 
         as arguments; internally, it can examine the 
@@ -976,7 +971,6 @@ class Wfst():
             for t in fst.arcs(q):
                 if func(self, q, t):
                     dead_arcs.append((q, t))
-
         return self.delete_arcs(dead_arcs)
 
     # Weights and loglinear features.
@@ -1039,15 +1033,13 @@ class Wfst():
         q_id = self.state_id(q)
         t_ = (q_id, t.ilabel, t.olabel, t.nextstate)
         phi_t = self.phi.get(t_, default)
-        if phi_t is None:
-            phi_t = default
         return phi_t
 
     def set_features(self, q, t, phi_t):
         """ Set or update features of arc t from state q. """
         q_id = self.state_id(q)
         t_ = (q_id, t.ilabel, t.olabel, t.nextstate)
-        if not phi_t:  # Remove t_ key for empty / None value.
+        if not phi_t:  # Remove key t_ for empty / None value.
             self.phi.pop(t_, None)
         else:
             self.phi[t_] = dict(phi_t)  # Note: copy features.
@@ -1059,9 +1051,9 @@ class Wfst():
             return
         q_id = self.state_id(q)
         t_ = (q_id, t.ilabel, t.olabel, t.nextstate)
-        phi_t_ = get_features(q_id, t_)
-        if phi_t_:
-            phi_t = phi_t_ | phi_t  # New ftrs have priority.
+        phi_t_old = get_features(q_id, t_)
+        if phi_t_old:
+            phi_t = phi_t_old | phi_t  # New ftrs have priority.
         self.phi[t_] = phi_t
         return
 
@@ -2244,7 +2236,8 @@ def epsilon_closure(wfst, Q1, strict=False):
     Epsilon closure of a set of states in this machine.
     Classic definition has strict set to False (default).
     If strict is True, requires epsilon transitions to
-    have weight One and empty loglinear features.
+    have weight one in the machine's semiring and None/
+    empty loglinear features.
     """
     epsilon = config.epsilon
     one = Weight.one(wfst.weight_type())
@@ -2273,7 +2266,8 @@ def epsilon_closure(wfst, Q1, strict=False):
 
 def rmepsilon(wfst_in, acceptor=True):
     """
-    Remove unweighted, features epsilon(:epsilon) arcs.
+    Remove epsilon arcs with weights equal to one
+    in the arg's semiring and no loglinear features.
     todo: generic epsilon removal, see Mohri (2000).
     fixme: proper handling of final weights
     [nondestructive]
@@ -2294,16 +2288,18 @@ def rmepsilon(wfst_in, acceptor=True):
     eps_closure = {q: epsilon_closure(wfst, [q], strict=True) \
         for q in wfst.state_ids()}
 
-    # Reroute non-epsilon transitions.
+    # Reroute transitions (that will not be deleted below).
     for q in wfst.state_ids():
         for r in eps_closure[q]:
             if q == r:
                 continue
             for t in wfst.arcs(r):
+                phi_t = wfst.features(r, t)
                 if wfst.ilabel(t) != epsilon or \
-                    wfst.olabel(t) != epsilon:
+                    wfst.olabel(t) != epsilon or \
+                    wfst.weight(t) != one or phi_t:
                     wfst.add_arc(q, t.ilabel, t.olabel, wfst.weight(t),
-                                 t.nextstate, wfst.features(r, t))
+                                 t.nextstate, phi_t)
             if wfst.is_final(r):
                 wfst.set_final(q, wfst.final(r))
                 # fixme: members of epsilon closure could have
@@ -2923,6 +2919,23 @@ def arc_equal(arc1, arc2):
             (arc1.nextstate == arc2.nextstate) and \
             (arc1.weight == arc2.weight)
     return val
+
+
+def is_epsilon_arc(wfst, q, arc, strict=False):
+    """
+    Test arc from state q for epsilonity.
+    """
+    epsilon = config.epsilon
+    if wfst.ilabel(arc) != epsilon or \
+       wfst.olabel(arc) != epsilon:
+        return False
+    if strict:
+        one = Weight.one(wfst.weight_type())  # todo: avoid creation
+        if wfst.weight(arc) != one:
+            return False
+        if wfst.features(q, arc):
+            return False
+    return True
 
 
 def combine_features(phi_t1, phi_t2):
