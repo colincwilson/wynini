@@ -2060,7 +2060,7 @@ def invert(wfst_in):
     return wfst_in
 
 
-def reverse(wfst_in):
+def reverse(wfst_in, reverse_delim=False):
     """
     Reverse language / mapping.
     [nondestructive]
@@ -2080,16 +2080,17 @@ def reverse(wfst_in):
     for src in wfst_in.state_ids():
         for t in wfst_in.arcs(src):
             ilabel = wfst_in.ilabel(t)
-            if ilabel == bos:  # Reverse bos/eos.
-                ilabel = eos
-            elif ilabel == eos:
-                ilabel = bos
-
             olabel = wfst_in.olabel(t)
-            if olabel == bos:  # Reverse bos/eos.
-                olabel = eos
-            elif olabel == eos:
-                olabel = bos
+
+            if reverse_delim:  # Optionally flip bos/eos.
+                if ilabel == bos:
+                    ilabel = eos
+                if ilabel == eos:
+                    ilabel = bos
+                if olabel == bos:
+                    olabel = eos
+                if olabel == eos:
+                    olabel = bos
 
             weight = t.weight.copy() if t.weight else None
             dest = t.nextstate

@@ -5,10 +5,10 @@ import string
 from pynini import SymbolTable, SymbolTableView
 
 import wynini
-from wynini import *
-from wynini import Wfst
+#from wynini import *
+from wynini import (config, Wfst)
 from wynini.regexp import Thompson
-from wynini import loglinear
+from wynini import loglinear  # (testing only)
 
 markers = ['_<1_', '_<2_', '_>_', '_#_']  # Markers used internally.
 
@@ -16,16 +16,26 @@ markers = ['_<1_', '_<2_', '_>_', '_#_']  # Markers used internally.
 class CDRewrite():
     """
     Compiler for conditional rewrite rules and constraints.
-    To compile a constraint, pass transducer 'replace'
-    with weights or loglinear features on targeted arcs.
     """
 
     def __init__(self, sigma):
-        # Symbol table that includes markers.
-        if isinstance(sigma, (SymbolTable, SymbolTableView)):
-            sigma = [sym for (sym_id, sym) in sigma]
-        self.sigma = sigma
+        # Include markers in symbol table.
         config.init({'special_syms': markers})
+        if isinstance(sigma, set):
+            sigma = list(sigma)
+        elif isinstance(sigma, (SymbolTable, SymbolTableView)):
+            sigma = [sym for (sym_id, sym) in sigma]
+        # Ensure that bos/eos are in sigma proper.
+        if config.eos not in sigma:
+            msg = (f'Cannot refer to end-of-string context without '
+                   f'{config.eos} in alphabet; adding it.')
+            config.logger.info(msg)
+            sigma = [config.eos] + sigma
+        if config.bos not in sigma:
+            msg = (f'Cannot refer to start-of-string context without '
+                   f'{config.bos} in alphabet; adding it.')
+            sigma = [config.bos] + sigma
+        self.sigma = sigma
         self.isymbols, _ = config.make_symtable(sigma)
         # Regexp compiler.
         self.regexper = Thompson(self.isymbols, self.sigma)

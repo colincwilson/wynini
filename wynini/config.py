@@ -37,7 +37,7 @@ def init(param={}):  # todo: change to **kwargs
 
 
 def make_symtable(sigma):
-    """ Create symbol table from symbol list. """
+    """ Create symbol table from symbol list/set/tuple. """
     symtable = SymbolTable()
     symtable.add_symbol(epsilon)  # Symbol id 0 (OpenFst convention).
     symtable.add_symbol(bos)  # Symbol id 1 (wynini convention).
@@ -45,6 +45,8 @@ def make_symtable(sigma):
     for sym in special_syms:  # Special symbols.
         symtable.add_symbol(sym)
     for sym in sigma:  # Ordinary symbols.
+        if (sigma in [epsilon, bos, eos]) or (sigma in special_syms):
+            continue
         symtable.add_symbol(sym)
     syms = [sym for (sym_id, sym) in symtable]
     return symtable, syms
@@ -52,7 +54,7 @@ def make_symtable(sigma):
 
 def print_symtable(symtable_):
     """
-    Print SymbolTable / SymbolTableVIew as 
+    Print SymbolTable / SymbolTableView as 
     (symbol_id, symbol) pairs.
     see pynini.SymbolTableView.write_text
     """
