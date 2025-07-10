@@ -58,6 +58,9 @@ class CDRewrite():
             lam: regexp string (use empty string for wildcard)
             rho: regexp string (use empty string for wildcard)
             replace: precompiled phi -> psi transducer
+        note: to implement optional rules, use precompiled replace
+        note: to implemented weighted rules, use precompiled replace
+        and set determinize=False
         """
         regexper = self.regexper
 
@@ -100,8 +103,7 @@ class CDRewrite():
         if not replace:
             replace = wynini.string_map( \
                 phi, psi,
-                isymbols=self.isymbols,
-                add_delim=False)
+                isymbols=self.isymbols)
         replace = self.replace_with_markers(replace)
         if verbose:
             print(replace.info())
@@ -135,9 +137,12 @@ class CDRewrite():
         rule = rule.relabel_states().connect()
         if determinize:
             rule = rule.determinize(acceptor=False)
+        else:
+            rule = rule.simplify(acceptor=False)
         if verbose:
             print(rule.info())
             rule.draw('fig/rule.dot', acceptor=False, show_weight_one=True)
+            # todo: filename arg
 
         return rule, (r, f, replace, l1, l2)
 
@@ -298,7 +303,7 @@ if __name__ == "__main__":
         compiler.to_rule(phi='a', psi='b', lam='b', rho='', verbose=0)
     rule.draw('fig/rule.dot', acceptor=False)
 
-    input_ = wynini.accep('b a a a', isymbols=None, add_delim=False)
+    input_ = wynini.accep('b a a a', isymbols=None)
     output_ = wynini.compose(input_, rule).determinize(acceptor=False)
     print(output_.info())
     output_.draw('fig/output.dot')
