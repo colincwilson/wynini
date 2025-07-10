@@ -1,13 +1,13 @@
 # Parse simple regular expressions (with | + * ?)
-# and convert to unweighted machines.
+# and convert them to unweighted machines.
+# note: when in doubt, add more space between symbols.
 # todo: class or namedtuple for parse nodes
 import re, sys
 import string
 from pynini import SymbolTable, SymbolTableView
 
 import wynini
-from wynini import *
-from wynini import Wfst
+from wynini import (config, Wfst)
 
 meta = ['(', ')', '|', '.', '*', '+', '?']
 
@@ -89,10 +89,10 @@ class Scanner:
         # Remove leading, trailing, and extra whitespace.
         regexp = re.sub(r'^\s*', '', regexp)
         regexp = re.sub(r'\s*$', '', regexp)
-        regexp = re.sub(r'\s\s*', ' ', regexp)
+        regexp = re.sub(r'\s+', ' ', regexp)
         # Remove whitespace before and after punct.
-        regexp = re.sub(r'\s*(\W)', '\\1', regexp)
-        regexp = re.sub(r'(\W)\s*', '\\1', regexp)
+        regexp = re.sub(r'\s+([()|.+*?])', '\\1', regexp)
+        regexp = re.sub(r'([()|.+*?])\s+', '\\1', regexp)
         data = ''
         for i in range(len(regexp) - 1):
             current = regexp[i]
@@ -148,11 +148,14 @@ class Thompson():
     Thompson construction of FSA from parsed regexp.
     """
 
-    def __init__(self, isymbols, sigma):
+    def __init__(self, sigma, isymbols=None):
+        self.sigma = sigma
+        # todo: check that bos/eos are in symbol table and sigma
         if isymbols is None:
-            isymbols, _ = config.make_symtable([])
+            isymbols, _ = config.make_symtable(sigma)
         if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
             isymbols, _ = config.make_symtable(isymbols)
+        # todo: ensure that sigma is a subset of isymbols
         self.isymbols = isymbols
         self.sigma = sigma
 
@@ -237,9 +240,8 @@ class Thompson():
 if __name__ == "__main__":
     # Test with regexp from commandline.
     sigma = string.ascii_lowercase[:4]
-    isymbols, _ = config.make_symtable(sigma)
     parser = Parser()
-    compiler = Thompson(isymbols, sigma)
+    compiler = Thompson(sigma)
 
     regexp = "(a|b)+(c|d)?"
     if len(sys.argv) > 1:

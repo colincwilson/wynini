@@ -38,7 +38,7 @@ class CDRewrite():
         self.sigma = sigma
         self.isymbols, _ = config.make_symtable(sigma)
         # Regexp compiler.
-        self.regexper = Thompson(self.isymbols, self.sigma)
+        self.regexper = Thompson(self.sigma, self.isymbols)
 
     def to_rule(self,
                 phi,
