@@ -441,7 +441,7 @@ class Wfst():
         src = self.state_id(src)
         return fst.num_output_epsilons(src)
 
-    def arc_labels(self, sep=None):
+    def arc_labels(self, sep=':'):
         """
         Get all ordinary input-output labels.
         note: get epsilon, bos, eos labels from config.
@@ -457,7 +457,7 @@ class Wfst():
             if ilabel == epsilon and ilabel == olabel:
                 continue
             if sep:
-                yield f'{ilabel} {sep} {olabel}'  # string
+                yield f'{ilabel}{sep}{olabel}'  # string
             else:
                 yield (ilabel, olabel)  # tuple
         return
@@ -1438,12 +1438,7 @@ class Wfst():
     def __str__(self):
         return self.print(show=False)
 
-    def draw(self,
-             source,
-             acceptor=True,
-             portrait=True,
-             to_pdf=True,
-             **kwargs):
+    def draw(self, source, acceptor=True, portrait=True, fig='pdf', **kwargs):
         """
         Write wrapped FST in dot format to file (= source).
         note: kwargs can include show_weight_one=True
@@ -1459,10 +1454,15 @@ class Wfst():
                        acceptor=acceptor,
                        portrait=portrait,
                        **kwargs)
-        if to_pdf:
+        if fig == 'pdf':
             source_in = str(source)
             source_out = re.sub('.dot$', '.pdf', source_in)
             cmd = f'dot -Tpdf {source_in} > {source_out}'
+            os.system(cmd)
+        elif fig == 'png':
+            source_in = str(source)
+            source_out = re.sub('.dot$', '.png', source_in)
+            cmd = f'dot -Tpng {source_in} > {source_out}'
             os.system(cmd)
         return ret
 
@@ -1572,14 +1572,15 @@ def accep(word,
           phi=None,
           **kwargs):
     """
-    Acceptor for space-separated word (see pynini.accep).
+    Acceptor for space-separated word (see pynini.accep),
+    converts list/tuple args to this format.
     pynini.accep() arguments: weight (final weight) and 
     arc_type ("standard", "log", or "log64").
     """
     if not isinstance(word, str):
         word = sep.join(word)
     if add_delim:
-        word = f'{config.bos} {word} {config.eos}'
+        word = f'{config.bos}{sep}{word}{sep}{config.eos}'
 
     if isymbols is None:
         sigma = word.split(sep)
@@ -1606,6 +1607,20 @@ def accep(word,
     return wfst
 
 
+def acceps(inputs,
+           isymbols=None,
+           add_delim=False,
+           weights=None,
+           phis=None,
+           **kwargs):
+    """
+    Convenience version of string map for self-mapping.
+    """
+    ret = string_map(inputs, inputs, isymbols, isymbols, add_delim, weights,
+                     phis, **kwargs)
+    return ret
+
+
 def string_map(inputs,
                outputs=None,
                isymbols=None,
@@ -1616,11 +1631,10 @@ def string_map(inputs,
                **kwargs):
     """
     Transducer that maps input string tuples/lists or 
-    space-separated strings to output string tuples/lists
-    or space-separated strings. If arg outputs is None,
-    treat inputs as a pre-zipped list of pairs.
-    Accepts optional weight or loglinear features for
-    each (input, output) pair, contained in lists.
+    space-separated strings to outputs in same formats.
+    If arg outputs is None, treat inputs as a pre-zipped
+    list of pairs. Accepts optional weight or loglinear
+    features for each (input, output) pair, passed in lists.
     todo: string_file (inputs and outputs read from file)
     """
     wfst = Wfst(isymbols=isymbols, osymbols=osymbols, **kwargs)
@@ -1634,8 +1648,8 @@ def string_map(inputs,
         wfst.add_arc(q_stop, config.eos, config.eos, None, qf)
     else:
         q_start = q0  # Unique initial state.
-        q_stop = wfst.add_state()  # Unique final state.
-        wfst.set_final(q_stop)
+        #q_stop = wfst.add_state()  # Unique final state.
+        #wfst.set_final(q_stop)
 
     # Convenience: handle non-list args.
     if isinstance(inputs, str):
@@ -1677,15 +1691,18 @@ def string_map(inputs,
         dest = q_start
         for posn, (x, y) in enumerate(zip(ilabels, olabels)):
             src = dest
-            if posn < (n - 1):
+            if posn < (n - 1):  # Not at end of strings.
                 dest = wfst.add_state()
                 wfst.add_arc(src, x, y, None, dest)
                 continue
-            else:
+
+            if add_delim:
                 dest = q_stop
-                weight = weights[i] if weights else None
-                phi_t = phis[i] if phis else None
-                wfst.add_arc(src, x, y, weight, dest, phi_t)
+            else:
+                dest = wfst.add_state(final=True)
+            weight = weights[i] if weights else None
+            phi_t = phis[i] if phis else None
+            wfst.add_arc(src, x, y, weight, dest, phi_t)
 
     return wfst
 
@@ -1694,10 +1711,11 @@ def trellis(length,
             isymbols=None,
             tier=None,
             trellis=True,
+            add_delim=False,
             arc_type='standard'):
     """
     Acceptor for all strings up to specified length (trellis = True), 
-    or of specified length (trellis = False), +2 for bos/eos. 
+    or of specified length (trellis = False), optionally adding bos/eos.
     If tier is specified as a subset of the alphabet, makes 
     tier/projection acceptor for that subset with other symbols 
     labeling self-loops on interior states.
@@ -1723,57 +1741,59 @@ def trellis(length,
         tier = set(tier)
         skip = sigma - tier
 
+    # Empty acceptor.
     wfst = Wfst(isymbols, arc_type=arc_type)
 
-    # Initial and peninitial states.
-    q0 = wfst.add_state()  # id 0
-    q1 = wfst.add_state()  # id 1
-    wfst.set_start(q0)
-    wfst.add_arc(src=q0, ilabel=bos, dest=q1)
+    # Unique initial state.
+    q0 = q1 = wfst.add_state(initial=True)
+    if add_delim:
+        # Peninitial state and BOS arc.
+        q1 = wfst.add_state()
+        wfst.add_arc(src=q0, ilabel=bos, dest=q1)
 
-    # Interior states.
+    # Internal states and transitions.
+    dest = q1
     for l in range(length):
-        wfst.add_state()  # ids 2, ...
-
-    # Final state.
-    qf = wfst.add_state()  # id (length+2)
-    wfst.set_final(qf)
-
-    # Zero-length form.
-    if trellis:
-        wfst.add_arc(src=q1, ilabel=eos, dest=qf)
-
-    # Loop.
-    for x in skip:
-        wfst.add_arc(src=q1, ilabel=x, dest=q1)
-
-    # Interior arcs.
-    q = q1
-    for l in range(1, length + 1):
-        r = (l + 1)
-        # Advance.
+        src = dest
+        dest = wfst.add_state()
         for x in tier:
-            wfst.add_arc(src=q, ilabel=x, dest=r)
-        # Loop.
-        # wfst.add_arc(src=r, ilabel=epsilon, dest=r)
+            wfst.add_arc(src=src, ilabel=x, dest=dest)
         for x in skip:
-            wfst.add_arc(src=r, ilabel=x, dest=r)
-        # End.
-        if trellis:
-            wfst.add_arc(src=r, ilabel=eos, dest=qf)
-        q = r
+            wfst.add_arc(src=src, ilabel=x, dest=src)
 
-    wfst.add_arc(src=q, ilabel=eos, dest=qf)
+    for x in skip:
+        wfst.add_arc(src=dest, ilabel=x, dest=dest)
+
+    # Final state(s).
+    wfst.set_final(dest, True)
+    if trellis:
+        for q in wfst.state_ids():
+            if add_delim and q == q0:
+                continue
+            wfst.set_final(q, True)
+
+    # EOS arcs.
+    if add_delim:
+        qf = wfst.add_state()
+        finals = wfst.finals()
+        for q in finals:
+            wfst.set_final(q, False)
+            wfst.add_arc(src=q, ilabel=eos, dest=qf)
+        wfst.set_final(qf)
 
     return wfst
 
 
-def braid(length=1, isymbols=None, tier=None, arc_type='standard'):
+def braid(length=1,
+          isymbols=None,
+          tier=None,
+          add_delim=False,
+          arc_type='standard'):
     """
-    Acceptor for strings of given length (+2 for bos/eos).
+    Acceptor for strings of given length, optionally adding bos/eos.
     (see trellis())
     """
-    return trellis(length, isymbols, tier, False, arc_type)
+    return trellis(length, isymbols, tier, False, add_delim, arc_type)
 
 
 def sigma_star(isymbols=None, sigma=None, add_delim=False, **kwargs):
@@ -1809,9 +1829,9 @@ def ngram(context='left',
     Acceptor (identity transducer) for segments in immediately 
     preceding (left) / following (right) / both-side contexts of 
     specified length. For both-side context, length can be int or tuple.
-    Reference: Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers.
-    In INTERSPEECH (pp. 1258-1262).
-    todo: make bos/eos delimiters optional
+    Contexts include bos/eos.
+    Reference:
+        Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers. In INTERSPEECH (pp. 1258-1262).
     """
     if context == 'left':
         return ngram_left(length, isymbols, tier, arc_type)
@@ -1839,7 +1859,7 @@ def ngram_left(length, isymbols, tier=None, arc_type='standard'):
     tier is specified as a subset of the alphabet, only symbols 
     in tier are consumed by arcs and tracked in histories 
     (symbols not on the tier are skipped with self-loops on 
-    each interior state).
+    each interior state). Contexts include bos/eos.
     """
     epsilon = config.epsilon
     bos = config.bos
@@ -1915,6 +1935,7 @@ def ngram_right(length, isymbols, tier=None, arc_type='standard'):
     """
     Acceptor (identity transducer) for segments in immediately 
     following contexts (futures) of specified length.
+    Contexts include bos/eos.
     (see ngram_left() for tier handling)
     """
     epsilon = config.epsilon

@@ -1,12 +1,6 @@
-# Manipulate Wfsts with features on arcs as loglinear models.
-import numpy as np
-from collections import ChainMap
-from scipy import sparse
-
-from pynini import Weight
-
-from wynini import (config, Wfst, shortestdistance)
-
+# Loglinear (aka maximum entropy, maxent) string models
+# implemented by Wfsts with features on arcs.
+#
 # References:
 # * Eisner, J. (2002). Parameter estimation for probabilistic
 # finite-state transducers. In Proceedings of the 40th Annual
@@ -16,6 +10,14 @@ from wynini import (config, Wfst, shortestdistance)
 # INTERSPEECH (pp. 1258-1262).
 # * Markus Dreyer's fstrain (https://github.com/markusdr/fstrain).
 # todo: stable mapping from Arcs to violation vectors
+
+import numpy as np
+from collections import ChainMap
+from scipy import sparse
+
+from pynini import Weight
+
+from wynini import (config, Wfst, shortestdistance)
 
 
 def arc_features(wfst):
@@ -65,12 +67,14 @@ def violation_matrix(wfst, ftrs):
 def assign_weights(wfst, w):
     """
     Assign unnormalized -logprob weight to each arc t in wfst
-    according to its Harmony: $- sum_k (w_k · ftr_k(t))$.
+    according to its Harmony: H(t) = -sum_k (w_k · ftr_k(t)).
     phi: arc t -> dictionary of feature values ('violations')
     {ftr_0: v_0, ftr_1: v_1, ...} (possibly empty or None).
-    arg w: dictionary of feature weights {ftr_0:w_0, ftr_1:w_1, ...}
+    arg w: dictionary of feature weights {ftr_0:w_0, ftr_1:w_1, ...},
+    (where missing weights are treated as 0).
     All feature values and weights should be non-negative.
     note: name clash with Wfst.assign_weights()
+    todo: make identity (one) weight implicit?
     """
     wfst.map_weights('to_log')
     fst = wfst.fst
@@ -91,9 +95,9 @@ def dot_product(phi_t, w):
     with dictionaries of non-negative values.
     """
     ret = 0.0
-    for ftr, violn in phi_t.items():
-        if ftr in w:
-            ret += w[ftr] * violn
+    for ftr, val in phi_t.items():
+        w_ftr = w.get(ftr, 0.0)
+        ret += w_ftr * val
     return ret
 
 
@@ -117,32 +121,39 @@ def assign_weights_vec(wfst, V, w):
     return wfst
 
 
-def expected(wfst, w=None):
+def expected(wfst, w=None, verbose=False):
     """
-    Expected violation counts of features/constraints given 
-    feature weights w -or- with weights already applied.
+    Expected per=string violation counts of features/constraints
+    given feature weights w -or- with weights already applied.
     All feature values and weights should be non-negative.
     """
     # Set arc weights equal to Harmonies
     # (sum of weighted feature violations).
     if w:
         assign_weights(wfst, w)
+    if verbose:
+        print(wfst.info())
 
     # Forward potentials (for each state q,
     # sum over all paths from initial to q).
     alpha = shortestdistance(wfst, reverse=False)
     alpha = [float(w) for w in alpha]
-    #print(alpha)
+    if verbose:
+        print(f'alpha: {alpha}')
 
     # Backward potentials (for each state q,
     # sum over all paths from q to finals).
     beta = shortestdistance(wfst, reverse=True)
     beta = [float(w) for w in beta]
-    #print(beta)
+    if verbose:
+        print(f'beta: {beta}')
 
-    # Partition function.
-    # (sum over all paths through machine)
-    logZ = -beta[0]
+    # Partition function (sum over all paths
+    # through machine).
+    q0 = wfst.start_id()
+    logZ = -beta[q0]
+    if verbose:
+        print(f'logZ: {logZ}')
 
     # Accumulate expected violations across arcs.
     expect = {}
@@ -157,27 +168,27 @@ def expected(wfst, w=None):
             plog = alpha[q] + float(t.weight) + beta[t.nextstate]
             # Convert to globally normalized probability of t.
             prob = np.exp(-plog - logZ)
-            # Accumulate prob[t] * violations[t].
-            for ftr, violn in phi_t.items():
-                expect[ftr] = \
-                    expect.get(ftr, 0.0) + (prob * violn)
+            # Accumulate prob[t] * violations[t] into ftr expectation.
+            for ftr, val in phi_t.items():
+                expect[ftr] = expect.get(ftr, 0.0) + (prob * val)
 
     return expect
 
 
-def gradient(O_counts, E_counts, grad=None):
+def gradient(O, E, N=1, grad=None):
     """
     Neg gradient of feature weights computed from 
     dictionaries of 'observed' (aka clamped) and 
     'expected' (aka unclamped) feature counts.
+    Optionally scale E by data size N to match O.
     """
     if grad is None:
         grad = {}
-    # checkme: does E_counts always cover O_counts?
-    for ftr in ChainMap(O_counts, E_counts):
-        O = O_counts.get(ftr, 0.0)
-        E = E_counts.get(ftr, 0.0)
-        grad[ftr] = grad.get(ftr, 0.0) - (O - E)
+    # checkme: does E always cover observe?
+    for ftr in ChainMap(O, E):
+        O_ftr = O.get(ftr, 0.0)
+        E_ftr = N * E.get(ftr, 0.0)
+        grad[ftr] = grad.get(ftr, 0.0) - (O_ftr - E_ftr)
     return grad
 
 
@@ -204,3 +215,15 @@ def update_vec(w, grad, ftr2index, alpha=1.0, w_min=1e-4):
         w[ftr_id] += alpha * g
         w[ftr_id] = max(w[ftr_id], w_min)
     return w
+
+
+def print_expected(expect, N=1):
+    """
+    Print expected (or observed) values.
+    scaled by corpus size N.
+    """
+    ret = []
+    for ftr, val in expect.items():
+        ret.append(f'{ftr}: {np.round(N*val, 2)}')
+    ret = '{' + ', '.join(ret) + '}'
+    print(ret)

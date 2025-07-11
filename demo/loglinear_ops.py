@@ -1,44 +1,68 @@
+# Demo loglinear / maxent computations.
 import sys
 import numpy as np
 
-sys.path.append('..')
-from wynini import config, loglinear
+from wynini import (config, loglinear)
 from wynini.wywrapfst import *
 
 config.init()
 
-# Simple acceptor.
-M = trellis(length=2, isymbols=['a', 'b'], arc_type='log')
+syms = ['a', 'b']
+
+# Acceptor for observed strings.
+D = acceps(['a b', 'b a'], arc_type='standard')
+D.print(acceptor=True, show_weight_one=True)
+D.draw('fig/D.dot', fig='png', show_weight_one=True)
+
+# Acceptor for possible strings.
+M = trellis(length=2,
+            isymbols=syms,
+            trellis=False,
+            add_delim=False,
+            arc_type='log')
 M.print(acceptor=True, show_weight_one=True)
+M.draw('fig/M.dot', fig='png')
 
 
 # Map from arc to violation vector.
 def phi_func(wfst, q, t):
     if wfst.ilabel(t) == 'a':
-        return {'*a': 1.0}
+        return {'*a': 1.}
     if wfst.ilabel(t) == 'b':
-        return {'*b': 1.0}
+        return {'*b': 1.}
     return None
 
 
+D.assign_features(phi_func)
 M.assign_features(phi_func)
+
+# Observed constraint violations.
+observe = loglinear.expected(D, w=None, verbose=True)
+print('Observed: ', end='')
+loglinear.print_expected(observe, N=1)
 
 print('Arc violation vectors:')
 for _t in M.phi:
     print('\t', _t, '->', M.phi[_t])
 
 # Constraint weights (non-negative).
-w = {'*a': 1.0, '*b': 2.0}
+w = {'*a': 1.0, '*b': 1.0}
 print('Constraint weights:', w)
 
 # Loglinear arc weights.
 loglinear.assign_weights(M, w)
 M.print(acceptor=True, show_weight_one=True)
 
-# Expected constraint violations.
-expect = loglinear.expected(M, w)
-print('Expected:', expect)
-print()
+# Expected per-string constraint violations.
+expect = loglinear.expected(M, w, verbose=True)
+print('Expected: ', end='')
+loglinear.print_expected(expect, N=1)
+
+# Gradient.
+grad = loglinear.gradient(observe, expect, grad=None)
+print(f'Gradient: {grad}')
+
+sys.exit(0)
 
 # # # # # # # # # #
 
