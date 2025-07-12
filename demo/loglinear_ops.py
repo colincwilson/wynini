@@ -7,29 +7,40 @@ from wynini.wywrapfst import *
 
 config.init()
 
-syms = ['a', 'b']
+syms = ['p', 't', 'k', 'a']
 
 # Acceptor for observed strings.
-D = acceps(['a b', 'b a'], arc_type='standard')
+dat = [ \
+    'p a', 't a', 'k a',
+    'p a t', 'p a k',
+    't a p', 't a k',
+    'k a p', 'k a t' ]
+N = len(dat)
+D = acceps(dat, arc_type='standard')
+print(dat)
 D.print(acceptor=True, show_weight_one=True)
 D.draw('fig/D.dot', fig='png', show_weight_one=True)
 
 # Acceptor for possible strings.
-M = trellis(length=2,
+M = trellis(length=3,
             isymbols=syms,
-            trellis=False,
+            trellis=True,
             add_delim=False,
             arc_type='log')
 M.print(acceptor=True, show_weight_one=True)
 M.draw('fig/M.dot', fig='png')
 
-
 # Map from arc to violation vector.
+ftrs = ['*p', '*t', '*a']
+
+
 def phi_func(wfst, q, t):
+    if wfst.ilabel(t) == 'p':
+        return {'*p': 1.}
+    if wfst.ilabel(t) == 't':
+        return {'*t': 1.}
     if wfst.ilabel(t) == 'a':
         return {'*a': 1.}
-    if wfst.ilabel(t) == 'b':
-        return {'*b': 1.}
     return None
 
 
@@ -37,30 +48,47 @@ D.assign_features(phi_func)
 M.assign_features(phi_func)
 
 # Observed constraint violations.
-observe = loglinear.expected(D, w=None, verbose=True)
+#D.map_weights('to_log')
+#D.assign_weights(lambda D, q, t: 0.)
+observe, logZ = loglinear.expected(D, w=None, verbose=False)
 print('Observed: ', end='')
-loglinear.print_expected(observe, N=1)
+loglinear.print_ftrs(observe, ftrs)
+print(f'logZ = {logZ}, Z = {np.exp(logZ)}')
 
 print('Arc violation vectors:')
 for _t in M.phi:
-    print('\t', _t, '->', M.phi[_t])
+    print(f'\t{_t} -> {M.phi[_t]}')
 
-# Constraint weights (non-negative).
-w = {'*a': 1.0, '*b': 1.0}
+# Initial constraint weights (non-negative).
+w = {'*p': 1., '*t': 1., '*a': 1.}
 print('Constraint weights:', w)
 
-# Loglinear arc weights.
-loglinear.assign_weights(M, w)
-M.print(acceptor=True, show_weight_one=True)
+nstep = 5  # Number of gradient updates.
+alpha = 0.5  # Learning rate.
+for _ in range(nstep):
+    # Loglinear arc weights.
+    loglinear.assign_weights(M, w)
 
-# Expected per-string constraint violations.
-expect = loglinear.expected(M, w, verbose=True)
-print('Expected: ', end='')
-loglinear.print_expected(expect, N=1)
+    # Observed constraint violations.
+    print('Observed: ', end='')
+    loglinear.print_ftrs(observe, ftrs)
 
-# Gradient.
-grad = loglinear.gradient(observe, expect, grad=None)
-print(f'Gradient: {grad}')
+    # Expected per-string constraint violations scaled by N.
+    expect, _ = loglinear.expected(M, w, N, verbose=False)
+    print('Expected: ', end='')
+    loglinear.print_ftrs(expect, ftrs)
+
+    # Gradient.
+    grad = loglinear.gradient(observe, expect, grad=None)
+    print(f'Gradient: ', end='')
+    loglinear.print_ftrs(grad, ftrs)
+
+    # Constraint weight update.
+    loglinear.update(w, grad, alpha)
+    print(f'w: ', end='')
+    loglinear.print_ftrs(w, ftrs)
+
+    print()
 
 sys.exit(0)
 

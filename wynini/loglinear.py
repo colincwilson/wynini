@@ -121,10 +121,11 @@ def assign_weights_vec(wfst, V, w):
     return wfst
 
 
-def expected(wfst, w=None, verbose=False):
+def expected(wfst, w=None, N=1, verbose=False):
     """
-    Expected per=string violation counts of features/constraints
+    Expected per-string violation counts of features/constraints
     given feature weights w -or- with weights already applied.
+    Optionally scale expected values by data size N.
     All feature values and weights should be non-negative.
     """
     # Set arc weights equal to Harmonies
@@ -135,7 +136,7 @@ def expected(wfst, w=None, verbose=False):
         print(wfst.info())
 
     # Forward potentials (for each state q,
-    # sum over all paths from initial to q).
+    # sum over all paths from initial state to q).
     alpha = shortestdistance(wfst, reverse=False)
     alpha = [float(w) for w in alpha]
     if verbose:
@@ -148,8 +149,8 @@ def expected(wfst, w=None, verbose=False):
     if verbose:
         print(f'beta: {beta}')
 
-    # Partition function (sum over all paths
-    # through machine).
+    # Log partition function
+    # (sum over all paths through machine).
     q0 = wfst.start_id()
     logZ = -beta[q0]
     if verbose:
@@ -172,12 +173,43 @@ def expected(wfst, w=None, verbose=False):
             for ftr, val in phi_t.items():
                 expect[ftr] = expect.get(ftr, 0.0) + (prob * val)
 
-    return expect
+    # Scale by data size.
+    if N > 1:
+        for ftr in expect:
+            expect[ftr] *= N
+
+    return expect, logZ
+
+
+def logZ(wfst, w=None, verbose=False):
+    """
+    Log partition function given feature weights w -or-
+    with weights already applied.
+    All feature values and weights should be non-negative.
+    """
+    if w:
+        assign_weights(wfst, w)
+
+    # Backward potentials (for each state q,
+    # sum over all paths from q to finals).
+    beta = shortestdistance(wfst, reverse=True)
+    beta = [float(w) for w in beta]
+    if verbose:
+        print(f'beta: {beta}')
+
+    # Log partition function
+    # (sum over all paths through machine).
+    q0 = wfst.start_id()
+    logZ = -beta[q0]
+    if verbose:
+        print(f'logZ: {logZ}')
+
+    return logZ
 
 
 def gradient(O, E, N=1, grad=None):
     """
-    Neg gradient of feature weights computed from 
+    Negative gradient of feature weights computed from 
     dictionaries of 'observed' (aka clamped) and 
     'expected' (aka unclamped) feature counts.
     Optionally scale E by data size N to match O.
@@ -217,13 +249,19 @@ def update_vec(w, grad, ftr2index, alpha=1.0, w_min=1e-4):
     return w
 
 
-def print_expected(expect, N=1):
+def print_ftrs(vals, ftrs=None, N=1):
     """
-    Print expected (or observed) values.
-    scaled by corpus size N.
+    Print observed / expected / gradient values,
+    optionally scaled by corpus size N.
+    Use optional ftrs arg for to control
+    feature subset or order.
     """
     ret = []
-    for ftr, val in expect.items():
-        ret.append(f'{ftr}: {np.round(N*val, 2)}')
+    if ftrs is None:
+        ftrs = vals.keys()
+    for ftr in ftrs:
+        val = vals.get(ftr, 0.0)
+        val = np.round(N * val, 2)
+        ret.append(f'{ftr}: {val:.2f}')
     ret = '{' + ', '.join(ret) + '}'
     print(ret)
