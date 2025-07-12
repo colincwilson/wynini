@@ -2,8 +2,10 @@
 import sys
 import numpy as np
 
-from wynini import (config, loglinear)
-from wynini.wywrapfst import *
+import wynini
+from wynini import (config, acceps, trellis)
+from wynini import loglinear
+#from wynini.wywrapfst import *
 
 config.init()
 
@@ -16,7 +18,7 @@ dat = [ \
     't a p', 't a k',
     'k a p', 'k a t' ]
 N = len(dat)
-D = acceps(dat, arc_type='standard')
+D = acceps(dat, add_delim=True, arc_type='standard')
 print(dat)
 D.print(acceptor=True, show_weight_one=True)
 D.draw('fig/D.dot', fig='png', show_weight_one=True)
@@ -25,7 +27,7 @@ D.draw('fig/D.dot', fig='png', show_weight_one=True)
 M = trellis(length=3,
             isymbols=syms,
             trellis=True,
-            add_delim=False,
+            add_delim=True,
             arc_type='log')
 M.print(acceptor=True, show_weight_one=True)
 M.draw('fig/M.dot', fig='png')
@@ -89,6 +91,19 @@ for _ in range(nstep):
     loglinear.print_ftrs(w, ftrs)
 
     print()
+
+# # # # # # # # # #
+
+# N-gram features with tiers.
+
+M_local = wynini.ngram(isymbols=syms, arc_type='log')
+M_local.draw('fig/M_local.dot', fig='png')
+
+M_cons = wynini.ngram(isymbols=syms, tier=['p', 't', 'k'], arc_type='log')
+M_cons.draw('fig/M_cons.dot', fig='png')
+
+M = wynini.compose(M_local, M_cons)
+M.draw('fig/M.dot', fig='pdf')
 
 sys.exit(0)
 
