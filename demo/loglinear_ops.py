@@ -103,6 +103,7 @@ M_cons = wynini.ngram(isymbols=syms, tier=['p', 't', 'k'], arc_type='log')
 M_cons.draw('fig/M_cons.dot', fig='png')
 
 M = wynini.compose(M_local, M_cons)
+M.relabel_states(func=wynini.flatten)
 M.draw('fig/M.dot', fig='pdf')
 
 sys.exit(0)

@@ -260,7 +260,7 @@ class Wfst():
     def relabel_states(self, func=None):
         """
         Relabel states with their state ids (default) 
-        or using function argument.
+        or with function Wfst, q_id -> label.
         (see pynini.topsort)
         [destructive]
         """
@@ -269,7 +269,7 @@ class Wfst():
         use_func = (func is not None)
         for q in self.state_ids():
             if not use_func:
-                label = q
+                label = q  # (self-labeling by default)
             else:
                 label = func(self, q)
                 if label in label2state:
@@ -2982,6 +2982,27 @@ def is_epsilon_arc(wfst, q, arc, strict=False):
         if wfst.features(q, arc):
             return False
     return True
+
+
+def flatten(wfst, q_id):
+    """
+    Flatten state labels created by composition.
+    """
+    q = wfst.state_label(q_id)
+    if isinstance(q, tuple):
+        q = tuple(_flatten(q))
+    return q
+
+
+def _flatten(q):
+    """
+    Recursively flatten a nested tuple.
+    """
+    if isinstance(q, tuple):
+        for x in q:
+            yield from _flatten(x)
+    else:
+        yield q
 
 
 def combine_features(phi_t1, phi_t2):
