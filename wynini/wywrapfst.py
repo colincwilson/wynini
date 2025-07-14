@@ -510,6 +510,8 @@ class Wfst():
             olabel = ilabel
         if weight is None:
             weight = Weight.one(self.weight_type())  # leak?
+        elif isinstance(weight, (int, float, str)):
+            weight = Weight(self.weight_type(), weight)
         dest_id = self.state_id(dest)
         arc = Arc(ilabel, olabel, weight, dest_id)
         return src_id, arc

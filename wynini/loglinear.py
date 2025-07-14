@@ -95,6 +95,8 @@ def dot_product(phi_t, w):
     with dictionaries of non-negative values.
     """
     ret = 0.0
+    if not w:  # (None or empty dict.)
+        return ret
     for ftr, val in phi_t.items():
         w_ftr = w.get(ftr, 0.0)
         ret += w_ftr * val
@@ -233,7 +235,7 @@ def update(w, grad, alpha=1.0, w_min=1e-4):
     not updated (except for regularization).
     """
     for ftr, g in grad.items():
-        w_ftr = w[ftr] + alpha * g
+        w_ftr = w.get(ftr, 0.0) + alpha * g
         w[ftr] = max(w_ftr, w_min)
     return w
 
@@ -249,7 +251,7 @@ def update_vec(w, grad, ftr2index, alpha=1.0, w_min=1e-4):
     return w
 
 
-def print_ftrs(vals, ftrs=None, N=1):
+def pprint_vals(vals, ftrs=None, N=1):
     """
     Print observed / expected / gradient values,
     optionally scaled by corpus size N.
@@ -264,4 +266,8 @@ def print_ftrs(vals, ftrs=None, N=1):
         val = np.round(N * val, 2)
         ret.append(f'{ftr}: {val:.2f}')
     ret = '{' + ', '.join(ret) + '}'
-    print(ret)
+    return ret
+
+
+def print_vals(vals, ftrs=None, N=1):
+    print(pprint_vals(vals, ftrs, N))
