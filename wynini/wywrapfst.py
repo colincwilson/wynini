@@ -76,13 +76,23 @@ class Wfst():
 
     # Input/output labels (most delegate to pynini.Fst).
 
-    def input_symbols(self):
-        """ Get input symbol table. """
-        return self.fst.input_symbols()
+    def input_symbols(self, ret_type=None):
+        """ Get input symbol table / ids / labels. """
+        syms = self.fst.input_symbols()
+        return self._symbols(syms, ret_type)
 
-    def output_symbols(self):
-        """ Get output symbol table. """
-        return self.fst.output_symbols()
+    def output_symbols(self, ret_type=None):
+        """ Get output symbol table / ids / labels. """
+        syms = self.fst.output_symbols()
+        return self._symbols(syms, ret_type)
+
+    def _symbols(self, syms, ret_type=None):
+        """ Get symbol table / ids / labels. """
+        if ret_type in ['id', 'ids']:
+            return [i for (i, x) in syms]
+        if ret_type in ['label', 'labels']:
+            return [x for (i, x) in syms]
+        return syms
 
     def mutable_input_symbols(self):
         """ Get mutable input symbol table. """
@@ -93,13 +103,51 @@ class Wfst():
         return self.fst.mutable_output_symbols()
 
     def set_input_symbols(self, isymbols):
-        """ Set input symbol table. """
-        self.fst.set_input_symbols(isymbols)
+        """
+        Set input symbol table,
+        preserving loglinear features on arcs.
+        """
+        fst = self.fst
+        isymbols_old = fst.isymbols().copy()
+        fst.set_input_symbols(isymbols)
+        self.phi, phi_old = {}, self.phi
+        for q in fst.states():
+            q_arcs = fst.mutable_arcs(q)
+            for t in q_arcs:
+                t_ = (q, t.ilabel, t.olabel, t.nextstate)
+                phi_t = phi_old.get(t_, None)
+
+                ilabel = isymbols_old.find(t.ilabel)  # old id -> str
+                ilabel = isymbols.find(ilabel)  # str -> new id
+                t.ilabel = ilabel
+                q_arcs.set_value(t)
+
+                t_ = (q, t.ilabel, t.olabel, t.nextstate)
+                self.phi[t_] = phi_t
         return self
 
     def set_output_symbols(self, osymbols):
-        """ Set output symbol table. """
-        self.fst.set_output_symbols(osymbols)
+        """
+        Set output symbol table,
+        preserving loglinear features on arcs.
+        """
+        fst = self.fst
+        osymbols_old = fst.osymbols().copy()
+        fst.set_output_symbols(osymbols)
+        self.phi, phi_old = {}, self.phi
+        for q in fst.states():
+            q_arcs = fst.mutable_arcs(q)
+            for t in q_arcs:
+                t_ = (q, t.ilabel, t.olabel, t.nextstate)
+                phi_t = phi_old.get(t_, None)
+
+                olabel = osymbols_old.find(t.olabel)  # old id -> str
+                olabel = osymbols.find(olabel)  # str -> new id
+                t.olabel = olabel
+                q_arcs.set_value(t)
+
+                t_ = (q, t.ilabel, t.olabel, t.nextstate)
+                self.phi[t_] = phi_t
         return self
 
     def input_label(self, sym):
@@ -118,6 +166,14 @@ class Wfst():
         """ Get output id for symbol label. """
         return self.fst.output_symbols().find(sym)
 
+    # Aliases.
+    isymbols = input_symbols
+    osymbols = output_symbols
+    mutable_isymbols = mutable_input_symbols
+    mutable_osymbols = mutable_output_symbols
+    set_isymbols = set_input_symbols
+    set_osymbols = set_output_symbols
+
     # States.
 
     def state_label(self, q):
@@ -133,7 +189,7 @@ class Wfst():
         return self._label2state[q]
 
     def set_state_label(self, q, label):
-        """ Update label of state q. """
+        """ Update label of state with id q. """
         # Enforce one-to-one state labeling.
         if label in self._label2state:
             print(f'Cannot set label of state {q} to {label} '
@@ -269,7 +325,7 @@ class Wfst():
         use_func = (func is not None)
         for q in self.state_ids():
             if not use_func:
-                label = q  # (self-labeling by default)
+                label = q  # (id self-labeling by default)
             else:
                 label = func(self, q)
                 if label in label2state:
@@ -386,6 +442,14 @@ class Wfst():
         if isinstance(x, Arc):
             x = x.olabel
         return self.fst.output_symbols().find(x)
+
+    def iolabel(self, t):
+        """ Arc input : output label. """
+        x = t.ilabel
+        y = t.olabel
+        x = self.fst.input_symbols().find(x)
+        y = self.fst.output_symbols().find(y)
+        return f'{x} : {y}'
 
     def weight(self, arc):
         """ Weight on arc. """
@@ -690,13 +754,13 @@ class Wfst():
                 osymbols.add_symbol(y)
 
         # Relabel arc inputs/outputs in wrapped fst.
-        # note: arc feature semantics can be invalidated
+        # note: semantics of loglinear arc features
+        # might be invalidated y relabeling
         # by relabeling
         fst = self.fst
         fst.set_input_symbols(isymbols)
         fst.set_output_symbols(osymbols)
-        phi = self.phi  # Old arc features.
-        self.phi = dict()  # New arc features.
+        self.phi, phi_old = {}, self.phi
         for q in fst.states():
             arcs = fst.arcs(q)
             fst.delete_arcs(q)
@@ -708,7 +772,7 @@ class Wfst():
                 if ofunc:
                     olabel = osymbols_idx[olabel]
                 t_ = (q, ilabel, olabel, t.nextstate)
-                phi_t = phi.get(t_, None)
+                phi_t = phi_old.get(t_, None)
                 self.add_arc(q, ilabel, olabel, t.weight, t.nextstate, phi_t)
         return self
 
@@ -723,9 +787,8 @@ class Wfst():
 
         # Update map arcs -> loglinear features.
         # note: features may be invalidated by projection
-        phi = self.phi  # Old arc features.
-        self.phi = dict()  # New arc features.
-        for (t, phi_t) in phi.items():
+        self.phi, phi_old = {}, self.phi
+        for (t, phi_t) in phi_old.items():
             (q, ilabel, olabel, nextstate) = t
             if project_type == 'input':
                 olabel = ilabel
@@ -862,14 +925,16 @@ class Wfst():
         return iosym
 
     @classmethod
-    def unpair_symbol(cls, iosym, sep=':'):
+    def unpair_symbol(cls, iosym=None, sep=':'):
         """
         Split input and output symbols for decoding.
         todo: move to string util
         """
         # Special symbols.
         # (epsilon, bos, eos, lambda, ...)
-        if sep not in iosym:
+        if iosym in [config.epsilon, config.bos, config.eos]:
+            return (iosym, iosym)
+        if iosym and sep not in iosym:
             return (iosym, iosym)
         iosym = re.match(f'^(.+) {sep} (.+)$', iosym)
         return (iosym[1], iosym[2])
@@ -965,8 +1030,8 @@ class Wfst():
         func (<W, q, t> -> boolean) is True. The function 
         receives this machine, a source state id, and an arc 
         as arguments; internally, it can examine the 
-        src/input/output/weight/dest/features and associated
-        labels of the arc.
+        src / input / output / weight / dest / features
+        and associated labels of the arc.
         [destructive]
         """
         dead_arcs = []
@@ -1046,7 +1111,7 @@ class Wfst():
         if not phi_t:  # Remove key t_ for empty / None value.
             self.phi.pop(t_, None)
         else:
-            self.phi[t_] = dict(phi_t)  # Note: copy features.
+            self.phi[t_] = dict(phi_t)  # note: copy features.
         return
 
     def update_features(self, q, t, phi_t):
@@ -1471,6 +1536,7 @@ class Wfst():
     def viz(self, **kwargs):
         """
         Draw in ipython / jupyter notebook.
+        # note: see draw() for kwarg options.
         # todo: skip middleman file
         """
         self.draw('.tmp.dot', **kwargs)
@@ -1831,7 +1897,7 @@ def ngram(context='left',
     Acceptor (identity transducer) for segments in immediately 
     preceding (left) / following (right) / both-side contexts of 
     specified length. For both-side context, length can be int or tuple.
-    Contexts include bos/eos.
+    Contexts include bos/eos by convention.
     Reference:
         Wu, K., Allauzen, C., Hall, K. B., Riley, M., & Roark, B. (2014, September). Encoding linear models as weighted finite-state transducers. In INTERSPEECH (pp. 1258-1262).
     """
@@ -2167,7 +2233,7 @@ def star(wfst_in):
     q0 = wfst.initial()
     wfst.set_final(q0, one)
     for qf in wfst.finals():
-        if qf == q0:  # use implicit epsilon self-transition
+        if qf == q0:  # note: implicit epsilon self-transition
             continue
         wfst.add_arc( \
             qf,
@@ -2767,7 +2833,8 @@ def concatenate(wfst1, wfst2):
         wfst1.arc_type())
     one = Weight.one(wfst.weight_type())
 
-    # States and arcs from wfst1.
+    # States and arcs from wfst1,
+    # each state label q mapped to (q,1).
     for q in wfst1.states():
         wfst.add_state((q, 1))
     wfst.set_initial((wfst1.initial(), 1))
@@ -2781,7 +2848,8 @@ def concatenate(wfst1, wfst2):
                 (wfst1.state_label(t.nextstate), 1),
                 wfst1.features(q, t))
 
-    # States and arcs from wfst2.
+    # States and arcs from wfst2,
+    # each state label q mapped to (q,2).
     for q in wfst2.states():
         wfst.add_state((q, 2))
     for q in wfst2.finals():
@@ -2805,7 +2873,18 @@ def concatenate(wfst1, wfst2):
             one,
             (wfst2.initial(), 2))
 
-    # todo: remove epsilons / minimize
+    # Transfer loglinear features from wfst1, wfst2.
+    for (wfsti, i) in [(wfst1, 1), (wfst2, 2)]:
+        for (t, phi_t) in wfsti.phi.items():
+            (src, ilabel, olabel, dest) = t
+            src = wfst.state_id( \
+                (wfsti.state_label(src), i))
+            dest = wfst.state_id( \
+                (wfsti.state_label(dest), i))
+            t_ = (src, ilabel, olabel, dest)
+            wfst.phi[t_] = phi_t
+
+    # todo: optionally remove epsilons / minimize
     return wfst
 
 
@@ -2825,7 +2904,8 @@ def union(wfst1, wfst2):
 
     q0 = wfst.add_state(initial=True)
 
-    # States and arcs from wfst1.
+    # States and arcs from wfst1,
+    # each state label q mapped to (q,1).
     for q in wfst1.states():
         wfst.add_state((q, 1))
     for q in wfst1.finals():
@@ -2840,7 +2920,8 @@ def union(wfst1, wfst2):
                 (wfst1.state_label(t.nextstate), 1),
                 wfst1.features(q, t))
 
-    # States and arcs from wfst2.
+    # States and arcs from wfst2,
+    # each state label q mapped to (q,2).
     for q in wfst2.states():
         wfst.add_state((q, 2))
     for q in wfst2.finals():
@@ -2860,6 +2941,17 @@ def union(wfst1, wfst2):
     q2 = (wfst2.initial(), 2)
     wfst.add_arc(q0, config.epsilon, config.epsilon, one, q1)
     wfst.add_arc(q0, config.epsilon, config.epsilon, one, q2)
+
+    # Transfer loglinear features from wfst1, wfst2.
+    for (wfsti, i) in [(wfst1, 1), (wfst2, 2)]:
+        for (t, phi_t) in wfsti.phi.items():
+            (src, ilabel, olabel, dest) = t
+            src = wfst.state_id( \
+                (wfsti.state_label(src), i))
+            dest = wfst.state_id( \
+                (wfsti.state_label(dest), i))
+            t_ = (src, ilabel, olabel, dest)
+            wfst.phi[t_] = phi_t
 
     return wfst
 

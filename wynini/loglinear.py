@@ -64,6 +64,14 @@ def violation_matrix(wfst, ftrs):
     return V, ftrs, ftr2index
 
 
+def assign_features(wfst, phi):
+    """
+    Convenience access to wfst method.
+    """
+    wfst.assign_features(phi)
+    return wfst
+
+
 def assign_weights(wfst, w):
     """
     Assign unnormalized -logprob weight to each arc t in wfst
@@ -95,10 +103,17 @@ def dot_product(phi_t, w):
     with dictionaries of non-negative values.
     """
     ret = 0.0
-    if not w:  # (None or empty dict.)
+    if not w:  # None or zero or empty dict.
         return ret
+    if isinstance(w, (int, float)):
+        w_default = w
+    else:
+        w_default = None
     for ftr, val in phi_t.items():
-        w_ftr = w.get(ftr, 0.0)
+        if w_default:
+            w_ftr = w_default
+        else:
+            w_ftr = w.get(ftr, 0.0)
         ret += w_ftr * val
     return ret
 
