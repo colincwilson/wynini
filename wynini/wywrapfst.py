@@ -1904,7 +1904,7 @@ def ngram_left(length, isymbols, tier=None, arc_type='standard'):
         for q1 in Qold:
             if q1 == q0:
                 continue
-            for x in sigma:
+            for x in tier:
                 q2 = _suffix(q1, length - 1) + (x, )
                 wfst.add_state(q2)
                 wfst.add_arc(src=q1, ilabel=x, dest=q2)
