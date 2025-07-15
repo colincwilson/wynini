@@ -102,53 +102,66 @@ class Wfst():
         """ Get mutable output symbol table. """
         return self.fst.mutable_output_symbols()
 
-    def set_input_symbols(self, isymbols):
+    def set_symbols(self, isymbols, osymbols=None, acceptor=False):
         """
-        Set input symbol table,
-        preserving loglinear features on arcs.
+        Set input and/or output symbol table,
+        preserving loglinear features semantics.
         """
+        if isymbols is None and osymbols is None:
+            return self
+        if acceptor:
+            osymbols = isymbols
+
         fst = self.fst
-        isymbols_old = fst.isymbols().copy()
-        fst.set_input_symbols(isymbols)
         self.phi, phi_old = {}, self.phi
+
+        set_isymbols = (isymbols is not None)
+        if set_isymbols:
+            isymbols_old = fst.input_symbols().copy()
+            if not isinstance(isymbols, (SymbolTable, SymbolTableView)):
+                isymbols, _ = config.make_symtable(isymbols)
+            fst.set_input_symbols(isymbols)
+
+        set_osymbols = (osymbols is not None)
+        if set_osymbols:
+            osymbols_old = fst.output_symbols().copy()
+            if not isinstance(osymbols, (SymbolTable, SymbolTableView)):
+                osymbols, _ = config.make_symtable(osymbols)
+            fst.set_output_symbols(osymbols)
+
         for q in fst.states():
             q_arcs = fst.mutable_arcs(q)
             for t in q_arcs:
                 t_ = (q, t.ilabel, t.olabel, t.nextstate)
                 phi_t = phi_old.get(t_, None)
 
-                ilabel = isymbols_old.find(t.ilabel)  # old id -> str
-                ilabel = isymbols.find(ilabel)  # str -> new id
-                t.ilabel = ilabel
-                q_arcs.set_value(t)
+                if set_isymbols:  # todo: use try ... except pass
+                    ilabel = isymbols_old.find(t.ilabel)  # old id -> str
+                    ilabel = isymbols.find(ilabel)  # str -> new id
+                    t.ilabel = ilabel
 
+                if set_osymbols:  # todo: use try ... except pass
+                    olabel = osymbols_old.find(t.olabel)  # old id -> str
+                    olabel = osymbols.find(olabel)  # str -> new id
+                    t.olabel = olabel
+
+                q_arcs.set_value(t)
                 t_ = (q, t.ilabel, t.olabel, t.nextstate)
                 self.phi[t_] = phi_t
+
         return self
+
+    def set_input_symbols(self, isymbols, acceptor=False):
+        """
+        Set input symbol table (and output symbol table if acceptor).
+        """
+        return self.set_symbols(isymbols, None, acceptor)
 
     def set_output_symbols(self, osymbols):
         """
-        Set output symbol table,
-        preserving loglinear features on arcs.
+        Set output symbol table.
         """
-        fst = self.fst
-        osymbols_old = fst.osymbols().copy()
-        fst.set_output_symbols(osymbols)
-        self.phi, phi_old = {}, self.phi
-        for q in fst.states():
-            q_arcs = fst.mutable_arcs(q)
-            for t in q_arcs:
-                t_ = (q, t.ilabel, t.olabel, t.nextstate)
-                phi_t = phi_old.get(t_, None)
-
-                olabel = osymbols_old.find(t.olabel)  # old id -> str
-                olabel = osymbols.find(olabel)  # str -> new id
-                t.olabel = olabel
-                q_arcs.set_value(t)
-
-                t_ = (q, t.ilabel, t.olabel, t.nextstate)
-                self.phi[t_] = phi_t
-        return self
+        return self.set_symbols(None, osymbols, False)
 
     def input_label(self, sym):
         """ Get input label for symbol id. """
