@@ -720,72 +720,61 @@ class Wfst():
         """
         Relabel arc input and/or output symbols
         (see: pynini.relabel_tables).
-        note: epsilon, bos, eos should be mapped to themselves.
+        note: epsilon, bos, eos will be included in the symbol
+        table by convention even if not mapped to themselves.
         [destructive]
         """
         if not ifunc and not ofunc:
             return self
+        if isinstance(ifunc, dict):
+            _ifunc = ifunc
+            ifunc = lambda x: _ifunc.get(x, x)
+        if isinstance(ofunc, dict):
+            _ofunc = ofunc
+            ofunc = lambda x: _ofunc.get(x, x)
 
-        # Relabel input symbols.
-        isymbols = self.input_symbols()
+        # New input symbol table.
+        isymbols = isymbols_old = self.input_symbols()
         if ifunc:
-            idx = 0
-            isymbols_idx = {}  # Old index -> new index.
-            isymbols_label = {}  # New label -> new index.
-            for (i, x) in isymbols():
+            isymbols = set()
+            isymbol_map = {}
+            for (i, x) in isymbols_old:
                 y = ifunc(x)
-                if y is None:  # Allow partial functions.
-                    y = x
-                if y in isymbols_label:  # Existing symbol.
-                    isymbols_idx[i] = isymbols_label[y]
-                else:  # New symbol.
-                    isymbols_label[y] = idx
-                    isymbols_idx[i] = idx
-                    idx += 1
-            isymbols = SymbolTable()
-            for (y, idx) in isymbols_label:
-                isymbols.add_symbol(y)
+                isymbols.add(y)
+            isymbols = list(isymbols)
+            isymbols, _ = config.make_symtable(isymbols)
 
-        # Relabel output symbols.
-        osymbols = self.output_symbols()
+        # New output symbol table.
+        osymbols = osymbols_old = self.output_symbols()
         if ofunc:
-            idx = 0
-            osymbols_idx = {}  # Old index -> new index.
-            osymbols_label = {}  # New label -> new index.
-            for (i, x) in osymbols:
+            osymbols = set()
+            for (i, x) in osymbols_old:
                 y = ofunc(x)
-                if y is None:  # Allow partial functions.
-                    y = x
-                if y in osymbols_label:  # Existing symbol.
-                    osymbols_idx[i] = osymbols_label[y]
-                else:  # New symbol.
-                    osymbols_label[y] = idx
-                    osymbols_idx[i] = idx
-                    idx += 1
-            osymbols = SymbolTable()
-            for (y, idx) in osymbols_label:
-                osymbols.add_symbol(y)
+                osymbols.add(y)
+            osymbols = list(osymbols)
+            osymbols, _ = config.make_symtable(osymbols)
 
         # Relabel arc inputs/outputs in wrapped fst.
         # note: semantics of loglinear arc features
-        # might be invalidated y relabeling
-        # by relabeling
+        # might be invalidated/obfuscated by relabeling
         fst = self.fst
         fst.set_input_symbols(isymbols)
         fst.set_output_symbols(osymbols)
         self.phi, phi_old = {}, self.phi
         for q in fst.states():
-            arcs = fst.arcs(q)
+            q_arcs = fst.arcs(q)
             fst.delete_arcs(q)
-            for t in arcs:
+            for t in q_arcs:
                 ilabel = t.ilabel
-                if ifunc:
-                    ilabel = isymbols_idx[ilabel]
                 olabel = t.olabel
-                if ofunc:
-                    olabel = osymbols_idx[olabel]
                 t_ = (q, ilabel, olabel, t.nextstate)
                 phi_t = phi_old.get(t_, None)
+                if ifunc:
+                    ilabel = isymbols_old.find(ilabel)  # old id -> old str
+                    ilabel = ifunc(ilabel)  # old str -> new str
+                if ofunc:
+                    olabel = osymbols_old.find(olabel)  # old id -> old str
+                    olabel = ofunc(olabel)  # old str -> new str
                 self.add_arc(q, ilabel, olabel, t.weight, t.nextstate, phi_t)
         return self
 
@@ -1592,6 +1581,9 @@ class Wfst():
     def star(self, **kwargs):
         return star(self, **kwargs)
 
+    def delimit(self, **kwargs):
+        return delimit(self, **kwargs)
+
     def determinize(self, **kwargs):
         return determinize(self, **kwargs)
 
@@ -2254,6 +2246,27 @@ def star(wfst_in):
             config.epsilon,
             one,
             q0)
+    return wfst
+
+
+def delimit(wfst_in):
+    """
+    Add pre-initial and super-final states with
+    bos and eos arcs, respectively.
+    [nondestructive]
+    """
+    wfst = wfst_in.copy()
+
+    # Old initial state, new pre-initial state.
+    q = wfst.initial()
+    q0 = wfst.add_state(initial=True, final=wfst.final(q))
+    wfst.add_arc(q0, config.bos, config.bos, None, q)
+
+    # New super-final states.
+    for q in wfst.final_ids():
+        qf = wfst.add_state(final=wfst.final(q))
+        wfst.set_final(q, False)
+        wfst.add_arc(q, config.eos, config.eos, None, qf)
     return wfst
 
 
