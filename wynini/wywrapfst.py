@@ -412,8 +412,8 @@ class Wfst():
 
         # Preserve input/output symbols and weight type.
         wfst = Wfst( \
-            self.input_symbols(),
-            self.output_symbols(),
+            self.input_symbols().copy(),
+            self.output_symbols().copy(),
             fst.arc_type())
 
         # Reindex live states, copying labels.
@@ -734,25 +734,20 @@ class Wfst():
             ofunc = lambda x: _ofunc.get(x, x)
 
         # New input symbol table.
-        isymbols = isymbols_old = self.input_symbols()
+        isymbols = isymbols_old = self.input_symbols().copy()
         if ifunc:
-            isymbols = set()
-            isymbol_map = {}
-            for (i, x) in isymbols_old:
-                y = ifunc(x)
-                isymbols.add(y)
+            isymbols = set([ifunc(x) for (i, x) in isymbols])
             isymbols = list(isymbols)
             isymbols, _ = config.make_symtable(isymbols)
+            #config.print_symtable(isymbols)
 
         # New output symbol table.
-        osymbols = osymbols_old = self.output_symbols()
+        osymbols = osymbols_old = self.output_symbols().copy()
         if ofunc:
-            osymbols = set()
-            for (i, x) in osymbols_old:
-                y = ofunc(x)
-                osymbols.add(y)
+            osymbols = set([ofunc(x) for (i, x) in osymbols])
             osymbols = list(osymbols)
             osymbols, _ = config.make_symtable(osymbols)
+            #config.print_symtable(osymbols)
 
         # Relabel arc inputs/outputs in wrapped fst.
         # note: semantics of loglinear arc features
@@ -775,6 +770,7 @@ class Wfst():
                 if ofunc:
                     olabel = osymbols_old.find(olabel)  # old id -> old str
                     olabel = ofunc(olabel)  # old str -> new str
+                #print(q, ilabel, olabel, t.weight, t.nextstate, phi_t)
                 self.add_arc(q, ilabel, olabel, t.weight, t.nextstate, phi_t)
         return self
 
@@ -2700,8 +2696,8 @@ def compose_sorted(wfst1, wfst2):
     epsilon = 0  # by convention, config.epsilon id
     common_weights = (wfst1.arc_type() == wfst2.arc_type())
     wfst = Wfst( \
-        wfst1.input_symbols(),
-        wfst2.output_symbols(),
+        wfst1.input_symbols().copy(),
+        wfst2.output_symbols().copy(),
         wfst1.arc_type() if common_weights else 'log')
     one = Weight.one(wfst.weight_type())
     zero = Weight.zero(wfst.weight_type())
@@ -2854,8 +2850,8 @@ def concatenate(wfst1, wfst2):
     same input/output symbol tables and arc type.
     """
     wfst = Wfst( \
-        wfst1.input_symbols(),
-        wfst1.output_symbols(),
+        wfst1.input_symbols().copy(),
+        wfst1.output_symbols().copy(),
         wfst1.arc_type())
     one = Weight.one(wfst.weight_type())
 
@@ -2923,8 +2919,8 @@ def union(wfst1, wfst2):
     same input/output symbol tables and arc type.
     """
     wfst = Wfst( \
-        wfst1.input_symbols(),
-        wfst1.output_symbols(),
+        wfst1.input_symbols().copy(),
+        wfst1.output_symbols().copy(),
         wfst1.arc_type())
     one = Weight.one(wfst.weight_type())
 

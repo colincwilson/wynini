@@ -36,7 +36,7 @@ def init(param={}):  # todo: change to **kwargs
     return symtable, syms
 
 
-def make_symtable(sigma):
+def make_symtable(sigma=[]):
     """ Create symbol table from symbol list/set/tuple. """
     symtable = SymbolTable()
     symtable.add_symbol(epsilon)  # Symbol id 0 (OpenFst convention).
@@ -45,7 +45,7 @@ def make_symtable(sigma):
     for sym in special_syms:  # Special symbols.
         symtable.add_symbol(sym)
     for sym in sigma:  # Ordinary symbols.
-        if (sigma in [epsilon, bos, eos]) or (sigma in special_syms):
+        if (sym in [epsilon, bos, eos]) or (sym in special_syms):
             continue
         symtable.add_symbol(sym)
     syms = [sym for (sym_id, sym) in symtable]
