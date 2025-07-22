@@ -1562,6 +1562,9 @@ class Wfst():
     def connect(self, **kwargs):
         return connect(self, **kwargs)
 
+    def trim(self, **kwargs):
+        return trim(self, **kwargs)
+
     def invert(self, **kwargs):
         return invert(self, **kwargs)
 
@@ -2123,6 +2126,9 @@ def connect(wfst_in):
     dead_states = set(wfst_in.fst.states()) - live_states
     wfst = wfst_in.delete_states(dead_states, connect=False)
     return wfst
+
+
+trim = connect  # Alias
 
 
 def invert(wfst_in):
@@ -2821,7 +2827,7 @@ def epsilon_filter(q1, t1, q2, t2, q3):
     """
     Compute next state of epsilon-matching composition filter.
     Assumes that t1.olabel and t2.ilabel are known to match.
-    ref. Allauzen, Riley, & Schalkwyk (2009). In INTERSPEECH.
+    ref. Allauzen, Riley, & Schalkwyk (2009, INTERSPEECH).
     """
     epsilon = 0
     # Non-epsilon labels.
