@@ -64,7 +64,7 @@ print('Constraint weights:', w)
 
 # Random sample before training.
 sample = loglinear.sample(M, 10, w=w, ret_type='outputs')
-print('Sample:', sample)
+print('Sample:', list(sample))
 
 nstep = 5  # Number of gradient updates.
 alpha = 0.5  # Learning rate.
@@ -95,7 +95,7 @@ for _ in range(nstep):
 
 # Random sample after training.
 sample = loglinear.sample(M, 10, ret_type='outputs')
-print('Sample:', sample)
+print('Sample:', list(sample))
 
 sys.exit(0)
 

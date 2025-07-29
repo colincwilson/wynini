@@ -1388,7 +1388,6 @@ class Wfst():
         wfst_out = Wfst.from_fst(fst_out)
         if ret_type == 'wfst':
             return wfst_out
-        # todo: use `yield from`
         if ret_type in ('inputs', 'istrings'):
             return wfst_out.istrings()
         if ret_type in ('outputs', 'ostrings'):
