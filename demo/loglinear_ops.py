@@ -9,7 +9,7 @@ from wynini import loglinear
 
 config.init()
 
-syms = ['p', 't', 'k', 'a']
+syms = ['p', 't', 'k', 'm', 'a']
 
 # Acceptor for observed strings.
 dat = [ \
@@ -33,17 +33,14 @@ M.print(acceptor=True, show_weight_one=True)
 M.draw('fig/M.dot', fig='png')
 
 # Map from arc to violation vector.
-ftrs = ['*p', '*t', '*a']
+ftrs = [f'*{x}' for x in syms]
 
 
 def phi_func(wfst, q, t):
-    if wfst.ilabel(t) == 'p':
-        return {'*p': 1.}
-    if wfst.ilabel(t) == 't':
-        return {'*t': 1.}
-    if wfst.ilabel(t) == 'a':
-        return {'*a': 1.}
-    return None
+    ilabel = wfst.ilabel(t)
+    if ilabel in [config.epsilon, config.bos, config.eos]:
+        return None
+    return {f'*{ilabel}': 1.0}
 
 
 D.assign_features(phi_func)
@@ -54,7 +51,7 @@ M.assign_features(phi_func)
 #D.assign_weights(lambda D, q, t: 0.)
 observe, logZ = loglinear.expected(D, w=None, verbose=False)
 print('Observed: ', end='')
-loglinear.print_ftrs(observe, ftrs)
+loglinear.print_vals(observe, ftrs)
 print(f'logZ = {logZ}, Z = {np.exp(logZ)}')
 
 print('Arc violation vectors:')
@@ -62,8 +59,12 @@ for _t in M.phi:
     print(f'\t{_t} -> {M.phi[_t]}')
 
 # Initial constraint weights (non-negative).
-w = {'*p': 1., '*t': 1., '*a': 1.}
+w = {ftr: 1.0 for ftr in ftrs}
 print('Constraint weights:', w)
+
+# Random sample before training.
+sample = loglinear.sample(M, 10, w=w, ret_type='outputs')
+print('Sample:', sample)
 
 nstep = 5  # Number of gradient updates.
 alpha = 0.5  # Learning rate.
@@ -73,24 +74,30 @@ for _ in range(nstep):
 
     # Observed constraint violations.
     print('Observed: ', end='')
-    loglinear.print_ftrs(observe, ftrs)
+    loglinear.print_vals(observe, ftrs)
 
     # Expected per-string constraint violations scaled by N.
     expect, _ = loglinear.expected(M, w, N, verbose=False)
     print('Expected: ', end='')
-    loglinear.print_ftrs(expect, ftrs)
+    loglinear.print_vals(expect, ftrs)
 
     # Gradient.
     grad = loglinear.gradient(observe, expect, grad=None)
     print(f'Gradient: ', end='')
-    loglinear.print_ftrs(grad, ftrs)
+    loglinear.print_vals(grad, ftrs)
 
     # Constraint weight update.
     loglinear.update(w, grad, alpha)
     print(f'w: ', end='')
-    loglinear.print_ftrs(w, ftrs)
+    loglinear.print_vals(w, ftrs)
 
     print()
+
+# Random sample after training.
+sample = loglinear.sample(M, 10, ret_type='outputs')
+print('Sample:', sample)
+
+sys.exit(0)
 
 # # # # # # # # # #
 

@@ -138,9 +138,50 @@ def assign_weights_vec(wfst, V, w):
     return wfst
 
 
+def logZ(wfst, w=None, verbose=False):
+    """
+    Log partition function given feature weights w -or-
+    with weights already applied.
+    All feature values and weights should be non-negative.
+    """
+    if w:
+        assign_weights(wfst, w)
+
+    # Backward potentials (for each state q,
+    # sum over all paths from q to finals).
+    beta = shortestdistance(wfst, reverse=True)
+    beta = [float(w) for w in beta]
+    if verbose:
+        print(f'beta: {beta}')
+
+    # Log partition function
+    # (sum over all paths through machine).
+    q0 = wfst.start_id()
+    logZ = -beta[q0]
+    if verbose:
+        print(f'logZ: {logZ}')
+
+    return logZ
+
+
+def sample(wfst, n=1, w=None, ret_type='outputs', verbose=False):
+    """
+    Random sample of paths (with replacement) given
+    feature weights w -or- with weights already applied.
+    All feature values and weights should be non-negative.
+    """
+    if w:
+        assign_weights(wfst, w)
+    if verbose:
+        print(wfst.info())
+    wfst.push_weights(reweight_type='to_initial')
+    ret = wfst.randgen(npath=n, select='log_prob')
+    return ret
+
+
 def expected(wfst, w=None, N=1, verbose=False):
     """
-    Expected per-string violation counts of features/constraints
+    Expected per-path violation counts of features/constraints
     given feature weights w -or- with weights already applied.
     Optionally scale expected values by data size N.
     All feature values and weights should be non-negative.
@@ -198,32 +239,6 @@ def expected(wfst, w=None, N=1, verbose=False):
     return expect, logZ
 
 
-def logZ(wfst, w=None, verbose=False):
-    """
-    Log partition function given feature weights w -or-
-    with weights already applied.
-    All feature values and weights should be non-negative.
-    """
-    if w:
-        assign_weights(wfst, w)
-
-    # Backward potentials (for each state q,
-    # sum over all paths from q to finals).
-    beta = shortestdistance(wfst, reverse=True)
-    beta = [float(w) for w in beta]
-    if verbose:
-        print(f'beta: {beta}')
-
-    # Log partition function
-    # (sum over all paths through machine).
-    q0 = wfst.start_id()
-    logZ = -beta[q0]
-    if verbose:
-        print(f'logZ: {logZ}')
-
-    return logZ
-
-
 def gradient(O, E, N=1, grad=None):
     """
     Negative gradient of feature weights computed from 
@@ -277,8 +292,7 @@ def pprint_vals(vals, ftrs=None, N=1):
     if ftrs is None:
         ftrs = vals.keys()
     for ftr in ftrs:
-        val = vals.get(ftr, 0.0)
-        val = np.round(N * val, 2)
+        val = N * vals.get(ftr, 0.0)
         ret.append(f'{ftr}: {val:.2f}')
     ret = '{' + ', '.join(ret) + '}'
     return ret

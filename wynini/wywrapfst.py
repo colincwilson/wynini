@@ -1368,12 +1368,20 @@ class Wfst():
         ret_type = ret_type.lower()
         if ret_type == 'fst':
             return fst_out
-        elif ret_type == 'wfst':
-            wfst_out = Wfst.from_fst(fst_out)
+
+        wfst_out = Wfst.from_fst(fst_out)
+        if ret_type == 'wfst':
             return wfst_out
-        # Default: return output strings.
-        path_iter = fst_out.paths(output_token_type=osymbols)
-        return path_iter.ostrings()
+        # todo: use `yield from``
+        if ret_type in ('inputs', 'istrings'):
+            return wfst_out.istrings()
+        if ret_type in ('outputs', 'ostrings'):
+            return wfst_out.ostrings()
+        if ret_type in ('iostrings'):
+            return wfst_out.iostrings()
+
+        print(f'Return type not recognized ({ret_type}).')
+        return None
 
     def transduce(self, x, add_delim=False, ret_type='outputs'):
         """
