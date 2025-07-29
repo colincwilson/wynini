@@ -1194,7 +1194,7 @@ class Wfst():
 
     # Paths and their yields.
 
-    def path_iter(self):
+    def paths(self):
         """
         Iterator over paths through this machine (must be acyclic). 
         Returns pynini.StringPathIterator, which is not iterable(!)
@@ -1211,21 +1211,21 @@ class Wfst():
                               output_token_type=osymbols)
         return path_iter
 
-    def paths(self):
+    def path_items(self):
         """
-        Iterate over pynini representation of paths through
-        this machine (must be acylic); see path_iter().
+        Iterate over pynini 'item' representations of paths
+        through this machine (must be acylic); see paths().
         """
-        path_iter = self.path_iter()
+        path_iter = self.paths()
         for path in path_iter.items():
             yield path
 
     def istrings(self, delete_epsilon=False):
         """
         Iterator over input strings of paths through this 
-        machine (must be acyclic); see paths_iter().
+        machine (must be acyclic); see paths().
         """
-        path_iter = self.path_iter()
+        path_iter = self.paths()
         while not path_iter.done():
             path = path_iter.istring()
             if delete_epsilon:
@@ -1236,9 +1236,9 @@ class Wfst():
     def ostrings(self, delete_epsilon=False):
         """
         Iterator over output strings of paths through this 
-        machine (must be acyclic); see path_iter().
+        machine (must be acyclic); see paths().
         """
-        path_iter = self.path_iter()
+        path_iter = self.paths()
         while not path_iter.done():
             path = path_iter.ostring()
             if delete_epsilon:
@@ -1250,9 +1250,9 @@ class Wfst():
         """
         Generate aligned input:output sequences representing
         paths through this machine (must be acyclic);
-        see path_iter().
+        see paths().
         """
-        path_iter = self.path_iter()
+        path_iter = self.paths()
         while not path_iter.done():
             path = list(zip( \
                 path_iter.ilabels(), path_iter.olabels()))

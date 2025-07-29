@@ -22,7 +22,7 @@ for x in M.ostrings():
 
 print(list(M.istrings()))
 
-print(list(M.paths()))
+print(list(M.path_items()))
 
 # path_iter = M.paths().istrings()
 
