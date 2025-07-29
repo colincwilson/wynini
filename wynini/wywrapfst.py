@@ -1310,7 +1310,7 @@ class Wfst():
                         tlabel = self.ilabel(t)
                     elif side == 'output':
                         tlabel = self.olabel(t)
-                    elif side == 'both':
+                    elif side in ('both', 'pair'):
                         tlabel = f'{self.ilabel(t)}:{self.olabel(t)}'
                     else:
                         print(f'Unrecognized side: {side}')
@@ -1392,10 +1392,9 @@ class Wfst():
             return wfst_out.istrings()
         if ret_type in ('outputs', 'ostrings'):
             return wfst_out.ostrings()
-        if ret_type in ('iostrings'):
+        if ret_type in ('pairs', 'iostrings'):
             return wfst_out.iostrings()
-
-        print(f'Return type not recognized ({ret_type}).')
+        print(f'Unrecognized return type: {ret_type}.')
         return None
 
     def transduce(self, x, add_delim=False, ret_type='outputs'):
@@ -1430,15 +1429,17 @@ class Wfst():
         fst_out.set_output_symbols(osymbols)
 
         ret_type = ret_type.lower()
-        if ret_type == 'wfst':
-            wfst_out = Wfst.from_fst(fst_out)
-            return wfst_out
         if ret_type == 'fst':
             return fst_out
-        # Default: return output strings.
-        path_iter = fst_out.paths(output_token_type=osymbols)
-        # note: returning path_iter.ostrings() gives segfault!
-        return list(path_iter.ostrings())
+        wfst_out = Wfst.from_fst(fst_out)
+        if ret_type == 'wfst':
+            return wfst_out
+        if ret_type in ('outputs', 'ostrings'):
+            return wfst_out.ostrings()
+        if ret_type in ('pairs', 'iostrings'):
+            return wfst_out.iostrings()
+        print(f'Unrecognized return type: {ret_type}.')
+        return None
 
     # Copy/create machines.
 
