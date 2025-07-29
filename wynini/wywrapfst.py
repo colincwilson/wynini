@@ -1194,7 +1194,7 @@ class Wfst():
 
     # Paths and their yields.
 
-    def paths(self):
+    def path_iter(self):
         """
         Iterator over paths through this machine (must be acyclic). 
         Returns pynini.StringPathIterator, which is not iterable(!)
@@ -1211,32 +1211,48 @@ class Wfst():
                               output_token_type=osymbols)
         return path_iter
 
+    def paths(self):
+        """
+        Iterate over pynini representation of paths through
+        this machine (must be acylic); see path_iter().
+        """
+        path_iter = self.path_iter()
+        for path in path_iter.items():
+            yield path
+
     def istrings(self, delete_epsilon=False):
         """
         Iterator over input strings of paths through this 
-        machine (must be acyclic); see paths().
+        machine (must be acyclic); see paths_iter().
         """
-        ret = list(self.paths().istrings())
-        if delete_epsilon:
-            ret = [re.sub(f'[ ]*{config.epsilon}', '', x) for x in ret]
-        return ret
+        path_iter = self.path_iter()
+        while not path_iter.done():
+            path = path_iter.istring()
+            if delete_epsilon:
+                path = remove_epsilon(path)
+            path_iter.next()
+            yield path
 
     def ostrings(self, delete_epsilon=False):
         """
         Iterator over output strings of paths through this 
-        machine (must be acyclic); see paths().
+        machine (must be acyclic); see path_iter().
         """
-        ret = list(self.paths().ostrings())
-        if delete_epsilon:
-            ret = [re.sub(f'[ ]*{config.epsilon}', '', x) for x in ret]
-        return ret
+        path_iter = self.path_iter()
+        while not path_iter.done():
+            path = path_iter.ostring()
+            if delete_epsilon:
+                path = remove_epsilon(path)
+            path_iter.next()
+            yield path
 
     def iostrings(self, sep=':', delete_epsilon=False):
         """
         Generate aligned input:output sequences representing
-        paths through this machine (must be acyclic); see paths().
+        paths through this machine (must be acyclic);
+        see path_iter().
         """
-        path_iter = self.paths()
+        path_iter = self.path_iter()
         while not path_iter.done():
             path = list(zip( \
                 path_iter.ilabels(), path_iter.olabels()))
@@ -1372,7 +1388,7 @@ class Wfst():
         wfst_out = Wfst.from_fst(fst_out)
         if ret_type == 'wfst':
             return wfst_out
-        # todo: use `yield from``
+        # todo: use `yield from`
         if ret_type in ('inputs', 'istrings'):
             return wfst_out.istrings()
         if ret_type in ('outputs', 'ostrings'):
@@ -3143,7 +3159,7 @@ def combine_features(phi_t1, phi_t2):
     if (not phi_t1) and (not phi_t2):
         return None
     if phi_t1 and (not phi_t2):
-        return phi_t1
+        return phi_t1  # checkme: copy?
     if (not phi_t1) and phi_t2:
         return phi_t2
     phi_t = dict(phi_t1)
@@ -3170,6 +3186,19 @@ def str_pad(word, n, sep=' ', pad=config.epsilon):
         ret += [pad] * (n - len(ret))
     if isinstance(word, str):
         sep.join(ret)
+    return ret
+
+
+def remove_epsilon(word):
+    """
+    Remove epsilons from string.
+    """
+    epsilon = config.epsilon
+    ret = word
+    # Remove from iostring.
+    ret = re.sub(f'{epsilon}:{epsilon}[ ]*', '', ret)
+    # Remove from istring or ostring.
+    ret = re.sub(f'{epsilon}[ ]*', '', ret)
     return ret
 
 
